@@ -1,0 +1,14 @@
+﻿@{
+    ViewData["Title"] = "Witamy w HotelManagement";
+}
+
+<div class="container mt-5 text-center">
+    <h1 class="display-4">Witaj w <strong>HotelManagement</strong></h1>
+
+    <p class="lead mt-4">Zarezerwuj pokój w naszym hotelu!</p>
+
+    <!-- Przycisk, który przenosi użytkownika do RoomType/Index -->
+    <div class="mt-4">
+        <a href="@Url.Action("Index", "RoomType")" class="btn btn-primary btn-lg">Zobacz dostępne pokoje</a>
+    </div>
+</div>

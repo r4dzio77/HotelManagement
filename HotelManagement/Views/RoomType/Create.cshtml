@@ -1,0 +1,42 @@
+﻿@model HotelManagement.Models.RoomType
+
+@{
+    ViewData["Title"] = "Dodaj nowy typ pokoju";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Dodaj typ pokoju</h2>
+
+    <form asp-action="Create" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label asp-for="Name" class="form-label">Nazwa</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Description" class="form-label">Opis</label>
+            <textarea asp-for="Description" class="form-control"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Capacity" class="form-label">Pojemność</label>
+            <input asp-for="Capacity" class="form-control" />
+            <span asp-validation-for="Capacity" class="text-danger"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="PricePerNight" class="form-label">Cena za noc</label>
+            <input asp-for="PricePerNight" class="form-control" />
+            <span asp-validation-for="PricePerNight" class="text-danger"></span>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Zdjęcie typu pokoju</label>
+            <input type="file" name="imageFile" class="form-control" />
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-3">Zapisz typ pokoju</button>
+    </form>
+</div>
