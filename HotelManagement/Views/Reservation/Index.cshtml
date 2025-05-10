@@ -1,0 +1,72 @@
+﻿@model IEnumerable<HotelManagement.Models.Reservation>
+
+@{
+    ViewData["Title"] = "Rezerwacje";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Rezerwacje</h2>
+
+    <!-- Zakładki -->
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active" id="arrivals-tab" data-bs-toggle="tab" href="#arrivals" role="tab" aria-controls="arrivals" aria-selected="true">Przyjazdy</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" id="stay-tab" data-bs-toggle="tab" href="#stay" role="tab" aria-controls="stay" aria-selected="false">Pobyty</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" id="departures-tab" data-bs-toggle="tab" href="#departures" role="tab" aria-controls="departures" aria-selected="false">Wyjazdy</a>
+        </li>
+    </ul>
+
+    <!-- Treść zakładek -->
+    <div class="tab-content" id="myTabContent">
+        <!-- Przyjazdy -->
+        <div class="tab-pane fade show active" id="arrivals" role="tabpanel" aria-labelledby="arrivals-tab">
+            <h3>Przyjazdy</h3>
+            <div class="list-group">
+                @foreach (var reservation in ViewBag.Arrivals as List<HotelManagement.Models.Reservation>)
+                {
+                    <a href="#" class="list-group-item list-group-item-action">
+                        <strong>@reservation.Room.RoomType.Name</strong> - @reservation.CheckIn.ToShortDateString()
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- Pobyty -->
+        <div class="tab-pane fade" id="stay" role="tabpanel" aria-labelledby="stay-tab">
+            <h3>Pobyty</h3>
+            <div class="list-group">
+                @foreach (var reservation in ViewBag.InStay as List<HotelManagement.Models.Reservation>)
+                {
+                    <a href="#" class="list-group-item list-group-item-action">
+                        <strong>@reservation.Room.RoomType.Name</strong> - @reservation.CheckIn.ToShortDateString() - @reservation.CheckOut.ToShortDateString()
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- Wyjazdy -->
+        <div class="tab-pane fade" id="departures" role="tabpanel" aria-labelledby="departures-tab">
+            <h3>Wyjazdy</h3>
+            <div class="list-group">
+                @foreach (var reservation in ViewBag.Departures as List<HotelManagement.Models.Reservation>)
+                {
+                    <a href="#" class="list-group-item list-group-item-action">
+                        <strong>@reservation.Room.RoomType.Name</strong> - @reservation.CheckOut.ToShortDateString()
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Przycisk do dodania rezerwacji (dla Kierownika i Admina) -->
+    @if (User.IsInRole("Kierownik") || User.IsInRole("Admin"))
+    {
+        <div class="text-center mt-4">
+            <a href="@Url.Action("Create", "Reservation")" class="btn btn-success btn-lg">Załóż nową rezerwację</a>
+        </div>
+    }
+</div>
