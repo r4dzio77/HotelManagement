@@ -1,0 +1,13 @@
+# Pliki środowiskowe VS
+.vs/
+*.user
+*.suo
+
+# Pliki kompilacji
+bin/
+obj/
+
+# Inne
+*.log
+*.db
+*.sqlite
