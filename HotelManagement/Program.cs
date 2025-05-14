@@ -38,7 +38,9 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+// Dodajemy kontrolery i widoki
 builder.Services.AddControllersWithViews();
+
 var app = builder.Build();
 
 // Middleware pipeline
@@ -52,10 +54,13 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
-app.UseSession();         // jeśli gdzieś nadal używasz
-app.UseAuthentication();  // musi być przed Authorization
+
+// Używamy sesji i logowania
+app.UseSession();
+app.UseAuthentication();  // Używamy uwierzytelniania przed autoryzacją
 app.UseAuthorization();
 
+// Mapowanie endpointów
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");

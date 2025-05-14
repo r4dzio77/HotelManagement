@@ -1,0 +1,73 @@
+﻿@model HotelManagement.Models.ReservationViewModel
+
+@{
+    ViewData["Title"] = "Ustal szczegóły rezerwacji";
+}
+
+<h2>
+    Rezerwacja - Gość:
+    @if (Model.Guest != null)
+    {
+        <text>@Model.Guest.FirstName @Model.Guest.LastName</text>
+    }
+    else
+    {
+        <text>Brak gościa</text>
+    }
+</h2>
+
+<div style="float: right; margin-left: 20px;">
+    <h4>Dane gościa</h4>
+    @if (Model.Guest != null)
+    {
+        <p><strong>Imię:</strong> @Model.Guest.FirstName</p>
+        <p><strong>Nazwisko:</strong> @Model.Guest.LastName</p>
+        <p><strong>Email:</strong> @Model.Guest.Email</p>
+        <p><strong>Telefon:</strong> @Model.Guest.PhoneNumber</p>
+    }
+    else
+    {
+        <p>Brak danych gościa</p>
+    }
+</div>
+
+@Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+<form method="post" asp-action="CreateReservation">
+    @Html.AntiForgeryToken()
+
+    <div class="form-group">
+        <label for="RoomTypeId">Typ pokoju</label>
+        @Html.DropDownListFor(m => m.Reservation.RoomTypeId, Model.RoomTypes, "Wybierz typ pokoju", new { @class = "form-control", required = "required" })
+        @Html.ValidationMessageFor(m => m.Reservation.RoomTypeId, "", new { @class = "text-danger" })
+    </div>
+
+    <div class="form-group">
+        <label for="CheckIn">Data zameldowania</label>
+        @Html.TextBoxFor(m => m.Reservation.CheckIn, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", required = "required" })
+        @Html.ValidationMessageFor(m => m.Reservation.CheckIn, "", new { @class = "text-danger" })
+    </div>
+
+    <div class="form-group">
+        <label for="CheckOut">Data wymeldowania</label>
+        @Html.TextBoxFor(m => m.Reservation.CheckOut, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", required = "required" })
+        @Html.ValidationMessageFor(m => m.Reservation.CheckOut, "", new { @class = "text-danger" })
+    </div>
+
+    <div class="form-check">
+        @Html.CheckBoxFor(m => m.Breakfast, new { @class = "form-check-input", id = "Breakfast" })
+        <label class="form-check-label" for="Breakfast">Śniadanie</label>
+    </div>
+
+    <div class="form-check">
+        @Html.CheckBoxFor(m => m.Parking, new { @class = "form-check-input", id = "Parking" })
+        <label class="form-check-label" for="Parking">Parking</label>
+    </div>
+
+    <div class="form-check">
+        @Html.CheckBoxFor(m => m.ExtraBed, new { @class = "form-check-input", id = "ExtraBed" })
+        <label class="form-check-label" for="ExtraBed">Dostawka</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Zapisz rezerwację</button>
+</form>
