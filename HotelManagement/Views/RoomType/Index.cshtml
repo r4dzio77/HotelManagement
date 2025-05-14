@@ -7,7 +7,6 @@
 <div class="container mt-5">
     <h2 class="text-center mb-4">Typy pokoi</h2>
 
-    <!-- Jeżeli użytkownik jest Kierownikiem lub Adminem, pokażemy przycisk "Dodaj typ pokoju" -->
     @if (ViewBag.IsAdminOrManager ?? false)
     {
         <div class="text-right mb-3">
@@ -29,7 +28,13 @@
                         <p class="card-text">@roomType.Description</p>
                         <p><strong>Pojemność:</strong> @roomType.Capacity osób</p>
                         <p><strong>Cena:</strong> @roomType.PricePerNight zł / noc</p>
+
                         <a href="@Url.Action("Reserve", "Reservation", new { roomTypeId = roomType.Id })" class="btn btn-primary">Zarezerwuj</a>
+
+                        @if (ViewBag.IsAdminOrManager ?? false)
+                        {
+                            <a href="@Url.Action("Edit", "RoomType", new { id = roomType.Id })" class="btn btn-warning ml-2">Edytuj</a>
+                        }
                     </div>
                 </div>
             </div>

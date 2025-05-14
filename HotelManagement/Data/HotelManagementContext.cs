@@ -22,48 +22,47 @@ namespace HotelManagement.Data
         public DbSet<WorkShift> WorkShifts { get; set; }
         public DbSet<Comment> Comments { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<Guest> Guests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // ApplicationUser (dawniej User)
-            modelBuilder.Entity<ApplicationUser>()
-                .HasMany(u => u.Reservations)
-                .WithOne(r => r.User)
-                .HasForeignKey(r => r.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // Relacja między Reservation a Guest
+            modelBuilder.Entity<Reservation>()
+                .HasOne(r => r.Guest)
+                .WithMany(g => g.Reservations)
+                .HasForeignKey(r => r.GuestId)
+                .OnDelete(DeleteBehavior.Cascade); // Usuwanie rezerwacji, gdy gość jest usuwany
 
-            modelBuilder.Entity<ApplicationUser>()
-                .HasMany(u => u.Comments)
-                .WithOne(c => c.User)
-                .HasForeignKey(c => c.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // Relacja między Reservation a Room
+            modelBuilder.Entity<Reservation>()
+                .HasOne(r => r.Room)
+                .WithMany()
+                .HasForeignKey(r => r.RoomId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<ApplicationUser>()
-                .HasMany(u => u.Shifts)
-                .WithOne(s => s.User)
-                .HasForeignKey(s => s.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<ApplicationUser>()
-                .HasMany(u => u.LoyaltyPoints)
-                .WithOne(lp => lp.User)
-                .HasForeignKey(lp => lp.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Room
-            modelBuilder.Entity<Room>()
-                .HasMany(r => r.Reservations)
-                .WithOne(res => res.Room)
-                .HasForeignKey(res => res.RoomId);
-
-            modelBuilder.Entity<Room>()
+            // Relacja między Reservation a RoomType
+            modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.RoomType)
-                .WithMany(rt => rt.Rooms)
-                .HasForeignKey(r => r.RoomTypeId);
+                .WithMany()
+                .HasForeignKey(r => r.RoomTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // Reservation
+            // Relacja między Guest a Reservation (dwukierunkowa)
+            modelBuilder.Entity<Guest>()
+                .HasMany(g => g.Reservations)
+                .WithOne(r => r.Guest)
+                .HasForeignKey(r => r.GuestId);
+
+            // Relacja między Payment a Guest
+            modelBuilder.Entity<Payment>()
+                .HasOne(p => p.Guest)
+                .WithMany(g => g.Payments)
+                .HasForeignKey(p => p.GuestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Relacje dla powiązanych tabel (Services, Payments, Documents)
             modelBuilder.Entity<Reservation>()
                 .HasMany(r => r.ServicesUsed)
                 .WithOne(su => su.Reservation)
@@ -78,29 +77,7 @@ namespace HotelManagement.Data
                 .HasMany(r => r.Documents)
                 .WithOne(d => d.Reservation)
                 .HasForeignKey(d => d.ReservationId);
-
-            // Service
-            modelBuilder.Entity<Service>()
-                .HasMany(s => s.Usages)
-                .WithOne(su => su.Service)
-                .HasForeignKey(su => su.ServiceId);
-
-            // WorkShift
-            modelBuilder.Entity<WorkShift>()
-                .HasMany(ws => ws.Comments)
-                .WithOne(c => c.WorkShift)
-                .HasForeignKey(c => c.WorkShiftId);
-
-            // Comment
-            modelBuilder.Entity<Comment>()
-                .HasOne(c => c.User)
-                .WithMany(u => u.Comments)
-                .HasForeignKey(c => c.UserId);
-
-            modelBuilder.Entity<Comment>()
-                .HasOne(c => c.WorkShift)
-                .WithMany(ws => ws.Comments)
-                .HasForeignKey(c => c.WorkShiftId);
         }
+
     }
 }

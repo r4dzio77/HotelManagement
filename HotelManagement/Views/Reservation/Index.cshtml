@@ -7,6 +7,11 @@
 <div class="container mt-5">
     <h2 class="text-center mb-4">Rezerwacje</h2>
 
+    <!-- Wyświetlanie dzisiejszej daty -->
+    <div class="d-flex justify-content-end mb-4">
+        <p><strong>Dzisiejsza data: </strong>@ViewBag.TodayDate</p>
+    </div>
+
     <!-- Zakładki -->
     <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -66,7 +71,7 @@
     @if (User.IsInRole("Kierownik") || User.IsInRole("Admin"))
     {
         <div class="text-center mt-4">
-            <a href="@Url.Action("Create", "Reservation")" class="btn btn-success btn-lg">Załóż nową rezerwację</a>
+            <a href="@Url.Action("CreateGuest", "Reservation")" class="btn btn-success btn-lg">Załóż nową rezerwację</a>
         </div>
     }
 </div>

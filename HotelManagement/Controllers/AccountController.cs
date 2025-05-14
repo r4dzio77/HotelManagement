@@ -48,35 +48,37 @@ namespace HotelManagement.Controllers
         }
 
         // POST: /Account/Register
-       
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(string firstName, string lastName, string email, string password)
         {
-            if (!ModelState.IsValid)
+            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             {
+                ModelState.AddModelError(string.Empty, "Wszystkie pola są wymagane.");
                 return View();
             }
 
+            // Tworzymy nowego użytkownika, ale nie przypisujemy FullName
             var user = new ApplicationUser
             {
                 UserName = email,  // Email jako UserName
                 Email = email,
                 FirstName = firstName,
                 LastName = lastName,
-                FullName = $"{firstName} {lastName}",  // Możesz zapisać FullName, jeśli chcesz
-                EmailConfirmed = true
+                EmailConfirmed = false // Na początek ustawiamy false, aby użytkownik musiał potwierdzić e-mail
             };
 
             var result = await _userManager.CreateAsync(user, password);
 
             if (result.Succeeded)
             {
+                // Po udanej rejestracji logujemy użytkownika
                 await _signInManager.SignInAsync(user, isPersistent: false);
                 return RedirectToAction("Index", "Home");
             }
 
-            // Zwracamy błędy, jeśli wystąpiły
+            // Jeśli wystąpiły błędy, dodajemy je do modelu
             foreach (var error in result.Errors)
             {
                 ModelState.AddModelError(string.Empty, error.Description);
@@ -84,6 +86,7 @@ namespace HotelManagement.Controllers
 
             return View();
         }
+
 
 
 
