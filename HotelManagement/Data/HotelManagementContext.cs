@@ -28,56 +28,51 @@ namespace HotelManagement.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Relacja między Reservation a Guest
+            // Reservation ↔ Guest
             modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.Guest)
                 .WithMany(g => g.Reservations)
                 .HasForeignKey(r => r.GuestId)
-                .OnDelete(DeleteBehavior.Cascade); // Usuwanie rezerwacji, gdy gość jest usuwany
+                .OnDelete(DeleteBehavior.Cascade);
 
-            // Relacja między Reservation a Room
+            // ✅ Reservation ↔ Room (naprawione)
             modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.Room)
-                .WithMany()
+                .WithMany(r => r.Reservations)
                 .HasForeignKey(r => r.RoomId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Relacja między Reservation a RoomType
+            // Reservation ↔ RoomType
             modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.RoomType)
                 .WithMany()
                 .HasForeignKey(r => r.RoomTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Relacja między Guest a Reservation (dwukierunkowa)
-            modelBuilder.Entity<Guest>()
-                .HasMany(g => g.Reservations)
-                .WithOne(r => r.Guest)
-                .HasForeignKey(r => r.GuestId);
-
-            // Relacja między Payment a Guest
+            // Guest ↔ Payment
             modelBuilder.Entity<Payment>()
                 .HasOne(p => p.Guest)
                 .WithMany(g => g.Payments)
                 .HasForeignKey(p => p.GuestId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Relacje dla powiązanych tabel (Services, Payments, Documents)
+            // Reservation ↔ ServiceUsage
             modelBuilder.Entity<Reservation>()
                 .HasMany(r => r.ServicesUsed)
                 .WithOne(su => su.Reservation)
                 .HasForeignKey(su => su.ReservationId);
 
+            // Reservation ↔ Payments
             modelBuilder.Entity<Reservation>()
                 .HasMany(r => r.Payments)
                 .WithOne(p => p.Reservation)
                 .HasForeignKey(p => p.ReservationId);
 
+            // Reservation ↔ Documents
             modelBuilder.Entity<Reservation>()
                 .HasMany(r => r.Documents)
                 .WithOne(d => d.Reservation)
                 .HasForeignKey(d => d.ReservationId);
         }
-
     }
 }

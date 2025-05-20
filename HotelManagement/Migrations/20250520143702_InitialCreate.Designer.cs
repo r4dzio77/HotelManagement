@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HotelManagement.Migrations
 {
     [DbContext(typeof(HotelManagementContext))]
-    [Migration("20250513200918_AddRoomIdAndRoomTypeIdToReservation")]
-    partial class AddRoomIdAndRoomTypeIdToReservation
+    [Migration("20250520143702_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -47,6 +47,9 @@ namespace HotelManagement.Migrations
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<int?>("GuestId")
+                        .HasColumnType("int");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -86,6 +89,8 @@ namespace HotelManagement.Migrations
                         .HasColumnType("varchar(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GuestId");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -190,12 +195,9 @@ namespace HotelManagement.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ApplicationUserId")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
                     b.Property<string>("CompanyName")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -203,11 +205,13 @@ namespace HotelManagement.Migrations
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
@@ -217,9 +221,6 @@ namespace HotelManagement.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ApplicationUserId")
-                        .IsUnique();
 
                     b.ToTable("Guests");
                 });
@@ -621,6 +622,15 @@ namespace HotelManagement.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("HotelManagement.Models.ApplicationUser", b =>
+                {
+                    b.HasOne("HotelManagement.Models.Guest", "Guest")
+                        .WithMany()
+                        .HasForeignKey("GuestId");
+
+                    b.Navigation("Guest");
+                });
+
             modelBuilder.Entity("HotelManagement.Models.Comment", b =>
                 {
                     b.HasOne("HotelManagement.Models.ApplicationUser", "User")
@@ -649,17 +659,6 @@ namespace HotelManagement.Migrations
                         .IsRequired();
 
                     b.Navigation("Reservation");
-                });
-
-            modelBuilder.Entity("HotelManagement.Models.Guest", b =>
-                {
-                    b.HasOne("HotelManagement.Models.ApplicationUser", "ApplicationUser")
-                        .WithOne("Guest")
-                        .HasForeignKey("HotelManagement.Models.Guest", "ApplicationUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ApplicationUser");
                 });
 
             modelBuilder.Entity("HotelManagement.Models.LoyaltyPoint", b =>
@@ -822,9 +821,6 @@ namespace HotelManagement.Migrations
             modelBuilder.Entity("HotelManagement.Models.ApplicationUser", b =>
                 {
                     b.Navigation("Comments");
-
-                    b.Navigation("Guest")
-                        .IsRequired();
 
                     b.Navigation("LoyaltyPoints");
 

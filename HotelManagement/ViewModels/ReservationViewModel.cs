@@ -15,6 +15,10 @@ namespace HotelManagement.Models
         [ValidateNever]
         public SelectList RoomTypes { get; set; }
 
+        public int RoomId { get; set; }  // <-- dodajesz to jeœli jeszcze nie istnieje
+        public SelectList AvailableRooms { get; set; }  // do listy rozwijalnej
+
+
         // Dodatkowe opcje
         public bool Breakfast { get; set; }
         public bool Parking { get; set; }

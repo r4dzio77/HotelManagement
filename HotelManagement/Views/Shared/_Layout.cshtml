@@ -26,7 +26,6 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Home" asp-action="Index">Strona główna</a>
                         </li>
- 
                     </ul>
                     <ul class="navbar-nav">
                         @if (SignInManager.IsSignedIn(User))  // Sprawdzamy, czy użytkownik jest zalogowany
@@ -38,6 +37,20 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="Account" asp-action="Logout">Wyloguj</a>
                             </li>
+
+                            <!-- Sprawdzamy rolę użytkownika i dodajemy przyciski rozwijalne dla Admin, Kierownik i Pracownik -->
+                            @if (User.IsInRole("Admin") || User.IsInRole("Kierownik") || User.IsInRole("Pracownik"))
+                            {
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        Zarządzanie
+                                    </a>
+                                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                        <a class="dropdown-item" asp-controller="RoomType" asp-action="Index">Typy pokoi</a>
+                                        <a class="dropdown-item" asp-controller="Reservation" asp-action="Index">Rezerwacje</a>
+                                    </div>
+                                </li>
+                            }
                         }
                         else
                         {

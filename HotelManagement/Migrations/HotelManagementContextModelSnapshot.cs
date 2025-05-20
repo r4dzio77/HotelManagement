@@ -45,7 +45,7 @@ namespace HotelManagement.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int>("GuestId")
+                    b.Property<int?>("GuestId")
                         .HasColumnType("int");
 
                     b.Property<string>("LastName")
@@ -193,7 +193,8 @@ namespace HotelManagement.Migrations
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CompanyName")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -201,11 +202,13 @@ namespace HotelManagement.Migrations
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
@@ -620,9 +623,7 @@ namespace HotelManagement.Migrations
                 {
                     b.HasOne("HotelManagement.Models.Guest", "Guest")
                         .WithMany()
-                        .HasForeignKey("GuestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("GuestId");
 
                     b.Navigation("Guest");
                 });

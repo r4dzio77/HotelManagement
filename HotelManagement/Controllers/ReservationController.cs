@@ -68,23 +68,23 @@ namespace HotelManagement.Controllers
             if (guest == null)
                 return RedirectToAction(nameof(CreateGuest));
 
-            var reservation = new Reservation();
-
-            // Ustaw domyślne daty jeśli nie są ustawione
-            if (reservation.CheckIn == DateTime.MinValue)
-                reservation.CheckIn = DateTime.Today;
-            if (reservation.CheckOut == DateTime.MinValue)
-                reservation.CheckOut = DateTime.Today.AddDays(1);
+            var reservation = new Reservation
+            {
+                CheckIn = DateTime.Today,
+                CheckOut = DateTime.Today.AddDays(1)
+            };
 
             var vm = new ReservationViewModel
             {
                 Guest = guest,
                 Reservation = reservation,
-                RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name")
+                RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name"),
+                AvailableRooms = new SelectList(_context.Rooms.ToList(), "Id", "Number")
             };
 
             return View(vm);
         }
+
 
 
 
@@ -99,6 +99,7 @@ namespace HotelManagement.Controllers
             {
                 ModelState.AddModelError("", "Gość nie został znaleziony.");
                 vm.RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name");
+                vm.AvailableRooms = new SelectList(_context.Rooms.ToList(), "Id", "Number");
                 return View(vm);
             }
 
@@ -107,6 +108,7 @@ namespace HotelManagement.Controllers
             {
                 ModelState.AddModelError("", "Gość nie został znaleziony.");
                 vm.RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name");
+                vm.AvailableRooms = new SelectList(_context.Rooms.ToList(), "Id", "Number");
                 return View(vm);
             }
 
@@ -114,27 +116,27 @@ namespace HotelManagement.Controllers
 
             if (!ModelState.IsValid)
             {
-                Console.WriteLine("ModelState is invalid:");
-                foreach (var key in ModelState.Keys)
-                {
-                    var state = ModelState[key];
-                    foreach (var error in state.Errors)
-                    {
-                        Console.WriteLine($"Field {key} error: {error.ErrorMessage}");
-                    }
-                }
-
                 vm.RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name");
-                vm.Guest = _context.Guests.FirstOrDefault(g => g.Id == HttpContext.Session.GetInt32("GuestId"));
+                vm.AvailableRooms = new SelectList(_context.Rooms.ToList(), "Id", "Number");
                 return View(vm);
             }
 
-
             var roomType = await _context.RoomTypes.FirstOrDefaultAsync(rt => rt.Id == vm.Reservation.RoomTypeId);
+            var selectedRoom = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == vm.RoomId);
+
             if (roomType == null)
             {
                 ModelState.AddModelError("", "Wybrany typ pokoju nie istnieje.");
                 vm.RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name");
+                vm.AvailableRooms = new SelectList(_context.Rooms.ToList(), "Id", "Number");
+                return View(vm);
+            }
+
+            if (selectedRoom == null)
+            {
+                ModelState.AddModelError("", "Wybrany pokój nie istnieje.");
+                vm.RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name");
+                vm.AvailableRooms = new SelectList(_context.Rooms.ToList(), "Id", "Number");
                 return View(vm);
             }
 
@@ -145,23 +147,25 @@ namespace HotelManagement.Controllers
 
             vm.Reservation.TotalPrice = price;
             vm.Reservation.GuestId = guest.Id;
+            vm.Reservation.RoomId = selectedRoom.Id;
 
             try
             {
                 _context.Reservations.Add(vm.Reservation);
                 await _context.SaveChangesAsync();
 
-                // Przekierowanie do głównego widoku rezerwacji po zapisaniu
                 return RedirectToAction("Index", "Reservation");
             }
             catch (Exception ex)
             {
                 ModelState.AddModelError("", $"Błąd podczas zapisywania rezerwacji: {ex.Message}");
                 vm.RoomTypes = new SelectList(_context.RoomTypes.ToList(), "Id", "Name");
+                vm.AvailableRooms = new SelectList(_context.Rooms.ToList(), "Id", "Number");
                 return View(vm);
             }
-
         }
+
+
 
 
 

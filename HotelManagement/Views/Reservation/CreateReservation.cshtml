@@ -42,6 +42,10 @@
         @Html.ValidationMessageFor(m => m.Reservation.RoomTypeId, "", new { @class = "text-danger" })
     </div>
 
+    <label for="RoomId">Wybierz pokój</label>
+    <select asp-for="RoomId" asp-items="Model.AvailableRooms" class="form-control"></select>
+
+
     <div class="form-group">
         <label for="CheckIn">Data zameldowania</label>
         @Html.TextBoxFor(m => m.Reservation.CheckIn, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", required = "required" })
