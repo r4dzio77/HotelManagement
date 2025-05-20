@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace HotelManagement.Models
 {
@@ -10,14 +9,17 @@ namespace HotelManagement.Models
         [ValidateNever]
         public Guest Guest { get; set; }
 
+        [Required(ErrorMessage = "Rezerwacja jest wymagana.")]
         public Reservation Reservation { get; set; }
 
+        [Required(ErrorMessage = "Wybór pokoju jest wymagany.")]
+        public int RoomId { get; set; }
+
         [ValidateNever]
-        public SelectList RoomTypes { get; set; }
+        public SelectList AvailableRooms { get; set; } = new SelectList(Array.Empty<Room>(), "Id", "Number");
 
-        public int RoomId { get; set; }  // <-- dodajesz to jeœli jeszcze nie istnieje
-        public SelectList AvailableRooms { get; set; }  // do listy rozwijalnej
-
+        [ValidateNever]
+        public SelectList RoomTypes { get; set; } = new SelectList(Array.Empty<RoomType>(), "Id", "Name");
 
         // Dodatkowe opcje
         public bool Breakfast { get; set; }
