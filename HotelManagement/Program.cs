@@ -2,6 +2,7 @@
 using HotelManagement.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using HotelManagement.Data.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +74,10 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+    var context = services.GetRequiredService<HotelManagementContext>();
+
+    // SEED: typy pokoi
+    RoomTypeSeeder.Seed(context);  // ← A TUTAJ TO
 
     // Role
     string[] roles = { "Admin", "Kierownik", "Pracownik", "Klient" };

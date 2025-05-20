@@ -5,11 +5,10 @@
     <div class="alert alert-success text-center fixed-top mt-3 mx-auto shadow" style="width: 50%; z-index: 9999;">
         @TempData["Notification"]
     </div>
-
     <script>
         setTimeout(function () {
             document.querySelector('.alert').style.display = 'none';
-        }, 4000); // znika po 4 sekundach
+        }, 4000);
     </script>
 }
 
@@ -33,169 +32,60 @@
     <!-- Zakładki -->
     <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
-            <a class="nav-link active" id="arrivals-tab" data-bs-toggle="tab" href="#arrivals" role="tab" aria-controls="arrivals" aria-selected="true">Przyjazdy</a>
+            <a class="nav-link active" id="arrivals-tab" data-bs-toggle="tab" href="#arrivals" role="tab">Przyjazdy</a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link" id="stay-tab" data-bs-toggle="tab" href="#stay" role="tab" aria-controls="stay" aria-selected="false">Pobyty</a>
+            <a class="nav-link" id="stay-tab" data-bs-toggle="tab" href="#stay" role="tab">Pobyty</a>
         </li>
         <li class="nav-item" role="presentation">
-            <a class="nav-link" id="departures-tab" data-bs-toggle="tab" href="#departures" role="tab" aria-controls="departures" aria-selected="false">Wyjazdy</a>
+            <a class="nav-link" id="departures-tab" data-bs-toggle="tab" href="#departures" role="tab">Wyjazdy</a>
         </li>
     </ul>
 
     <!-- Treść zakładek -->
     <div class="tab-content" id="myTabContent">
         <!-- Przyjazdy -->
-        <div class="tab-pane fade show active" id="arrivals" role="tabpanel" aria-labelledby="arrivals-tab">
+        <div class="tab-pane fade show active" id="arrivals" role="tabpanel">
             <h3 class="mt-3">Przyjazdy</h3>
-            <div class="list-group">
-                @foreach (var reservation in ViewBag.Arrivals as List<HotelManagement.Models.Reservation>)
-                {
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>@reservation.Room.RoomType.Name</strong> - @reservation.CheckIn.ToShortDateString()
-                        </div>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#detailsModal-@reservation.Id" title="Szczegóły">
-                                <i class="bi bi-info-circle"></i>
-                            </button>
-                            <a asp-action="Edit" asp-route-id="@reservation.Id" class="btn btn-sm btn-warning">
-                                <i class="bi bi-pencil-square"></i> Edytuj
-                            </a>
-                            <form asp-action="CheckIn" method="post" asp-route-id="@reservation.Id" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-success">Check In</button>
-                            </form>
-                        </div>
-                    </div>
+            @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Arrivals)
 
-                    <div class="modal fade" id="detailsModal-@reservation.Id" tabindex="-1" aria-labelledby="detailsModalLabel-@reservation.Id" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-scrollable">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="detailsModalLabel-@reservation.Id">Szczegóły rezerwacji</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p><strong>Gość:</strong> @reservation.Guest.FirstName @reservation.Guest.LastName</p>
-                                    <p><strong>Pokój:</strong> @reservation.Room.Number</p>
-                                    <p><strong>Typ pokoju:</strong> @reservation.Room.RoomType.Name</p>
-                                    <p><strong>Daty:</strong> @reservation.CheckIn.ToShortDateString() – @reservation.CheckOut.ToShortDateString()</p>
-                                    <p><strong>Status:</strong> @reservation.Status</p>
-                                    <p><strong>Śniadanie:</strong> @(reservation.Breakfast ? "Tak" : "Nie")</p>
-                                    <p><strong>Parking:</strong> @(reservation.Parking ? "Tak" : "Nie")</p>
-                                    <p><strong>Dodatkowe łóżko:</strong> @(reservation.ExtraBed ? "Tak" : "Nie")</p>
-                                    <p><strong>Cena łączna:</strong> @reservation.TotalPrice zł</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
         </div>
 
-
         <!-- Pobyty -->
-        <div class="tab-pane fade" id="stay" role="tabpanel" aria-labelledby="stay-tab">
+        <div class="tab-pane fade" id="stay" role="tabpanel">
             <h3 class="mt-3">Pobyty</h3>
-            <div class="list-group">
-                @foreach (var reservation in ViewBag.InStay as List<HotelManagement.Models.Reservation>)
-                {
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>@reservation.Room.RoomType.Name</strong> -
-                            @reservation.CheckIn.ToShortDateString() - @reservation.CheckOut.ToShortDateString()
-                        </div>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#detailsModal-@reservation.Id" title="Szczegóły">
-                                <i class="bi bi-info-circle"></i>
-                            </button>
-                            <a asp-action="Edit" asp-route-id="@reservation.Id" class="btn btn-sm btn-warning">
-                                <i class="bi bi-pencil-square"></i> Edytuj
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="modal fade" id="detailsModal-@reservation.Id" tabindex="-1" aria-labelledby="detailsModalLabel-@reservation.Id" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-scrollable">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="detailsModalLabel-@reservation.Id">Szczegóły rezerwacji</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p><strong>Gość:</strong> @reservation.Guest.FirstName @reservation.Guest.LastName</p>
-                                    <p><strong>Pokój:</strong> @reservation.Room.Number</p>
-                                    <p><strong>Typ pokoju:</strong> @reservation.Room.RoomType.Name</p>
-                                    <p><strong>Daty:</strong> @reservation.CheckIn.ToShortDateString() – @reservation.CheckOut.ToShortDateString()</p>
-                                    <p><strong>Status:</strong> @reservation.Status</p>
-                                    <p><strong>Śniadanie:</strong> @(reservation.Breakfast ? "Tak" : "Nie")</p>
-                                    <p><strong>Parking:</strong> @(reservation.Parking ? "Tak" : "Nie")</p>
-                                    <p><strong>Dodatkowe łóżko:</strong> @(reservation.ExtraBed ? "Tak" : "Nie")</p>
-                                    <p><strong>Cena łączna:</strong> @reservation.TotalPrice zł</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
+            @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.InStay)
         </div>
 
         <!-- Wyjazdy -->
-        <div class="tab-pane fade" id="departures" role="tabpanel" aria-labelledby="departures-tab">
+        <div class="tab-pane fade" id="departures" role="tabpanel">
             <h3 class="mt-3">Wyjazdy</h3>
-            <div class="list-group">
-                @foreach (var reservation in ViewBag.Departures as List<HotelManagement.Models.Reservation>)
-                {
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>@reservation.Room.RoomType.Name</strong> - @reservation.CheckOut.ToShortDateString()
-                        </div>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#detailsModal-@reservation.Id" title="Szczegóły">
-                                <i class="bi bi-info-circle"></i>
-                            </button>
-                            <a asp-action="Edit" asp-route-id="@reservation.Id" class="btn btn-sm btn-warning">
-                                <i class="bi bi-pencil-square"></i> Edytuj
-                            </a>
-                            <form asp-action="CheckOut" method="post" asp-route-id="@reservation.Id" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-danger">Check Out</button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <div class="modal fade" id="detailsModal-@reservation.Id" tabindex="-1" aria-labelledby="detailsModalLabel-@reservation.Id" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-scrollable">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="detailsModalLabel-@reservation.Id">Szczegóły rezerwacji</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p><strong>Gość:</strong> @reservation.Guest.FirstName @reservation.Guest.LastName</p>
-                                    <p><strong>Pokój:</strong> @reservation.Room.Number</p>
-                                    <p><strong>Typ pokoju:</strong> @reservation.Room.RoomType.Name</p>
-                                    <p><strong>Daty:</strong> @reservation.CheckIn.ToShortDateString() – @reservation.CheckOut.ToShortDateString()</p>
-                                    <p><strong>Status:</strong> @reservation.Status</p>
-                                    <p><strong>Śniadanie:</strong> @(reservation.Breakfast ? "Tak" : "Nie")</p>
-                                    <p><strong>Parking:</strong> @(reservation.Parking ? "Tak" : "Nie")</p>
-                                    <p><strong>Dodatkowe łóżko:</strong> @(reservation.ExtraBed ? "Tak" : "Nie")</p>
-                                    <p><strong>Cena łączna:</strong> @reservation.TotalPrice zł</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
+            @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Departures)
         </div>
-
     </div>
 </div>
+
+<!-- Skrypt sortowania -->
+<script>
+    function sortTable(header) {
+        const table = header.closest("table");
+        const tbody = table.querySelector("tbody");
+        const index = [...header.parentElement.children].indexOf(header);
+        const rows = [...tbody.querySelectorAll("tr")];
+        const asc = !header.classList.contains("asc");
+
+        rows.sort((a, b) => {
+            let aText = a.children[index].innerText.trim();
+            let bText = b.children[index].innerText.trim();
+            return asc
+                ? aText.localeCompare(bText, undefined, { numeric: true })
+                : bText.localeCompare(aText, undefined, { numeric: true });
+        });
+
+        header.parentElement.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
+        header.classList.toggle("asc", asc);
+        header.classList.toggle("desc", !asc);
+
+        rows.forEach(row => tbody.appendChild(row));
+    }
+</script>
