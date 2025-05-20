@@ -2,10 +2,13 @@
 {
     public enum ReservationStatus
     {
-        Pending,
-        Confirmed,
-        Cancelled,
-        Completed
+        Pending,     // złożona ale niepotwierdzona
+        Confirmed,   // potwierdzona, ale jeszcze nie zameldowana
+        CheckedIn,   // gość zameldowany
+        CheckedOut,  // gość wymeldowany
+        Cancelled,   // anulowana
+        Completed    // zakończona rezerwacja (np. zarchiwizowana)
     }
+
 
 }

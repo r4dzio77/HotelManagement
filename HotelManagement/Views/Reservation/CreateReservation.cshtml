@@ -60,17 +60,17 @@
 
     <div class="form-check">
         @Html.CheckBoxFor(m => m.Breakfast, new { @class = "form-check-input", id = "Breakfast" })
-        <label class="form-check-label" for="Breakfast">Śniadanie</label>
+        <label class="form-check-label" for="Breakfast">Śniadanie (+45zł)</label>
     </div>
 
     <div class="form-check">
         @Html.CheckBoxFor(m => m.Parking, new { @class = "form-check-input", id = "Parking" })
-        <label class="form-check-label" for="Parking">Parking</label>
+        <label class="form-check-label" for="Parking">Parking (+40zł)</label>
     </div>
 
     <div class="form-check">
         @Html.CheckBoxFor(m => m.ExtraBed, new { @class = "form-check-input", id = "ExtraBed" })
-        <label class="form-check-label" for="ExtraBed">Dostawka</label>
+        <label class="form-check-label" for="ExtraBed">Dostawka(+100zł)</label>
     </div>
 
     <button type="submit" class="btn btn-primary mt-3">Zapisz rezerwację</button>
