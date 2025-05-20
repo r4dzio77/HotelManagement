@@ -61,6 +61,87 @@ namespace HotelManagement.Controllers
 
             return View(roomType);
         }
+        //GET EDIT
+        [HttpGet]
+        [Authorize(Roles = "Kierownik,Admin")]
+        public async Task<IActionResult> Edit(int id)
+        {
+            var roomType = await _context.RoomTypes.FindAsync(id);
+            if (roomType == null)
+            {
+                return NotFound();
+            }
+            return View(roomType);
+        }
+        //POST EDIT
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Kierownik,Admin")]
+        public async Task<IActionResult> Edit(int id, RoomType roomType, IFormFile imageFile)
+        {
+            if (id != roomType.Id)
+            {
+                return BadRequest();
+            }
+
+            if (!ModelState.IsValid)
+            {
+                // Jeśli model jest niepoprawny, zwracamy widok z błędami
+                return View(roomType);
+            }
+
+            try
+            {
+                // Jeśli przesłano nowy obrazek, zapisz go
+                if (imageFile != null && imageFile.Length > 0)
+                {
+                    var fileName = Guid.NewGuid() + Path.GetExtension(imageFile.FileName);
+                    var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "roomtypes");
+                    Directory.CreateDirectory(folderPath);
+                    var fullPath = Path.Combine(folderPath, fileName);
+
+                    using (var stream = new FileStream(fullPath, FileMode.Create))
+                    {
+                        await imageFile.CopyToAsync(stream);
+                    }
+
+                    roomType.ImagePath = "/images/roomtypes/" + fileName;
+                }
+                else
+                {
+                    // Jeśli nie zmieniono obrazka, pobierz aktualną ścieżkę z bazy
+                    var existingRoomType = await _context.RoomTypes.AsNoTracking().FirstOrDefaultAsync(rt => rt.Id == id);
+                    roomType.ImagePath = existingRoomType?.ImagePath;
+                }
+
+                // Aktualizuj wpis w bazie
+                _context.Update(roomType);
+                await _context.SaveChangesAsync();
+
+                // Po poprawnym zapisie przekieruj do listy
+                return RedirectToAction("Index");
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.RoomTypes.Any(e => e.Id == id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Obsłuż inne wyjątki, np. logowanie
+                ModelState.AddModelError("", $"Błąd podczas zapisywania: {ex.Message}");
+                return View(roomType);
+            }
+        }
+
+
+
 
         // GET: RoomType/Index
         [HttpGet]

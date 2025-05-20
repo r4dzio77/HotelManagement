@@ -8,12 +8,15 @@ namespace HotelManagement.Models
 
         // Imię i nazwisko
         [Required(ErrorMessage = "Imię jest wymagane.")]
+        [MaxLength(100)]
         public string FirstName { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Nazwisko jest wymagane.")]
+        [MaxLength(100)]
         public string LastName { get; set; } = string.Empty;
 
         // Opcjonalna nazwa firmy
+        [MaxLength(100)]
         public string? CompanyName { get; set; }
 
         // Dane kontaktowe
