@@ -1,0 +1,58 @@
+﻿@model HotelManagement.ViewModels.ReservationGuestViewModel
+
+
+
+@{
+    ViewData["Title"] = "Dane osobowe do rezerwacji";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Wprowadź dane osobowe</h2>
+
+    <form asp-action="EnterGuestDetails" method="post">
+        @* Ukryte dane rezerwacji *@
+        <input type="hidden" asp-for="RoomTypeId" />
+        <input type="hidden" asp-for="CheckIn" />
+        <input type="hidden" asp-for="CheckOut" />
+        <input type="hidden" asp-for="PersonCount" />
+        <input type="hidden" asp-for="Breakfast" />
+        <input type="hidden" asp-for="Parking" />
+        <input type="hidden" asp-for="ExtraBed" />
+
+        <div class="mb-3">
+            <label asp-for="FirstName" class="form-label">Imię</label>
+            <input asp-for="FirstName" class="form-control" />
+            <span asp-validation-for="FirstName" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="LastName" class="form-label">Nazwisko</label>
+            <input asp-for="LastName" class="form-control" />
+            <span asp-validation-for="LastName" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label">Email</label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="PhoneNumber" class="form-label">Telefon</label>
+            <input asp-for="PhoneNumber" class="form-control" />
+            <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Preferences" class="form-label">Preferencje (opcjonalne)</label>
+            <textarea asp-for="Preferences" class="form-control"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Potwierdź rezerwację</button>
+        <a asp-action="Index" asp-controller="RoomType" class="btn btn-secondary ms-2">Anuluj</a>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

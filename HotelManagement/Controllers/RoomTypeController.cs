@@ -1,5 +1,7 @@
 ﻿using HotelManagement.Data;
+using HotelManagement.Enums;
 using HotelManagement.Models;
+using HotelManagement.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -18,7 +20,6 @@ namespace HotelManagement.Controllers
             _userManager = userManager;
         }
 
-        // GET: RoomType/Create
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin")]
         public IActionResult Create()
@@ -26,7 +27,6 @@ namespace HotelManagement.Controllers
             return View();
         }
 
-        // POST: RoomType/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Kierownik,Admin")]
@@ -34,7 +34,6 @@ namespace HotelManagement.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Zapis zdjęcia typu pokoju
                 if (imageFile != null && imageFile.Length > 0)
                 {
                     var fileName = Guid.NewGuid() + Path.GetExtension(imageFile.FileName);
@@ -48,20 +47,18 @@ namespace HotelManagement.Controllers
                         await imageFile.CopyToAsync(stream);
                     }
 
-                    roomType.ImagePath = "/images/roomtypes/" + fileName; // Przypisanie ścieżki do zdjęcia
+                    roomType.ImagePath = "/images/roomtypes/" + fileName;
                 }
 
-                // Zapisz typ pokoju do bazy danych
                 _context.RoomTypes.Add(roomType);
                 await _context.SaveChangesAsync();
 
-                // Przekierowanie na stronę z dostępnymi typami pokoi
                 return RedirectToAction("Index", "RoomType");
             }
 
             return View(roomType);
         }
-        //GET EDIT
+
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin")]
         public async Task<IActionResult> Edit(int id)
@@ -73,7 +70,7 @@ namespace HotelManagement.Controllers
             }
             return View(roomType);
         }
-        //POST EDIT
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Kierownik,Admin")]
@@ -86,13 +83,11 @@ namespace HotelManagement.Controllers
 
             if (!ModelState.IsValid)
             {
-                // Jeśli model jest niepoprawny, zwracamy widok z błędami
                 return View(roomType);
             }
 
             try
             {
-                // Jeśli przesłano nowy obrazek, zapisz go
                 if (imageFile != null && imageFile.Length > 0)
                 {
                     var fileName = Guid.NewGuid() + Path.GetExtension(imageFile.FileName);
@@ -109,16 +104,13 @@ namespace HotelManagement.Controllers
                 }
                 else
                 {
-                    // Jeśli nie zmieniono obrazka, pobierz aktualną ścieżkę z bazy
                     var existingRoomType = await _context.RoomTypes.AsNoTracking().FirstOrDefaultAsync(rt => rt.Id == id);
                     roomType.ImagePath = existingRoomType?.ImagePath;
                 }
 
-                // Aktualizuj wpis w bazie
                 _context.Update(roomType);
                 await _context.SaveChangesAsync();
 
-                // Po poprawnym zapisie przekieruj do listy
                 return RedirectToAction("Index");
             }
             catch (DbUpdateConcurrencyException)
@@ -134,30 +126,120 @@ namespace HotelManagement.Controllers
             }
             catch (Exception ex)
             {
-                // Obsłuż inne wyjątki, np. logowanie
                 ModelState.AddModelError("", $"Błąd podczas zapisywania: {ex.Message}");
                 return View(roomType);
             }
         }
 
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> Reserve(int roomTypeId)
+        {
+            var roomType = await _context.RoomTypes.FindAsync(roomTypeId);
+            if (roomType == null)
+                return NotFound();
 
+            ViewBag.RoomType = roomType;
 
+            return View(new Reservation
+            {
+                RoomTypeId = roomTypeId,
+                CheckIn = DateTime.Today,
+                CheckOut = DateTime.Today.AddDays(1)
+            });
+        }
 
-        // GET: RoomType/Index
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize]
+        public async Task<IActionResult> Reserve(Reservation reservation, int personCount)
+        {
+            var roomType = await _context.RoomTypes.FindAsync(reservation.RoomTypeId);
+            if (roomType == null) return NotFound();
+
+            var user = await _userManager.GetUserAsync(User);
+
+            if (!ModelState.IsValid)
+            {
+                ViewBag.RoomType = roomType;
+                return View(reservation);
+            }
+
+            var viewModel = new ReservationGuestViewModel
+            {
+                RoomTypeId = reservation.RoomTypeId,
+                CheckIn = reservation.CheckIn,
+                CheckOut = reservation.CheckOut,
+                PersonCount = personCount,
+                Breakfast = reservation.Breakfast,
+                Parking = reservation.Parking,
+                ExtraBed = reservation.ExtraBed,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email,
+                PhoneNumber = ""
+            };
+
+            return View("EnterGuestDetails", viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize]
+        public async Task<IActionResult> EnterGuestDetails(ReservationGuestViewModel model)
+        {
+            if (!ModelState.IsValid) return View(model);
+
+            var guest = new Guest
+            {
+                FirstName = model.FirstName,
+                LastName = model.LastName,
+                Email = model.Email,
+                PhoneNumber = model.PhoneNumber,
+                Preferences = model.Preferences
+            };
+
+            _context.Guests.Add(guest);
+            await _context.SaveChangesAsync();
+
+            var roomType = await _context.RoomTypes.FindAsync(model.RoomTypeId);
+
+            var reservation = new Reservation
+            {
+                GuestId = guest.Id,
+                RoomTypeId = model.RoomTypeId,
+                CheckIn = model.CheckIn,
+                CheckOut = model.CheckOut,
+                Status = ReservationStatus.Confirmed,
+                TotalPrice = roomType.PricePerNight * (decimal)(model.CheckOut - model.CheckIn).TotalDays,
+                Breakfast = model.Breakfast,
+                Parking = model.Parking,
+                ExtraBed = model.ExtraBed
+            };
+
+            _context.Reservations.Add(reservation);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("Confirmation");
+        }
+
+        [HttpGet]
+        [Authorize]
+        public IActionResult Confirmation()
+        {
+            return View();
+        }
+
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin,Klient")]
         public async Task<IActionResult> Index()
         {
-            var roomTypes = await _context.RoomTypes.ToListAsync(); // Pobierz wszystkie typy pokoi
-
-            // Sprawdzamy rolę użytkownika
+            var roomTypes = await _context.RoomTypes.ToListAsync();
             var user = await _userManager.GetUserAsync(User);
             var isAdminOrManager = User.IsInRole("Kierownik") || User.IsInRole("Admin");
-
-            // Ustawiamy wartość ViewBag.IsAdminOrManager
             ViewBag.IsAdminOrManager = isAdminOrManager;
 
-            return View(roomTypes); // Zwracamy widok z listą typów pokoi
+            return View(roomTypes);
         }
     }
 }
