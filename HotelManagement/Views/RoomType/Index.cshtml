@@ -30,7 +30,8 @@
                         <p><strong>Cena:</strong> @roomType.PricePerNight.ToString("F2") zł / noc</p>
 
 
-                        <a href="@Url.Action("Reserve", "Reservation", new { roomTypeId = roomType.Id })" class="btn btn-primary">Zarezerwuj</a>
+                        <a href="@Url.Action("Reserve", "RoomType", new { roomTypeId = roomType.Id })" class="btn btn-primary">Zarezerwuj</a>
+
 
                         @if (ViewBag.IsAdminOrManager ?? false)
                         {

@@ -169,7 +169,7 @@ namespace HotelManagement.Controllers
             {
                 Reservation = reservation,
                 Guest = reservation.Guest,
-                RoomId = reservation.RoomId,
+                //RoomId = reservation.RoomId,
                 Breakfast = reservation.Breakfast,
                 Parking = reservation.Parking,
                 ExtraBed = reservation.ExtraBed,

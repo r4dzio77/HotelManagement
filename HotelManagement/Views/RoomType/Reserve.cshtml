@@ -1,0 +1,57 @@
+﻿@model HotelManagement.Models.Reservation
+@{
+    ViewData["Title"] = "Rezerwacja pokoju";
+    var roomType = ViewBag.RoomType as HotelManagement.Models.RoomType;
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Rezerwacja: @roomType?.Name</h2>
+
+    <form asp-action="Reserve" method="post">
+        <input type="hidden" asp-for="RoomTypeId" />
+
+        <div class="mb-3">
+            <label asp-for="CheckIn" class="form-label">Data przyjazdu</label>
+            <input asp-for="CheckIn" class="form-control" type="date" />
+            <span asp-validation-for="CheckIn" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="CheckOut" class="form-label">Data wyjazdu</label>
+            <input asp-for="CheckOut" class="form-control" type="date" />
+            <span asp-validation-for="CheckOut" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label for="PersonCount" class="form-label">Liczba osób (max: @roomType?.Capacity)</label>
+            <select class="form-control" name="PersonCount" id="PersonCount">
+                @for (int i = 1; i <= roomType.Capacity; i++)
+                {
+                    <option value="@i">@i</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-check mb-2">
+            <input class="form-check-input" asp-for="Breakfast" />
+            <label class="form-check-label" asp-for="Breakfast">Śniadanie</label>
+        </div>
+
+        <div class="form-check mb-2">
+            <input class="form-check-input" asp-for="Parking" />
+            <label class="form-check-label" asp-for="Parking">Parking</label>
+        </div>
+
+        <div class="form-check mb-4">
+            <input class="form-check-input" asp-for="ExtraBed" />
+            <label class="form-check-label" asp-for="ExtraBed">Dodatkowe łóżko</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Zarezerwuj</button>
+        <a asp-action="Index" class="btn btn-secondary ms-2">Anuluj</a>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

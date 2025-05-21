@@ -16,10 +16,10 @@ namespace HotelManagement.Models
         public Guest Guest { get; set; }
 
         // Klucz obcy do pokoju
-        public int RoomId { get; set; }
+        public int? RoomId { get; set; }
 
         [ValidateNever]
-        public Room Room { get; set; }
+        public Room? Room { get; set; }
 
         // Typ pokoju
         public int RoomTypeId { get; set; }
