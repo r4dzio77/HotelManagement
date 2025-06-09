@@ -261,7 +261,8 @@ namespace HotelManagement.Controllers
             reservation.Status = ReservationStatus.CheckedIn;
             await _context.SaveChangesAsync();
 
-            TempData["Notification"] = $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {reservation.Room.Number}";
+            TempData["Notification"] = $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {(reservation.Room != null ? reservation.Room.Number : "nieprzydzielony")}";
+
 
             return RedirectToAction(nameof(Index));
         }
@@ -304,6 +305,16 @@ namespace HotelManagement.Controllers
             return View(reservation);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetRoomsByType(int roomTypeId)
+        {
+            var rooms = await _context.Rooms
+                .Where(r => r.RoomTypeId == roomTypeId && !r.IsBlocked)
+                .Select(r => new { r.Id, r.Number })
+                .ToListAsync();
+
+            return Json(rooms);
+        }
 
 
         // GET: /Reservation/Index

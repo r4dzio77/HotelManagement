@@ -18,8 +18,8 @@
             <tr>
                 <td>@reservation.Guest.FirstName @reservation.Guest.LastName</td>
                 <td>@reservation.Id</td>
-                <td>@reservation.Room.Number</td>
-                <td>@reservation.Room.RoomType.Name</td>
+                <td>@(reservation.Room != null ? reservation.Room.Number : "Brak")</td>
+                <td>@(reservation.Room?.RoomType != null ? reservation.Room.RoomType.Name : "Brak")</td>
                 <td>@reservation.CheckIn.ToShortDateString()</td>
                 <td>@reservation.CheckOut.ToShortDateString()</td>
                 <td>
@@ -53,8 +53,8 @@
                                 </div>
                                 <div class="modal-body">
                                     <p><strong>Gość:</strong> @reservation.Guest.FirstName @reservation.Guest.LastName</p>
-                                    <p><strong>Pokój:</strong> @reservation.Room.Number</p>
-                                    <p><strong>Typ pokoju:</strong> @reservation.Room.RoomType.Name</p>
+                                    <p><strong>Pokój:</strong> @(reservation.Room != null ? reservation.Room.Number : "Nieprzydzielony")</p>
+                                    <p><strong>Typ pokoju:</strong> @(reservation.Room?.RoomType != null ? reservation.Room.RoomType.Name : "Nieznany")</p>
                                     <p><strong>Daty:</strong> @reservation.CheckIn.ToShortDateString() – @reservation.CheckOut.ToShortDateString()</p>
                                     <p><strong>Status:</strong> @reservation.Status</p>
                                     <p><strong>Śniadanie:</strong> @(reservation.Breakfast ? "Tak" : "Nie")</p>

@@ -6,12 +6,10 @@ using HotelManagement.Data.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Konfiguracja bazy danych MySQL
+// Konfiguracja bazy danych SQLite
 builder.Services.AddDbContext<HotelManagementContext>(options =>
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(8, 0, 33))
-    ));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 
 // ASP.NET Identity + role
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
@@ -77,7 +75,9 @@ using (var scope = app.Services.CreateScope())
     var context = services.GetRequiredService<HotelManagementContext>();
 
     // SEED: typy pokoi
-    RoomTypeSeeder.Seed(context);  // ← A TUTAJ TO
+    RoomTypeSeeder.Seed(context);
+    RoomSeeder.Seed(context);
+
 
     // Role
     string[] roles = { "Admin", "Kierownik", "Pracownik", "Klient" };
