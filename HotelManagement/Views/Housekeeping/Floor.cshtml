@@ -1,0 +1,129 @@
+﻿@model IEnumerable<HotelManagement.Models.Room>
+@{
+    var floors = ViewBag.Floors as List<int>;
+    int? selected = ViewBag.SelectedFloor;
+}
+
+<style>
+    .floor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+    }
+
+    .room-box {
+        border: 1px solid #aaa;
+        padding: 10px;
+        text-align: center;
+        background-color: #f9f9f9;
+    }
+
+        .room-box.blocked {
+            background-color: #ddd;
+        }
+
+        .room-box.dirty {
+            background-color: #ffe4e1;
+        }
+
+        .room-box.clean {
+            background-color: #e7fbe7;
+        }
+
+    .room-actions form {
+        margin-top: 5px;
+    }
+
+    .room-box.arrival {
+        background-color: #fff3cd;
+    }
+
+    .room-box.departure {
+        background-color: #f8d7da;
+    }
+
+    .room-box.stay {
+        background-color: #d1ecf1;
+    }
+
+</style>
+
+<div class="row">
+    <div class="col-2">
+        <ul>
+            @foreach (var floor in floors)
+            {
+                <li>
+                    <a asp-action="Floor" asp-route-floor="@floor"
+                       style="@(floor == selected ? "font-weight:bold;" : "")">
+                        Piętro @floor
+                    </a>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="col-10">
+        <h4>Piętro @selected</h4>
+        <div class="floor-grid">
+            @foreach (var room in Model)
+            {
+                var cssClass = room.IsBlocked ? "blocked" :
+                room.IsDirty ? "dirty" :
+                room.Tag == "pobyt" ? "stay" :
+                room.Tag == "przyjazd" ? "arrival" :
+                room.Tag == "wyjazd" ? "departure" :
+                "clean";
+
+                <div class="room-box @cssClass">
+                    <div><strong>Pokój @room.Number</strong></div>
+
+                    @if (room.Tag == "pobyt")
+                    {
+                        <div><small>Pobyt</small></div>
+                    }
+                    else if (room.Tag == "przyjazd")
+                    {
+                        <div><small>Przyjazd</small></div>
+                    }
+                    else if (room.Tag == "wyjazd")
+                    {
+                        <div><small>Wyjazd</small></div>
+                    }
+                    else
+                    {
+                        <div><small>Wolny</small></div>
+                    }
+
+                    @if (room.IsDirty)
+                    {
+                        <div>Brudny</div>
+                    }
+
+                    <div class="room-actions">
+                        <form asp-action="MarkDirty" asp-route-id="@room.Id" method="post">
+                            <input type="submit" value="Brudny" />
+                        </form>
+                        <form asp-action="MarkClean" asp-route-id="@room.Id" method="post">
+                            <input type="submit" value="Czysty" />
+                        </form>
+
+                        @if (!room.IsBlocked && room.Tag != "pobyt")
+                        {
+                            <form asp-action="Block" asp-route-id="@room.Id" method="post">
+                                <input type="submit" value="Zablokuj" />
+                            </form>
+                        }
+                        else if (room.IsBlocked)
+                        {
+                            <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
+                                <input type="submit" value="Odblokuj" />
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+
+        </div>
+    </div>
+</div>
