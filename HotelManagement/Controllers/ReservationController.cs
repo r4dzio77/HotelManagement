@@ -259,6 +259,12 @@ namespace HotelManagement.Controllers
             if (reservation == null) return NotFound();
 
             reservation.Status = ReservationStatus.CheckedIn;
+
+            if (reservation.Room != null)
+            {
+                reservation.Room.IsClean = false;
+                reservation.Room.IsDirty = true;
+            }
             await _context.SaveChangesAsync();
 
             TempData["Notification"] = $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {(reservation.Room != null ? reservation.Room.Number : "nieprzydzielony")}";

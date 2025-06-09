@@ -1,4 +1,6 @@
-﻿namespace HotelManagement.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace HotelManagement.Models
 {
     public class Room
     {
@@ -8,6 +10,10 @@
         public int Capacity { get; set; }
         public decimal PricePerNight { get; set; }
         public string Description { get; set; } = string.Empty;
+
+        [NotMapped]
+        public string? Tag { get; set; }
+
 
         public bool IsClean { get; set; } = true;
         public bool IsDirty { get; set; } = false;

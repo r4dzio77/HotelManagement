@@ -35,7 +35,7 @@
                                 <button type="submit" class="btn btn-sm btn-success">Check In</button>
                             </form>
                         }
-                        else if (reservation.Status == HotelManagement.Enums.ReservationStatus.CheckedIn)
+                        else if (reservation.Status == HotelManagement.Enums.ReservationStatus.CheckedIn && reservation.CheckOut.Date == DateTime.Today)
                         {
                             <form asp-action="CheckOut" method="post" asp-route-id="@reservation.Id" class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-danger">Check Out</button>
