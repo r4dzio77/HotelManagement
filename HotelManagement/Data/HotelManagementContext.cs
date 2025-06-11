@@ -23,6 +23,8 @@ namespace HotelManagement.Data
         public DbSet<Comment> Comments { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Guest> Guests { get; set; }
+        public DbSet<Company> Companies { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -35,7 +37,7 @@ namespace HotelManagement.Data
                 .HasForeignKey(r => r.GuestId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // ✅ Reservation ↔ Room (naprawione)
+            // Reservation ↔ Room
             modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.Room)
                 .WithMany(r => r.Reservations)
@@ -73,6 +75,14 @@ namespace HotelManagement.Data
                 .HasMany(r => r.Documents)
                 .WithOne(d => d.Reservation)
                 .HasForeignKey(d => d.ReservationId);
+
+            // 🔧 Guest ↔ Company (NOWE POWIĄZANIE)
+            modelBuilder.Entity<Guest>()
+                .HasOne(g => g.Company)
+                .WithMany(c => c.Guests)
+                .HasForeignKey(g => g.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
+
     }
 }

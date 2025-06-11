@@ -13,15 +13,14 @@ namespace HotelManagement.Models
         public Reservation Reservation { get; set; }
 
         [Required(ErrorMessage = "Wybór pokoju jest wymagany.")]
-        public int RoomId { get; set; }
+        public string RoomNumber { get; set; }
 
         [ValidateNever]
-        public SelectList AvailableRooms { get; set; } = new SelectList(Array.Empty<Room>(), "Id", "Number");
+        public SelectList AvailableRooms { get; set; } = new SelectList(Array.Empty<Room>(), "Number", "Number");
 
         [ValidateNever]
         public SelectList RoomTypes { get; set; } = new SelectList(Array.Empty<RoomType>(), "Id", "Name");
 
-        // Dodatkowe opcje
         public bool Breakfast { get; set; }
         public bool Parking { get; set; }
         public bool ExtraBed { get; set; }

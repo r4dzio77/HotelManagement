@@ -32,10 +32,6 @@
         <input asp-for="Guest.PhoneNumber" class="form-control" />
     </div>
 
-    <div class="form-group">
-        <label asp-for="Guest.CompanyName"></label>
-        <input asp-for="Guest.CompanyName" class="form-control" />
-    </div>
 
     <div class="form-group">
         <label asp-for="Guest.Preferences"></label>
@@ -53,8 +49,8 @@
     </div>
 
     <div class="form-group">
-        <label asp-for="RoomId">Pokój</label>
-        <select asp-for="RoomId" asp-items="Model.AvailableRooms" class="form-control"></select>
+        <label asp-for="RoomNumber">Pokój</label>
+        <select asp-for="RoomNumber" asp-items="Model.AvailableRooms" class="form-control"></select>
     </div>
 
     <div class="form-group">

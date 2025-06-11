@@ -4,110 +4,73 @@
     ViewData["Title"] = "Ustal szczegóły rezerwacji";
 }
 
-<h2>
-    Rezerwacja - Gość:
-    @if (Model.Guest != null)
-    {
-        <text>@Model.Guest.FirstName @Model.Guest.LastName</text>
-    }
-    else
-    {
-        <text>Brak gościa</text>
-    }
-</h2>
+<h2>Ustal szczegóły rezerwacji</h2>
 
-<div style="float: right; margin-left: 20px;">
-    <h4>Dane gościa</h4>
-    @if (Model.Guest != null)
-    {
-        <p><strong>Imię:</strong> @Model.Guest.FirstName</p>
-        <p><strong>Nazwisko:</strong> @Model.Guest.LastName</p>
-        <p><strong>Email:</strong> @Model.Guest.Email</p>
-        <p><strong>Telefon:</strong> @Model.Guest.PhoneNumber</p>
-    }
-    else
-    {
-        <p>Brak danych gościa</p>
-    }
-</div>
-
-@Html.ValidationSummary(true, "", new { @class = "text-danger" })
-
-<form method="post" asp-action="CreateReservation">
+<form asp-action="CreateReservation" method="post">
     @Html.AntiForgeryToken()
 
+    <!-- Dane gościa -->
+    <h4 class="mt-4">Dane gościa</h4>
+
     <div class="form-group">
-        <label for="RoomTypeId">Typ pokoju</label>
-        @Html.DropDownListFor(m => m.Reservation.RoomTypeId, Model.RoomTypes, "Wybierz typ pokoju", new { @class = "form-control", required = "required", id = "Reservation_RoomTypeId" })
-        @Html.ValidationMessageFor(m => m.Reservation.RoomTypeId, "", new { @class = "text-danger" })
+        <label asp-for="Guest.FirstName"></label>
+        <input asp-for="Guest.FirstName" class="form-control" readonly />
     </div>
 
     <div class="form-group">
-        <label for="RoomId">Wybierz pokój</label>
-        <select name="RoomId" id="RoomId" class="form-control">
-            <option value="">-- Wybierz pokój --</option>
-        </select>
+        <label asp-for="Guest.LastName"></label>
+        <input asp-for="Guest.LastName" class="form-control" readonly />
     </div>
 
     <div class="form-group">
-        <label for="CheckIn">Data zameldowania</label>
-        @Html.TextBoxFor(m => m.Reservation.CheckIn, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", required = "required" })
-        @Html.ValidationMessageFor(m => m.Reservation.CheckIn, "", new { @class = "text-danger" })
+        <label asp-for="Guest.Email"></label>
+        <input asp-for="Guest.Email" class="form-control" readonly />
     </div>
 
     <div class="form-group">
-        <label for="CheckOut">Data wymeldowania</label>
-        @Html.TextBoxFor(m => m.Reservation.CheckOut, "{0:yyyy-MM-dd}", new { @class = "form-control", type = "date", required = "required" })
-        @Html.ValidationMessageFor(m => m.Reservation.CheckOut, "", new { @class = "text-danger" })
+        <label asp-for="Guest.PhoneNumber"></label>
+        <input asp-for="Guest.PhoneNumber" class="form-control" readonly />
+    </div>
+
+    <hr />
+
+    <!-- Dane rezerwacji -->
+    <h4 class="mt-4">Dane rezerwacji</h4>
+
+    <div class="form-group">
+        <label asp-for="Reservation.RoomTypeId">Typ pokoju</label>
+        <select asp-for="Reservation.RoomTypeId" asp-items="Model.RoomTypes" class="form-control"></select>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="RoomNumber">Pokój</label>
+        <select asp-for="RoomNumber" asp-items="Model.AvailableRooms" class="form-control"></select>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="Reservation.CheckIn">Data zameldowania</label>
+        <input asp-for="Reservation.CheckIn" class="form-control" type="date" />
+    </div>
+
+    <div class="form-group">
+        <label asp-for="Reservation.CheckOut">Data wymeldowania</label>
+        <input asp-for="Reservation.CheckOut" class="form-control" type="date" />
     </div>
 
     <div class="form-check">
-        @Html.CheckBoxFor(m => m.Breakfast, new { @class = "form-check-input", id = "Breakfast" })
-        <label class="form-check-label" for="Breakfast">Śniadanie (+45zł)</label>
+        <input asp-for="Breakfast" class="form-check-input" type="checkbox" />
+        <label asp-for="Breakfast" class="form-check-label">Śniadanie</label>
     </div>
 
     <div class="form-check">
-        @Html.CheckBoxFor(m => m.Parking, new { @class = "form-check-input", id = "Parking" })
-        <label class="form-check-label" for="Parking">Parking (+40zł)</label>
+        <input asp-for="Parking" class="form-check-input" type="checkbox" />
+        <label asp-for="Parking" class="form-check-label">Parking</label>
     </div>
 
     <div class="form-check">
-        @Html.CheckBoxFor(m => m.ExtraBed, new { @class = "form-check-input", id = "ExtraBed" })
-        <label class="form-check-label" for="ExtraBed">Dostawka(+100zł)</label>
+        <input asp-for="ExtraBed" class="form-check-input" type="checkbox" />
+        <label asp-for="ExtraBed" class="form-check-label">Dodatkowe łóżko</label>
     </div>
 
-    <button type="submit" class="btn btn-primary mt-3">Zapisz rezerwację</button>
+    <button type="submit" class="btn btn-primary mt-4">Zapisz rezerwację</button>
 </form>
-
-@section Scripts {
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const roomTypeSelect = document.querySelector("#Reservation_RoomTypeId");
-            const roomSelect = document.querySelector("#RoomId");
-
-            if (roomTypeSelect) {
-                roomTypeSelect.addEventListener("change", function () {
-                    const typeId = this.value;
-                    if (!typeId) return;
-
-                    fetch(`/Reservation/GetRoomsByType?roomTypeId=${typeId}`)
-                        .then(res => res.json())
-                        .then(data => {
-                            roomSelect.innerHTML = "";
-                            const defaultOpt = document.createElement("option");
-                            defaultOpt.value = "";
-                            defaultOpt.text = "-- Wybierz pokój --";
-                            roomSelect.appendChild(defaultOpt);
-
-                            data.forEach(room => {
-                                const opt = document.createElement("option");
-                                opt.value = room.id;
-                                opt.text = room.number;
-                                roomSelect.appendChild(opt);
-                            });
-                        });
-                });
-            }
-        });
-    </script>
-}
