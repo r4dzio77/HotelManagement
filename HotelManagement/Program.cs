@@ -1,8 +1,8 @@
 ﻿using HotelManagement.Data;
+using HotelManagement.Data.Seed;
 using HotelManagement.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using HotelManagement.Data.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,7 +40,12 @@ builder.Services.AddSession(options =>
 // Dodajemy kontrolery i widoki
 builder.Services.AddControllersWithViews();
 
+
+
 var app = builder.Build();
+
+
+
 
 // Middleware pipeline
 if (!app.Environment.IsDevelopment())
