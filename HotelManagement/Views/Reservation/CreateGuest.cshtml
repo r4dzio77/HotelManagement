@@ -9,16 +9,6 @@
 <form asp-action="CreateGuest" method="post">
     @Html.AntiForgeryToken()
 
-    <!-- NIP (osobno, bo nie jest częścią modelu Guest) -->
-    <div class="form-group">
-        <label for="nip">NIP</label>
-        <input id="nip" name="nip" class="form-control" />
-    </div>
-
-    <button type="button" class="btn btn-info mt-2" onclick="getCompanyData()">Pobierz dane z NIP24</button>
-
-    <hr />
-
     <!-- Dane osobowe gościa -->
     <div class="form-group">
         <label asp-for="FirstName"></label>
