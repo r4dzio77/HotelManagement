@@ -8,7 +8,6 @@ namespace HotelManagement.Models
         public string Number { get; set; } = string.Empty;
         public int Floor { get; set; }
         public int Capacity { get; set; }
-        public decimal PricePerNight { get; set; }
         public string Description { get; set; } = string.Empty;
 
         [NotMapped]
