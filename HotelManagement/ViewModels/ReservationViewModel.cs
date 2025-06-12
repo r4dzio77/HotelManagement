@@ -1,28 +1,29 @@
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using HotelManagement.Models;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using System.ComponentModel.DataAnnotations;
 
-namespace HotelManagement.Models
+namespace HotelManagement.ViewModels
 {
     public class ReservationViewModel
     {
-        [ValidateNever]
-        public Guest Guest { get; set; }
+        public Guest Guest { get; set; } = new Guest();
+        public Reservation Reservation { get; set; } = new Reservation();
 
-        [Required(ErrorMessage = "Rezerwacja jest wymagana.")]
-        public Reservation Reservation { get; set; }
+        public IEnumerable<Service> Services { get; set; } = new List<Service>();
+        public List<int> SelectedServiceIds { get; set; } = new List<int>();
 
-        [Required(ErrorMessage = "Wybór pokoju jest wymagany.")]
-        public string RoomNumber { get; set; }
-
-        [ValidateNever]
-        public SelectList AvailableRooms { get; set; } = new SelectList(Array.Empty<Room>(), "Number", "Number");
-
-        [ValidateNever]
-        public SelectList RoomTypes { get; set; } = new SelectList(Array.Empty<RoomType>(), "Id", "Name");
-
+        public int PersonCount { get; set; } = 1;
         public bool Breakfast { get; set; }
         public bool Parking { get; set; }
         public bool ExtraBed { get; set; }
+        public decimal TotalPrice { get; set; }
+
+        public int? RoomId { get; set; }
+
+        [BindNever]
+        public SelectList? RoomTypes { get; set; }
+
+        [BindNever]
+        public SelectList? AvailableRooms { get; set; }
     }
 }

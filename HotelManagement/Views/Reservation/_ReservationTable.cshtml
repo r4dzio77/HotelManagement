@@ -1,5 +1,12 @@
 ﻿@model IEnumerable<HotelManagement.Models.Reservation>
 
+@if (Model == null || !Model.Any())
+{
+    <p class="text-center my-4">Brak rezerwacji do wyświetlenia.</p>
+}
+else
+{
+
 <table class="table table-hover table-bordered sortable mt-3">
     <thead class="table-light">
         <tr>
@@ -73,3 +80,4 @@
         }
     </tbody>
 </table>
+}

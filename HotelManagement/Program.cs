@@ -1,6 +1,7 @@
 ﻿using HotelManagement.Data;
 using HotelManagement.Data.Seed;
 using HotelManagement.Models;
+using HotelManagement.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,6 +41,8 @@ builder.Services.AddSession(options =>
 // Dodajemy kontrolery i widoki
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddScoped<ReservationPriceCalculator>();
+builder.Services.AddScoped<RoomAllocatorService>();
 
 
 var app = builder.Build();

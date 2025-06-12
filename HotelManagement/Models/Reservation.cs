@@ -36,6 +36,8 @@ namespace HotelManagement.Models
 
         // Cena
         public decimal TotalPrice { get; set; }
+        public int PersonCount { get; set; }
+
 
         // Usługi dodatkowe
         public bool Breakfast { get; set; }

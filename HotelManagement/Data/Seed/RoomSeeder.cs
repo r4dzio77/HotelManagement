@@ -12,51 +12,15 @@ namespace HotelManagement.Data.Seed
 
             for (int floor = 1; floor <= 4; floor++)
             {
-                int count = 0;
-
-                for (int number = 1; number <= 26; number++)
+                for (int roomTypeId = 1; roomTypeId <= 9; roomTypeId++)
                 {
-                    if (number == 13) continue; // pomijamy 13
-
-                    string roomNumber = $"{floor}{number:D2}";
-                    int roomTypeId;
-
-                    // Przydział według końcówki numeru i ilości
-                    if (number == 1)
-                    {
-                        roomTypeId = 9; // Apartament
-                    }
-                    else if (number == 2)
-                    {
-                        roomTypeId = 5; // Privilege Double
-                    }
-                    else if (number == 3)
-                    {
-                        roomTypeId = 7; // Privilege Double + Sofa
-                    }
-                    else if (number >= 4 && number <= 8)
-                    {
-                        roomTypeId = 3; // Superior Double
-                    }
-                    else if (number >= 9 && number <= 13)
-                    {
-                        roomTypeId = 4; // Superior Twin
-                    }
-                    else if ((number % 2) == 0)
-                    {
-                        roomTypeId = 1; // Standard Double
-                    }
-                    else
-                    {
-                        roomTypeId = 2; // Standard Twin
-                    }
+                    string roomNumber = $"{floor}{roomTypeId:D2}";
 
                     rooms.Add(new Room
                     {
                         Number = roomNumber,
                         Floor = floor,
                         Capacity = GetCapacityForRoomType(roomTypeId),
-                        PricePerNight = GetPriceForRoomType(roomTypeId),
                         IsClean = true,
                         IsDirty = false,
                         IsBlocked = false,
