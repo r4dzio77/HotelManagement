@@ -57,10 +57,15 @@
         <input asp-for="Reservation.CheckOut" class="form-control" type="date" id="CheckOut" onchange="updatePrice()" />
     </div>
 
-    <!-- Hybrydowy wybór pokoju -->
+    <!-- Hybrydowy wybór pokoju z modala -->
     <div class="form-group">
         <label asp-for="RoomId">Wybierz pokój (opcjonalnie):</label>
-        <select asp-for="RoomId" asp-items="Model.AvailableRooms" class="form-control"></select>
+        <div class="input-group">
+            <input asp-for="RoomId" class="form-control" readonly id="RoomId" />
+            <button type="button" class="btn btn-outline-secondary" id="chooseRoomBtn">
+                <i class="bi bi-search"></i> Wybierz pokój
+            </button>
+        </div>
     </div>
 
     <label>Dodatkowe usługi:</label><br />
@@ -80,7 +85,6 @@
         <label asp-for="ExtraBed" class="form-check-label">Dodatkowe łóżko (+80.00 PLN)</label>
     </div>
 
-    <!-- Usługi dodatkowe -->
     <div class="form-group mt-3">
         @foreach (var service in Model.Services)
         {
@@ -97,6 +101,31 @@
 
     <button type="submit" class="btn btn-primary mt-4">Zapisz rezerwację</button>
 </form>
+
+<!-- MODAL WYBORU POKOJU -->
+<div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Wybierz pokój</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Numer pokoju</th>
+                            <th>Status</th>
+                            <th>Akcja</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roomsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     async function updatePrice() {
@@ -126,4 +155,44 @@
     }
 
     document.addEventListener("DOMContentLoaded", updatePrice);
+
+    // Obsługa modala wyboru pokoju
+    document.getElementById('chooseRoomBtn').addEventListener('click', function () {
+        const roomTypeId = document.getElementById('RoomTypeId').value;
+        const checkIn = document.getElementById('CheckIn').value;
+        const checkOut = document.getElementById('CheckOut').value;
+
+        fetch(`/Reservation/GetAvailableRooms?roomTypeId=${roomTypeId}&checkIn=${checkIn}&checkOut=${checkOut}`)
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.getElementById('roomsTableBody');
+                tableBody.innerHTML = '';
+
+                if (data.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="3" class="text-center">Brak dostępnych pokoi</td></tr>';
+                } else {
+                    data.forEach(room => {
+                        const row = `<tr>
+                            <td>${room.number}</td>
+                            <td>${room.isClean ? 'Czysty' : 'Brudny'}</td>
+                            <td><button class="btn btn-sm btn-primary select-room" data-id="${room.id}">Wybierz</button></td>
+                        </tr>`;
+                        tableBody.insertAdjacentHTML('beforeend', row);
+                    });
+                }
+
+                var myModal = new bootstrap.Modal(document.getElementById('roomModal'));
+                myModal.show();
+            });
+    });
+
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList.contains('select-room')) {
+            const roomId = e.target.dataset.id;
+            document.getElementById('RoomId').value = roomId;
+            var myModalEl = document.getElementById('roomModal');
+            var modal = bootstrap.Modal.getInstance(myModalEl);
+            modal.hide();
+        }
+    });
 </script>

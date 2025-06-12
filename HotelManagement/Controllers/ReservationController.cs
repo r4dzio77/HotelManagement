@@ -1,4 +1,5 @@
 ﻿using HotelManagement.Data;
+using HotelManagement.Enums;
 using HotelManagement.Models;
 using HotelManagement.Services;
 using HotelManagement.ViewModels;
@@ -154,7 +155,6 @@ namespace HotelManagement.Controllers
             return RedirectToAction("Index");
         }
 
-
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin,Pracownik")]
         public async Task<IActionResult> Edit(int id)
@@ -175,7 +175,7 @@ namespace HotelManagement.Controllers
                 reservation.RoomTypeId,
                 reservation.CheckIn,
                 reservation.CheckOut,
-                reservation.Id);  // <- uwzględniamy edytowaną rezerwację
+                reservation.Id);
 
             var vm = new ReservationViewModel
             {
@@ -194,7 +194,6 @@ namespace HotelManagement.Controllers
 
             return View(vm);
         }
-
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -256,7 +255,6 @@ namespace HotelManagement.Controllers
                 }
             }
 
-            // Aktualizacja pól rezerwacji
             reservation.RoomId = allocatedRoom.Id;
             reservation.RoomTypeId = vm.Reservation.RoomTypeId;
             reservation.CheckIn = vm.Reservation.CheckIn;
@@ -279,7 +277,6 @@ namespace HotelManagement.Controllers
 
             reservation.TotalPrice = totalPrice;
 
-            // Aktualizacja usług
             reservation.ServicesUsed.Clear();
             foreach (var serviceId in vm.SelectedServiceIds)
             {
@@ -291,7 +288,6 @@ namespace HotelManagement.Controllers
                 });
             }
 
-            // Aktualizacja gościa
             reservation.Guest.FirstName = vm.Guest.FirstName;
             reservation.Guest.LastName = vm.Guest.LastName;
             reservation.Guest.Email = vm.Guest.Email;
@@ -303,8 +299,48 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpPost]
+        public async Task<IActionResult> CheckIn(int id)
+        {
+            var reservation = await _context.Reservations
+                .Include(r => r.Guest)
+                .Include(r => r.Room)
+                .FirstOrDefaultAsync(r => r.Id == id);
 
-        // Budowanie ViewModelu
+            if (reservation == null) return NotFound();
+
+            reservation.Status = ReservationStatus.CheckedIn;
+
+            if (reservation.Room != null)
+            {
+                reservation.Room.IsClean = false;
+                reservation.Room.IsDirty = true;
+            }
+            await _context.SaveChangesAsync();
+
+            TempData["Notification"] = $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {(reservation.Room != null ? reservation.Room.Number : "nieprzydzielony")}";
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CheckOut(int id)
+        {
+            var reservation = await _context.Reservations
+                .Include(r => r.Guest)
+                .Include(r => r.Room)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (reservation == null) return NotFound();
+
+            reservation.Status = ReservationStatus.CheckedOut;
+            await _context.SaveChangesAsync();
+
+            TempData["Notification"] = $"Wymeldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {reservation.Room.Number}";
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private async Task<ReservationViewModel> BuildReservationViewModel(Reservation reservation, Guest guest)
         {
             var roomTypes = await _context.RoomTypes.ToListAsync();
@@ -320,6 +356,7 @@ namespace HotelManagement.Controllers
             {
                 Guest = guest,
                 Reservation = reservation,
+                RoomId = reservation.RoomId,
                 RoomTypes = new SelectList(roomTypes, "Id", "Name", selectedRoomTypeId),
                 AvailableRooms = new SelectList(availableRooms, "Id", "Number"),
                 Services = services,
@@ -327,7 +364,6 @@ namespace HotelManagement.Controllers
                 PersonCount = 1
             };
         }
-
 
         private async Task<List<Room>> GetAvailableRoomsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, int? reservationId = null)
         {
@@ -347,31 +383,47 @@ namespace HotelManagement.Controllers
             return availableRooms;
         }
 
+        // DODANE DLA MODALA
+        [HttpGet]
+        public async Task<IActionResult> GetAvailableRooms(int roomTypeId, DateTime checkIn, DateTime checkOut)
+        {
+            var availableRooms = await GetAvailableRoomsAsync(roomTypeId, checkIn, checkOut);
+            var result = availableRooms.Select(r => new
+            {
+                id = r.Id,
+                number = r.Number,
+                isClean = r.IsClean
+            });
+            return Json(result);
+        }
 
-        // Index
+        [HttpGet]
+        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
         public async Task<IActionResult> Index()
         {
+            var today = DateTime.Today;
+
             var reservations = await _context.Reservations
-                .Include(r => r.Guest)
-                .Include(r => r.Room)
                 .Include(r => r.RoomType)
+                .Include(r => r.Room).ThenInclude(rt => rt.RoomType)
+                .Include(r => r.Guest)
                 .ToListAsync();
 
             ViewBag.Arrivals = reservations
-                .Where(r => r.CheckIn.Date == DateTime.Today)
+                .Where(r => r.Status == ReservationStatus.Confirmed && (r.CheckIn.Date == today || r.CheckIn.Date == today.AddDays(-1)))
                 .ToList();
 
             ViewBag.InStay = reservations
-                .Where(r => r.CheckIn.Date < DateTime.Today && r.CheckOut.Date > DateTime.Today)
+                .Where(r => r.Status == ReservationStatus.CheckedIn && r.CheckIn <= today && r.CheckOut > today)
                 .ToList();
 
             ViewBag.Departures = reservations
-                .Where(r => r.CheckOut.Date == DateTime.Today)
+                .Where(r => r.Status == ReservationStatus.CheckedIn && r.CheckOut.Date == today)
                 .ToList();
 
-            ViewBag.TodayDate = DateTime.Today.ToString("dd.MM.yyyy");
+            ViewBag.TodayDate = today.ToString("yyyy-MM-dd");
 
-            return View(reservations);
+            return View();
         }
     }
 }
