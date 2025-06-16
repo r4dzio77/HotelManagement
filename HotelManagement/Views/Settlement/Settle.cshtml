@@ -1,0 +1,103 @@
+﻿@model SettlementViewModel
+@using HotelManagement.Enums
+
+<h2>Rozliczenie rezerwacji @Model.Reservation.Id</h2>
+
+<h4>Usługi:</h4>
+<table class="table">
+    <thead><tr><th>Nazwa</th><th>Ilość</th><th>Wartość</th></tr></thead>
+    <tbody>
+        @foreach (var s in Model.ServicesUsed)
+        {
+            <tr>
+                <td>@s.Service.Name</td>
+                <td>@s.Quantity</td>
+                <td>@(s.Quantity* s.Service.Price) zł</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<form asp-action="AddService" method="post" class="row g-2">
+    <input type="hidden" asp-for="Reservation.Id" />
+    <div class="col-md-4">
+        <select asp-for="NewServiceId" asp-items="@(new SelectList(Model.AvailableServices, "Id", "Name"))" class="form-control"></select>
+    </div>
+    <div class="col-md-2">
+        <input asp-for="NewServiceQuantity" class="form-control" />
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-success">Dodaj usługę</button>
+    </div>
+</form>
+
+<h4>Płatności:</h4>
+<ul>
+    @foreach (var p in Model.Payments)
+    {
+        <li>@p.PaidAt.ToShortDateString() - @p.Amount zł (@p.Method)</li>
+    }
+</ul>
+
+<h4>Do zapłaty:</h4>
+<h3 style="color:@(Model.RemainingToPay > 0 ? "red" : "green")">@Model.RemainingToPay zł</h3>
+
+<form asp-action="Settle" method="post">
+    <input type="hidden" asp-for="Reservation.Id" />
+
+    <div class="form-group">
+        <label>Nowa płatność:</label>
+        <input asp-for="NewPaymentAmount" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Metoda płatności:</label>
+        <select asp-for="NewPaymentMethod" class="form-control">
+            @foreach (var method in Enum.GetValues(typeof(PaymentMethod)))
+            {
+                <option value="@method">@method</option>
+            }
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Typ dokumentu:</label>
+        <select asp-for="DocumentType" class="form-control">
+            @foreach (var type in Enum.GetValues(typeof(DocumentType)))
+            {
+                <option value="@type">@type</option>
+            }
+        </select>
+    </div>
+
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" asp-for="IsCompany" id="isCompanyCheckbox" />
+        <label class="form-check-label" for="isCompanyCheckbox">Faktura na firmę</label>
+    </div>
+
+    <div id="companyFields" style="display:none;">
+        <input asp-for="CompanyName" class="form-control" placeholder="Nazwa firmy" />
+        <input asp-for="CompanyNip" class="form-control" placeholder="NIP" />
+        <input asp-for="CompanyAddress" class="form-control" placeholder="Adres firmy" />
+    </div>
+
+    <div id="personalFields" style="display:none;">
+        <input asp-for="PersonalName" class="form-control" placeholder="Imię i nazwisko" />
+        <input asp-for="PersonalAddress" class="form-control" placeholder="Adres" />
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Zakończ rozliczenie</button>
+</form>
+
+<script>
+    document.getElementById("isCompanyCheckbox").addEventListener("change", function() {
+        if (this.checked) {
+            document.getElementById("companyFields").style.display = "block";
+            document.getElementById("personalFields").style.display = "none";
+        } else {
+            document.getElementById("companyFields").style.display = "none";
+            document.getElementById("personalFields").style.display = "block";
+        }
+    });
+    window.onload = () => document.getElementById("isCompanyCheckbox").dispatchEvent(new Event('change'));
+</script>

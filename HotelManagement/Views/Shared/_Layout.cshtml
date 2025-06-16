@@ -56,9 +56,7 @@
                                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                                         <li><a class="dropdown-item" asp-controller="RoomType" asp-action="Index">Typy pokoi</a></li>
                                         <li><a class="dropdown-item" asp-controller="Reservation" asp-action="Index">Rezerwacje</a></li>
-                                        <li>
-                                            <a class="dropdown-item" asp-controller="Housekeeping" asp-action="Floor" class="nav-link">Serwis pięter</a>
-                                        </li>
+                                        <li><a class="dropdown-item" asp-controller="Housekeeping" asp-action="Floor" asp-route-floor="1">Serwis pięter</a></li>
                                     </ul>
                                 </li>
                             }
