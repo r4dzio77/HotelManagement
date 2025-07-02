@@ -399,6 +399,57 @@ namespace HotelManagement.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        public async Task<IActionResult> Search(string? reservationNumber, string? firstName, string? lastName, DateTime? fromDate, DateTime? toDate)
+        {
+            var query = _context.Reservations
+                .Include(r => r.Guest)
+                .Include(r => r.Room)
+                .Include(r => r.RoomType)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(reservationNumber))
+            {
+                if (int.TryParse(reservationNumber, out int resId))
+                {
+                    query = query.Where(r => r.Id == resId);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(firstName))
+            {
+                query = query.Where(r => r.Guest.FirstName.Contains(firstName));
+            }
+
+            if (!string.IsNullOrWhiteSpace(lastName))
+            {
+                query = query.Where(r => r.Guest.LastName.Contains(lastName));
+            }
+
+            if (fromDate.HasValue)
+            {
+                query = query.Where(r => r.CheckIn >= fromDate.Value);
+            }
+
+            if (toDate.HasValue)
+            {
+                query = query.Where(r => r.CheckOut <= toDate.Value);
+            }
+
+            var filteredReservations = await query.ToListAsync();
+
+            // Przekazujemy dane do widoku oraz zachowujemy filtry w ViewBag do formularza
+            ViewBag.ReservationNumber = reservationNumber;
+            ViewBag.FirstName = firstName;
+            ViewBag.LastName = lastName;
+            ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
+            ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
+
+            return View(filteredReservations);
+        }
+
+
+        [HttpGet]
+        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
         public async Task<IActionResult> Index()
         {
             var today = DateTime.Today;
