@@ -1,6 +1,9 @@
 ﻿using HotelManagement.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
+using HotelManagement.Services; // jeśli masz serwis mailowy w tym namespace
 
 namespace HotelManagement.Controllers
 {
@@ -8,20 +11,24 @@ namespace HotelManagement.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IEmailSender _emailSender; // dodaj serwis mailowy
 
-        public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+        public AccountController(
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
+            IEmailSender emailSender) // dodaj wstrzyknięcie serwisu mailowego
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _emailSender = emailSender;
         }
 
-        // GET: /Account/Login
+        // Istniejące metody Login, Register, Logout bez zmian
         public IActionResult Login()
         {
             return View();
         }
 
-        // POST: /Account/Login
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(string email, string password)
@@ -41,13 +48,10 @@ namespace HotelManagement.Controllers
             return View();
         }
 
-        // GET: /Account/Register
         public IActionResult Register()
         {
             return View();
         }
-
-        // POST: /Account/Register
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -59,26 +63,24 @@ namespace HotelManagement.Controllers
                 return View();
             }
 
-            // Tworzymy nowego użytkownika, ale nie przypisujemy FullName
             var user = new ApplicationUser
             {
-                UserName = email,  // Email jako UserName
+                UserName = email,
                 Email = email,
                 FirstName = firstName,
                 LastName = lastName,
-                EmailConfirmed = false // Na początek ustawiamy false, aby użytkownik musiał potwierdzić e-mail
+                EmailConfirmed = false
             };
 
             var result = await _userManager.CreateAsync(user, password);
 
             if (result.Succeeded)
             {
-                // Po udanej rejestracji logujemy użytkownika
+                await _userManager.AddToRoleAsync(user, "Klient");
                 await _signInManager.SignInAsync(user, isPersistent: false);
                 return RedirectToAction("Index", "Home");
             }
 
-            // Jeśli wystąpiły błędy, dodajemy je do modelu
             foreach (var error in result.Errors)
             {
                 ModelState.AddModelError(string.Empty, error.Description);
@@ -87,17 +89,123 @@ namespace HotelManagement.Controllers
             return View();
         }
 
-
-
-
-
-
-
         // POST: /Account/Logout
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
             return RedirectToAction("Login", "Account");
         }
+
+
+
+        // GET: /Account/RequestPasswordReset
+        [HttpGet]
+        public IActionResult RequestPasswordReset()
+        {
+            return View();
+        }
+
+        // POST: /Account/RequestPasswordReset
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RequestPasswordReset(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                ModelState.AddModelError("", "Podaj adres e-mail.");
+                return View();
+            }
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                // Nie informujemy, że użytkownik nie istnieje (bezpieczeństwo)
+                return RedirectToAction(nameof(PasswordResetConfirmation));
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var resetLink = Url.Action(nameof(ResetPassword), "Account", new { token, email = user.Email }, Request.Scheme);
+
+            await _emailSender.SendEmailAsync(
+                user.Email,
+                "Reset hasła",
+                $"Kliknij tutaj, aby zresetować hasło: <a href='{resetLink}'>Resetuj hasło</a>");
+
+            return RedirectToAction(nameof(PasswordResetConfirmation));
+        }
+
+        // GET: /Account/PasswordResetConfirmation
+        public IActionResult PasswordResetConfirmation()
+        {
+            return View();
+        }
+
+        // GET: /Account/ResetPassword
+        [HttpGet]
+        public IActionResult ResetPassword(string token, string email)
+        {
+            if (token == null || email == null)
+            {
+                return BadRequest("Błędny link resetu hasła.");
+            }
+
+            var model = new ResetPasswordViewModel { Token = token, Email = email };
+            return View(model);
+        }
+
+        // POST: /Account/ResetPassword
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+        {
+            if (!ModelState.IsValid)
+                return View(model);
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+            {
+                // Nie informujemy, że użytkownik nie istnieje
+                return RedirectToAction(nameof(ResetPasswordConfirmation));
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.Password);
+            if (result.Succeeded)
+            {
+                return RedirectToAction(nameof(ResetPasswordConfirmation));
+            }
+
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError("", error.Description);
+            }
+
+            return View(model);
+        }
+
+        // GET: /Account/ResetPasswordConfirmation
+        public IActionResult ResetPasswordConfirmation()
+        {
+            return View();
+        }
+    }
+
+    // Model widoku dla resetu hasła
+    public class ResetPasswordViewModel
+    {
+        [Required]
+        public string Token { get; set; }
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; }
+
+        [Required]
+        [DataType(DataType.Password)]
+        [MinLength(6, ErrorMessage = "Hasło musi mieć co najmniej 6 znaków.")]
+        public string Password { get; set; }
+
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "Hasła muszą się zgadzać.")]
+        public string ConfirmPassword { get; set; }
     }
 }
