@@ -38,6 +38,9 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+builder.Services.AddTransient<IEmailSender, EmailSender>();
+
+
 // Dodajemy kontrolery i widoki
 builder.Services.AddControllersWithViews();
 

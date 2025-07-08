@@ -36,41 +36,9 @@
                             <a class="nav-link" asp-controller="Home" asp-action="Index">Strona główna</a>
                         </li>
                     </ul>
-                    <ul class="navbar-nav">
-                        @if (SignInManager.IsSignedIn(User))
-                        {
-                            <li class="nav-item">
-                                <span class="nav-link">Witaj, @currentUser.FirstName!</span>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Account" asp-action="Logout">Wyloguj</a>
-                            </li>
 
-                            @if (User.IsInRole("Admin") || User.IsInRole("Kierownik") || User.IsInRole("Pracownik"))
-                            {
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
-                                       data-bs-toggle="dropdown" aria-expanded="false">
-                                        Zarządzanie
-                                    </a>
-                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                        <li><a class="dropdown-item" asp-controller="RoomType" asp-action="Index">Typy pokoi</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Reservation" asp-action="Index">Rezerwacje</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Housekeeping" asp-action="Floor" asp-route-floor="1">Serwis pięter</a></li>
-                                    </ul>
-                                </li>
-                            }
-                        }
-                        else
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Account" asp-action="Login">Zaloguj się</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Account" asp-action="Register">Rejestracja</a>
-                            </li>
-                        }
-                    </ul>
+                    @* Wywołanie partiala zarządzającego logowaniem/wylogowaniem *@
+                    @await Html.PartialAsync("_LoginPartial")
                 </div>
             </div>
         </nav>

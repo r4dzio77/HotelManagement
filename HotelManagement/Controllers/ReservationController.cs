@@ -401,43 +401,56 @@ namespace HotelManagement.Controllers
         [Authorize(Roles = "Kierownik,Admin,Pracownik")]
         public async Task<IActionResult> Search(string? reservationNumber, string? firstName, string? lastName, DateTime? fromDate, DateTime? toDate)
         {
-            var query = _context.Reservations
-                .Include(r => r.Guest)
-                .Include(r => r.Room)
-                .Include(r => r.RoomType)
-                .AsQueryable();
+            bool hasFilter = !string.IsNullOrWhiteSpace(reservationNumber)
+                || !string.IsNullOrWhiteSpace(firstName)
+                || !string.IsNullOrWhiteSpace(lastName)
+                || fromDate.HasValue
+                || toDate.HasValue;
 
-            if (!string.IsNullOrWhiteSpace(reservationNumber))
+            List<Reservation> filteredReservations = new List<Reservation>();
+
+            if (hasFilter)
             {
-                if (int.TryParse(reservationNumber, out int resId))
+                var query = _context.Reservations
+                    .Include(r => r.Guest)
+                    .Include(r => r.Room)
+                    .Include(r => r.RoomType)
+                    .AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(reservationNumber))
                 {
-                    query = query.Where(r => r.Id == resId);
+                    if (int.TryParse(reservationNumber, out int resId))
+                    {
+                        query = query.Where(r => r.Id == resId);
+                    }
                 }
+
+                if (!string.IsNullOrWhiteSpace(firstName))
+                {
+                    var lowerFirstName = firstName.ToLower();
+                    query = query.Where(r => r.Guest.FirstName.ToLower().Contains(lowerFirstName));
+                }
+
+                if (!string.IsNullOrWhiteSpace(lastName))
+                {
+                    var lowerLastName = lastName.ToLower();
+                    query = query.Where(r => r.Guest.LastName.ToLower().Contains(lowerLastName));
+                }
+
+
+                if (fromDate.HasValue)
+                {
+                    query = query.Where(r => r.CheckIn.Date == fromDate.Value.Date);
+                }
+
+                if (toDate.HasValue)
+                {
+                    query = query.Where(r => r.CheckOut.Date == toDate.Value.Date);
+                }
+
+                filteredReservations = await query.ToListAsync();
             }
 
-            if (!string.IsNullOrWhiteSpace(firstName))
-            {
-                query = query.Where(r => r.Guest.FirstName.Contains(firstName));
-            }
-
-            if (!string.IsNullOrWhiteSpace(lastName))
-            {
-                query = query.Where(r => r.Guest.LastName.Contains(lastName));
-            }
-
-            if (fromDate.HasValue)
-            {
-                query = query.Where(r => r.CheckIn >= fromDate.Value);
-            }
-
-            if (toDate.HasValue)
-            {
-                query = query.Where(r => r.CheckOut <= toDate.Value);
-            }
-
-            var filteredReservations = await query.ToListAsync();
-
-            // Przekazujemy dane do widoku oraz zachowujemy filtry w ViewBag do formularza
             ViewBag.ReservationNumber = reservationNumber;
             ViewBag.FirstName = firstName;
             ViewBag.LastName = lastName;
@@ -446,6 +459,8 @@ namespace HotelManagement.Controllers
 
             return View(filteredReservations);
         }
+
+
 
 
         [HttpGet]

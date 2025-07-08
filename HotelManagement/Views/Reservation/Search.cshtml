@@ -8,12 +8,25 @@
     <input type="text" name="lastName" placeholder="Nazwisko" value="@ViewBag.LastName" class="form-control mr-2" />
     <input type="date" name="fromDate" value="@ViewBag.FromDate" class="form-control mr-2" />
     <input type="date" name="toDate" value="@ViewBag.ToDate" class="form-control mr-2" />
-    <button type="submit" class="btn btn-primary">Szukaj</button>
+    <button type="submit" class="btn btn-primary mr-2">Szukaj</button>
+    <a asp-action="Search" class="btn btn-secondary">Reset</a>
 </form>
 
-@if (!Model.Any())
+@{
+    bool hasFilter = !string.IsNullOrEmpty((string)ViewBag.ReservationNumber)
+                     || !string.IsNullOrEmpty((string)ViewBag.FirstName)
+                     || !string.IsNullOrEmpty((string)ViewBag.LastName)
+                     || !string.IsNullOrEmpty((string)ViewBag.FromDate)
+                     || !string.IsNullOrEmpty((string)ViewBag.ToDate);
+}
+
+@if (!hasFilter)
 {
-    <p>Brak wyników.</p>
+    <p>Proszę podać kryteria wyszukiwania.</p>
+}
+else if (!Model.Any())
+{
+    <p>Brak wyników dla podanych kryteriów.</p>
 }
 else
 {
