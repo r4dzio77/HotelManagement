@@ -11,7 +11,7 @@ namespace HotelManagement.Models
         [NotMapped]
         public string FullName => $"{FirstName} {LastName}";
 
-    
+        public string? Preferences { get; set; }
         public int? GuestId { get; set; }
 
         [ForeignKey("GuestId")]

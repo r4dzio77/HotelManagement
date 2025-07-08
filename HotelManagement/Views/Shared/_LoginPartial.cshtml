@@ -20,6 +20,9 @@
             </span>
         </li>
         <li class="nav-item">
+            <a class="nav-link" asp-controller="AccountSettings" asp-action="Index">Ustawienia konta</a>
+        </li>
+        <li class="nav-item">
             <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="btn btn-link nav-link" style="display:inline; padding:0;">
