@@ -43,7 +43,7 @@ builder.Services.AddTransient<IEmailSender, EmailSender>();
 
 // Dodajemy kontrolery i widoki
 builder.Services.AddControllersWithViews();
-
+builder.Services.AddScoped<HotelManagement.Services.AvailabilityService>();
 builder.Services.AddScoped<ReservationPriceCalculator>();
 builder.Services.AddScoped<RoomAllocatorService>();
 
