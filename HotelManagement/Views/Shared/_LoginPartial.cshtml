@@ -51,11 +51,11 @@
             @* Grafik w zależności od roli *@
             @if (User.IsInRole("Kierownik"))
             {
-                            <a class="btn btn-outline-success ms-2" asp-controller="Shift" asp-action="ManageShifts">Grafik</a>
+                            <a class="btn btn-outline-success ms-2" asp-controller="Shift" asp-action="ManageSchedule">Grafik</a>
             }
             else if (User.IsInRole("Pracownik"))
             {
-                            <a class="btn btn-outline-success ms-2" asp-controller="Shift" asp-action="MyAvailability">Grafik</a>
+                            <a class="btn btn-outline-success ms-2" asp-controller="Shift" asp-action="MySchedule">Grafik</a>
             }
         }
         </ul>

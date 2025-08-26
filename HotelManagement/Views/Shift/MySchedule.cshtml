@@ -1,0 +1,47 @@
+﻿@model List<HotelManagement.Models.WorkShift>
+@{
+    ViewData["Title"] = "Mój grafik";
+    var month = (DateTime)ViewBag.Month;
+    var isPublished = (bool)ViewBag.IsPublished;
+}
+
+<h2>@ViewData["Title"] – @month.ToString("MMMM yyyy")</h2>
+
+<form method="get" asp-action="MySchedule" class="mb-3">
+    <label for="month">Wybierz miesiąc:</label>
+    <input type="month" name="month" value="@month.ToString("yyyy-MM")" />
+    <button class="btn btn-sm btn-primary">Pokaż</button>
+</form>
+
+@if (!isPublished)
+{
+        <div class="alert alert-warning">
+            Grafik na wybrany miesiąc nie został jeszcze udostępniony przez kierownika.
+        </div>
+}
+else if (!Model.Any())
+{
+        <div class="alert alert-info">
+            Brak przypisanych zmian na ten miesiąc.
+        </div>
+}
+else
+{
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Typ zmiany</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var shift in Model.OrderBy(s => s.Date))
+            {
+                    <tr>
+                        <td>@shift.Date.ToString("yyyy-MM-dd")</td>
+                        <td>@shift.ShiftType</td>
+                    </tr>
+            }
+            </tbody>
+        </table>
+}

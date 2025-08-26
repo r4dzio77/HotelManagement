@@ -1,10 +1,8 @@
 ﻿using HotelManagement.Data;
 using HotelManagement.Models;
-using HotelManagement.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Controllers
@@ -12,143 +10,146 @@ namespace HotelManagement.Controllers
     [Authorize]
     public class ShiftController : Controller
     {
-        private readonly UserManager<ApplicationUser> _userManager;
         private readonly HotelManagementContext _context;
-        private readonly ICompositeViewEngine _viewEngine;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        // TYLKO JEDEN KONSTRUKTOR
-        public ShiftController(UserManager<ApplicationUser> userManager, HotelManagementContext context, ICompositeViewEngine viewEngine)
+        public ShiftController(HotelManagementContext context, UserManager<ApplicationUser> userManager)
         {
-            _userManager = userManager;
             _context = context;
-            _viewEngine = viewEngine;
+            _userManager = userManager;
         }
 
-        [Authorize(Roles = "Pracownik,Kierownik")]
-        [HttpGet]
-        public async Task<IActionResult> MyAvailability()
+        [Authorize(Roles = "Kierownik")]
+        public async Task<IActionResult> ManageSchedule(DateTime? month)
         {
-            var user = await _userManager.GetUserAsync(User);
-            var preferences = await _context.ShiftPreferences
-                .Where(sp => sp.UserId == user.Id)
-                .OrderBy(sp => sp.Date)
+            var firstDay = month.HasValue
+                ? new DateTime(month.Value.Year, month.Value.Month, 1)
+                : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+            var lastDay = firstDay.AddMonths(1);
+
+            var shifts = await _context.WorkShifts
+                .Include(ws => ws.User)
+                .Where(ws => ws.Date >= firstDay && ws.Date < lastDay)
                 .ToListAsync();
 
-            return View("~/Views/Shift/MyAvailability.cshtml", preferences);
+            var employees = await _userManager.GetUsersInRoleAsync("Pracownik");
+            ViewBag.Employees = employees;
+            ViewBag.Month = firstDay;
+
+            var isPublished = await _context.PublishedSchedules
+                .AnyAsync(p => p.Year == firstDay.Year && p.Month == firstDay.Month && p.IsPublished);
+            ViewBag.IsPublished = isPublished;
+
+            return View("ManageSchedule", shifts);
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignShift(DateTime date, string shiftType, string userId)
+        {
+            if (string.IsNullOrEmpty(shiftType) || string.IsNullOrEmpty(userId))
+            {
+                ModelState.AddModelError("", "Wszystkie pola są wymagane.");
+            }
+
+            var exists = await _context.WorkShifts
+                .AnyAsync(ws => ws.Date.Date == date.Date && ws.ShiftType == shiftType && ws.UserId == userId);
+
+            if (exists)
+            {
+                ModelState.AddModelError("", "Ten pracownik jest już przypisany do tej zmiany.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01") });
+            }
+
+            var shift = new WorkShift
+            {
+                Date = DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified),
+                ShiftType = shiftType,
+                UserId = userId
+            };
+
+            _context.WorkShifts.Add(shift);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01") });
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteShift(int id)
+        {
+            var shift = await _context.WorkShifts.FindAsync(id);
+            if (shift != null)
+            {
+                _context.WorkShifts.Remove(shift);
+                await _context.SaveChangesAsync();
+            }
+            return RedirectToAction("ManageSchedule", new { month = shift?.Date.ToString("yyyy-MM-01") });
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PublishSchedule(int year, int month)
+        {
+            var already = await _context.PublishedSchedules
+                .FirstOrDefaultAsync(p => p.Year == year && p.Month == month);
+
+            if (already == null)
+            {
+                _context.PublishedSchedules.Add(new PublishedSchedule
+                {
+                    Year = year,
+                    Month = month,
+                    IsPublished = true,
+                    PublishedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                already.IsPublished = true;
+                already.PublishedAt = DateTime.UtcNow;
+                _context.PublishedSchedules.Update(already);
+            }
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction("ManageSchedule", new { month = new DateTime(year, month, 1).ToString("yyyy-MM-01") });
         }
 
         [Authorize(Roles = "Pracownik,Kierownik")]
-        [HttpPost]
-        public async Task<IActionResult> UpdatePreference(DateTime date, bool cannotWorkDay, bool cannotWorkNight)
+        public async Task<IActionResult> MySchedule(DateTime? month)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
 
-            var preference = await _context.ShiftPreferences
-                .FirstOrDefaultAsync(sp => sp.UserId == user.Id && sp.Date.Date == date.Date);
+            var target = month ?? DateTime.Today;
+            var firstDay = new DateTime(target.Year, target.Month, 1);
+            var lastDay = firstDay.AddMonths(1);
 
-            if (preference == null)
+            var isPublished = await _context.PublishedSchedules
+                .AnyAsync(p => p.Year == firstDay.Year && p.Month == firstDay.Month && p.IsPublished);
+
+            if (!isPublished)
             {
-                preference = new ShiftPreference
-                {
-                    UserId = user.Id,
-                    Date = date,
-                    CannotWorkDay = cannotWorkDay,
-                    CannotWorkNight = cannotWorkNight
-                };
-                _context.ShiftPreferences.Add(preference);
-            }
-            else
-            {
-                preference.CannotWorkDay = cannotWorkDay;
-                preference.CannotWorkNight = cannotWorkNight;
+                ViewBag.Month = firstDay;
+                ViewBag.IsPublished = false;
+                return View("MySchedule", new List<WorkShift>());
             }
 
-            await _context.SaveChangesAsync();
-            TempData["Message"] = "Dyspozycja została zapisana.";
-
-            return RedirectToAction(nameof(MyAvailability));
-        }
-
-        [Authorize(Roles = "Kierownik")]
-        public async Task<IActionResult> ManageShifts()
-        {
-            var employees = await _userManager.GetUsersInRoleAsync("Pracownik");
-            var preferences = await _context.ShiftPreferences
-                .Include(sp => sp.User)
+            var shifts = await _context.WorkShifts
+                .Where(ws => ws.UserId == user.Id && ws.Date >= firstDay && ws.Date < lastDay)
                 .ToListAsync();
 
-            var model = new ManageShiftsViewModel
-            {
-                Employees = employees,
-                Preferences = preferences
-            };
-
-            return View("~/Views/Shift/ManageShifts.cshtml", model);
-        }
-
-        [Authorize(Roles = "Kierownik")]
-        [HttpGet]
-        public IActionResult AddEmployee()
-        {
-            return View("~/Views/Shift/AddEmployee.cshtml");
-        }
-
-        [Authorize(Roles = "Kierownik")]
-        [HttpPost]
-        public async Task<IActionResult> AddEmployee(AddEmployeeViewModel model)
-        {
-            if (!ModelState.IsValid) return View("~/Views/Shift/AddEmployee.cshtml", model);
-
-            var user = new ApplicationUser
-            {
-                UserName = model.Email,
-                Email = model.Email,
-                FirstName = model.FirstName,
-                LastName = model.LastName
-            };
-
-            var result = await _userManager.CreateAsync(user, model.Password);
-            if (!result.Succeeded)
-            {
-                foreach (var error in result.Errors)
-                    ModelState.AddModelError("", error.Description);
-                return View("~/Views/Shift/AddEmployee.cshtml", model);
-            }
-
-            await _userManager.AddToRoleAsync(user, "Pracownik");
-            TempData["Message"] = "Pracownik został dodany.";
-            return RedirectToAction(nameof(ManageShifts));
-        }
-
-        // Tymczasowa metoda testowa widoków
-        [Authorize(Roles = "Kierownik")]
-        [HttpGet]
-        public IActionResult TestViewDetection()
-        {
-            var views = new string[]
-            {
-                "~/Views/Shift/MyAvailability.cshtml",
-                "~/Views/Shift/ManageShifts.cshtml",
-                "~/Views/Shift/AddEmployee.cshtml"
-            };
-
-            var results = new List<string>();
-
-            foreach (var viewPath in views)
-            {
-                var viewResult = _viewEngine.GetView(executingFilePath: null, viewPath, isMainPage: true);
-                if (viewResult.Success)
-                {
-                    results.Add($"{viewPath} – znaleziono!");
-                }
-                else
-                {
-                    results.Add($"{viewPath} – NIE znaleziono!");
-                }
-            }
-
-            return Content(string.Join("\n", results));
+            ViewBag.Month = firstDay;
+            ViewBag.IsPublished = true;
+            return View("MySchedule", shifts);
         }
     }
 }

@@ -20,11 +20,14 @@ namespace HotelManagement.Data
         public DbSet<ServiceUsage> ServiceUsages { get; set; }
         public DbSet<LoyaltyPoint> LoyaltyPoints { get; set; }
         public DbSet<WorkShift> WorkShifts { get; set; }
-        public DbSet<ShiftPreference> ShiftPreferences { get; set; } // nowy DbSet
+        public DbSet<ShiftPreference> ShiftPreferences { get; set; }
         public DbSet<Comment> Comments { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Guest> Guests { get; set; }
         public DbSet<Company> Companies { get; set; }
+
+        // ✅ DODAJ TO:
+        public DbSet<PublishedSchedule> PublishedSchedules { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -76,21 +79,21 @@ namespace HotelManagement.Data
                 .WithOne(d => d.Reservation)
                 .HasForeignKey(d => d.ReservationId);
 
-            // 🔧 Guest ↔ Company
+            // Guest ↔ Company
             modelBuilder.Entity<Guest>()
                 .HasOne(g => g.Company)
                 .WithMany(c => c.Guests)
                 .HasForeignKey(g => g.CompanyId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // 🔧 ApplicationUser ↔ WorkShift
+            // ApplicationUser ↔ WorkShift
             modelBuilder.Entity<WorkShift>()
                 .HasOne(ws => ws.User)
                 .WithMany(u => u.Shifts)
                 .HasForeignKey(ws => ws.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // 🔧 ApplicationUser ↔ ShiftPreference
+            // ApplicationUser ↔ ShiftPreference
             modelBuilder.Entity<ShiftPreference>()
                 .HasOne(sp => sp.User)
                 .WithMany(u => u.ShiftPreferences)
