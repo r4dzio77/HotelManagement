@@ -3,6 +3,7 @@ using System;
 using HotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HotelManagement.Migrations
 {
     [DbContext(typeof(HotelManagementContext))]
-    partial class HotelManagementContextModelSnapshot : ModelSnapshot
+    [Migration("20250825214339_AddPreferencesColumn")]
+    partial class AddPreferencesColumn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.13");
@@ -474,43 +477,16 @@ namespace HotelManagement.Migrations
                     b.ToTable("ServiceUsages");
                 });
 
-            modelBuilder.Entity("HotelManagement.Models.ShiftPreference", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("CannotWorkDay")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("CannotWorkNight")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("ShiftPreferences");
-                });
-
             modelBuilder.Entity("HotelManagement.Models.WorkShift", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("Date")
+                    b.Property<DateTime>("EndTime")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ShiftType")
-                        .IsRequired()
+                    b.Property<DateTime>("StartTime")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("UserId")
@@ -795,17 +771,6 @@ namespace HotelManagement.Migrations
                     b.Navigation("Service");
                 });
 
-            modelBuilder.Entity("HotelManagement.Models.ShiftPreference", b =>
-                {
-                    b.HasOne("HotelManagement.Models.ApplicationUser", "User")
-                        .WithMany("ShiftPreferences")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("HotelManagement.Models.WorkShift", b =>
                 {
                     b.HasOne("HotelManagement.Models.ApplicationUser", "User")
@@ -875,8 +840,6 @@ namespace HotelManagement.Migrations
                     b.Navigation("LoyaltyPoints");
 
                     b.Navigation("Reservations");
-
-                    b.Navigation("ShiftPreferences");
 
                     b.Navigation("Shifts");
                 });

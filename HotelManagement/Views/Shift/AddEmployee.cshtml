@@ -1,0 +1,39 @@
+﻿@model HotelManagement.ViewModels.AddEmployeeViewModel
+@{
+    ViewData["Title"] = "Dodaj pracownika";
+}
+
+<h2>Dodaj pracownika</h2>
+
+<form asp-action="AddEmployee" method="post">
+    <div class="mb-3">
+        <label asp-for="FirstName" class="form-label"></label>
+        <input asp-for="FirstName" class="form-control" />
+        <span asp-validation-for="FirstName" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="LastName" class="form-label"></label>
+        <input asp-for="LastName" class="form-control" />
+        <span asp-validation-for="LastName" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Password" class="form-label"></label>
+        <input asp-for="Password" class="form-control" type="password" />
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">Dodaj pracownika</button>
+</form>
+
+@section Scripts {
+        <partial name="_ValidationScriptsPartial" />
+}
+

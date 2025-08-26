@@ -17,6 +17,7 @@ namespace HotelManagement.Controllers
             _userManager = userManager;
         }
 
+        // GET: /AccountSettings
         [HttpGet]
         public async Task<IActionResult> Index()
         {
@@ -35,38 +36,44 @@ namespace HotelManagement.Controllers
             return View(model);
         }
 
+        // POST: Aktualizacja telefonu z modal
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Index(AccountSettingsViewModel model)
+        public async Task<IActionResult> UpdatePhone(AccountSettingsViewModel model)
         {
-            if (!ModelState.IsValid) return View(model);
-
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
 
-            user.FirstName = model.FirstName;
-            user.LastName = model.LastName;
             user.PhoneNumber = model.PhoneNumber;
-            user.Preferences = model.Preferences;
+            await _userManager.UpdateAsync(user);
 
-            var result = await _userManager.UpdateAsync(user);
-            if (!result.Succeeded)
-            {
-                foreach (var error in result.Errors)
-                    ModelState.AddModelError("", error.Description);
-                return View(model);
-            }
-
-            ViewBag.Message = "Dane zostały zaktualizowane";
-            return View(model);
+            TempData["Message"] = "Telefon został zaktualizowany";
+            return RedirectToAction(nameof(Index));
         }
 
+        // POST: Aktualizacja preferencji z modal
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdatePreferences(AccountSettingsViewModel model)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            user.Preferences = model.Preferences;
+            await _userManager.UpdateAsync(user);
+
+            TempData["Message"] = "Preferencje zostały zaktualizowane";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // GET: /AccountSettings/ChangePassword
         [HttpGet]
         public IActionResult ChangePassword()
         {
             return View();
         }
 
+        // POST: /AccountSettings/ChangePassword
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
@@ -85,9 +92,8 @@ namespace HotelManagement.Controllers
                 return View(model);
             }
 
-            ViewBag.Message = "Hasło zostało zmienione pomyślnie.";
-            return View();
+            TempData["Message"] = "Hasło zostało zmienione pomyślnie.";
+            return RedirectToAction(nameof(Index));
         }
-
     }
 }
