@@ -1,0 +1,54 @@
+﻿@model List<HotelManagement.Models.ShiftPreference>
+@{
+    ViewData["Title"] = "Moja dyspozycyjność";
+}
+
+<h2>Moja dyspozycyjność</h2>
+
+@if (TempData["Message"] != null)
+{
+        <div class="alert alert-success">@TempData["Message"]</div>
+}
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Nie mogę pracować w dzień</th>
+            <th>Nie mogę pracować w nocy</th>
+            <th>Akcja</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var pref in Model)
+        {
+            <tr>
+                <td>@pref.Date.ToString("yyyy-MM-dd")</td>
+                <td>@pref.CannotWorkDay</td>
+                <td>@pref.CannotWorkNight</td>
+                <td>
+                    <form asp-action="UpdatePreference" method="post" class="d-flex align-items-center">
+                        <input type="hidden" name="date" value="@pref.Date.ToString("yyyy-MM-dd")" />
+                        <input type="checkbox" name="cannotWorkDay" @(pref.CannotWorkDay ? "checked" : "") class="form-check-input me-2"/>
+                        <input type="checkbox" name="cannotWorkNight" @(pref.CannotWorkNight ? "checked" : "") class="form-check-input me-2"/>
+                        <button type="submit" class="btn btn-primary btn-sm">Zapisz</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h3>Dodaj nową dyspozycję</h3>
+<form asp-action="UpdatePreference" method="post">
+    <input type="date" name="date" class="form-control mb-2" required />
+    <div class="form-check">
+        <input type="checkbox" name="cannotWorkDay" class="form-check-input" />
+        <label class="form-check-label">Nie mogę pracować w dzień</label>
+    </div>
+    <div class="form-check">
+        <input type="checkbox" name="cannotWorkNight" class="form-check-input" />
+        <label class="form-check-label">Nie mogę pracować w nocy</label>
+    </div>
+    <button type="submit" class="btn btn-success mt-2">Dodaj dyspozycję</button>
+</form>

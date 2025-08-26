@@ -20,6 +20,10 @@ namespace HotelManagement.Models
         public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
         public ICollection<Comment> Comments { get; set; } = new List<Comment>();
         public ICollection<WorkShift> Shifts { get; set; } = new List<WorkShift>();
+
+        // 🔧 dodajemy ShiftPreferences
+        public ICollection<ShiftPreference> ShiftPreferences { get; set; } = new List<ShiftPreference>();
+
         public ICollection<LoyaltyPoint> LoyaltyPoints { get; set; } = new List<LoyaltyPoint>();
     }
 }
