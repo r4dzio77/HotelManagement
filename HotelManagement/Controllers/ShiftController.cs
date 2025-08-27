@@ -12,11 +12,81 @@ namespace HotelManagement.Controllers
     {
         private readonly HotelManagementContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
 
-        public ShiftController(HotelManagementContext context, UserManager<ApplicationUser> userManager)
+        public ShiftController(HotelManagementContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _context = context;
             _userManager = userManager;
+            _roleManager = roleManager;
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        public async Task<IActionResult> Employees()
+        {
+            var employees = await _userManager.GetUsersInRoleAsync("Pracownik");
+            return View(employees);
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddEmployee(string firstName, string lastName, string email, string password)
+        {
+            if (string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName) ||
+                string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+            {
+                TempData["Error"] = "Wszystkie pola są wymagane.";
+                return RedirectToAction("Employees");
+            }
+
+            var existing = await _userManager.FindByEmailAsync(email);
+            if (existing != null)
+            {
+                TempData["Error"] = "Użytkownik z tym adresem e-mail już istnieje.";
+                return RedirectToAction("Employees");
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                FirstName = firstName,
+                LastName = lastName,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, password);
+            if (result.Succeeded)
+            {
+                if (!await _roleManager.RoleExistsAsync("Pracownik"))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole("Pracownik"));
+                }
+
+                await _userManager.AddToRoleAsync(user, "Pracownik");
+                TempData["Message"] = "Dodano nowego pracownika.";
+            }
+            else
+            {
+                TempData["Error"] = string.Join("; ", result.Errors.Select(e => e.Description));
+            }
+
+            return RedirectToAction("Employees");
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteEmployee(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user != null)
+            {
+                await _userManager.DeleteAsync(user);
+                TempData["Message"] = "Pracownik został usunięty.";
+            }
+            return RedirectToAction("Employees");
         }
 
         [Authorize(Roles = "Kierownik")]
@@ -81,6 +151,35 @@ namespace HotelManagement.Controllers
         }
 
         [Authorize(Roles = "Kierownik")]
+        public async Task<IActionResult> EditShift(int id)
+        {
+            var shift = await _context.WorkShifts.FindAsync(id);
+            if (shift == null) return NotFound();
+
+            var employees = await _userManager.GetUsersInRoleAsync("Pracownik");
+            ViewBag.Employees = employees;
+            ViewBag.ShiftToEdit = shift;
+            return RedirectToAction("ManageSchedule", new { month = shift.Date.ToString("yyyy-MM-01") });
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditShift(int id, string shiftType, string userId)
+        {
+            var shift = await _context.WorkShifts.FindAsync(id);
+            if (shift == null) return NotFound();
+
+            shift.ShiftType = shiftType;
+            shift.UserId = userId;
+
+            _context.WorkShifts.Update(shift);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("ManageSchedule", new { month = shift.Date.ToString("yyyy-MM-01") });
+        }
+
+        [Authorize(Roles = "Kierownik")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteShift(int id)
@@ -99,10 +198,10 @@ namespace HotelManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> PublishSchedule(int year, int month)
         {
-            var already = await _context.PublishedSchedules
+            var record = await _context.PublishedSchedules
                 .FirstOrDefaultAsync(p => p.Year == year && p.Month == month);
 
-            if (already == null)
+            if (record == null)
             {
                 _context.PublishedSchedules.Add(new PublishedSchedule
                 {
@@ -114,9 +213,9 @@ namespace HotelManagement.Controllers
             }
             else
             {
-                already.IsPublished = true;
-                already.PublishedAt = DateTime.UtcNow;
-                _context.PublishedSchedules.Update(already);
+                record.IsPublished = true;
+                record.PublishedAt = DateTime.UtcNow;
+                _context.PublishedSchedules.Update(record);
             }
 
             await _context.SaveChangesAsync();
