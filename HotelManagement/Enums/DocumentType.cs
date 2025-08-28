@@ -3,7 +3,8 @@
     public enum DocumentType
     {
         Invoice,
-        Receipt
+        Receipt,
+        InvoiceForeign,
+        InvoicePersonal
     }
-
 }

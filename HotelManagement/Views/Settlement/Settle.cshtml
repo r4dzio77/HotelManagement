@@ -1,103 +1,181 @@
 ﻿@model SettlementViewModel
 @using HotelManagement.Enums
 
-<h2>Rozliczenie rezerwacji @Model.Reservation.Id</h2>
+@{
+    ViewData["Title"] = $"Rozliczenie - Rezerwacja #{Model.Reservation.Id}";
+    var guest = Model.Reservation.Guest;
+    var document = Model.Reservation.Documents?.FirstOrDefault();
+}
 
-<h4>Usługi:</h4>
-<table class="table">
-    <thead><tr><th>Nazwa</th><th>Ilość</th><th>Wartość</th></tr></thead>
-    <tbody>
-        @foreach (var s in Model.ServicesUsed)
-        {
-            <tr>
-                <td>@s.Service.Name</td>
-                <td>@s.Quantity</td>
-                <td>@(s.Quantity* s.Service.Price) zł</td>
-            </tr>
-        }
-    </tbody>
-</table>
+<div class="container my-4">
+    <h2>Rachunek dla: @guest.FirstName @guest.LastName</h2>
+    <p>Rezerwacja #@Model.Reservation.Id | Okres: @Model.Reservation.CheckIn.ToString("dd.MM.yyyy") - @Model.Reservation.CheckOut.ToString("dd.MM.yyyy")</p>
 
-<form asp-action="AddService" method="post" class="row g-2">
-    <input type="hidden" asp-for="Reservation.Id" />
-    <div class="col-md-4">
-        <select asp-for="NewServiceId" asp-items="@(new SelectList(Model.AvailableServices, "Id", "Name"))" class="form-control"></select>
-    </div>
-    <div class="col-md-2">
-        <input asp-for="NewServiceQuantity" class="form-control" />
-    </div>
-    <div class="col-md-2">
-        <button type="submit" class="btn btn-success">Dodaj usługę</button>
-    </div>
-</form>
-
-<h4>Płatności:</h4>
-<ul>
-    @foreach (var p in Model.Payments)
+    @if (document != null)
     {
-        <li>@p.PaidAt.ToShortDateString() - @p.Amount zł (@p.Method)</li>
+        var file = document.Number.Replace("/", "-") + ".pdf";
+        var folder = document.Type == DocumentType.Receipt ? "receipts" : "invoices";
+        var path = $"/{folder}/{file}";
+            <div class="alert alert-success d-flex justify-content-between align-items-center">
+                <span>Dokument został wygenerowany: <strong>@document.Number</strong></span>
+                <a href="@path" class="btn btn-outline-dark" target="_blank" download>📄 Pobierz PDF</a>
+            </div>
     }
-</ul>
 
-<h4>Do zapłaty:</h4>
-<h3 style="color:@(Model.RemainingToPay > 0 ? "red" : "green")">@Model.RemainingToPay zł</h3>
+    <hr />
 
-<form asp-action="Settle" method="post">
-    <input type="hidden" asp-for="Reservation.Id" />
-
-    <div class="form-group">
-        <label>Nowa płatność:</label>
-        <input asp-for="NewPaymentAmount" class="form-control" />
-    </div>
-
-    <div class="form-group">
-        <label>Metoda płatności:</label>
-        <select asp-for="NewPaymentMethod" class="form-control">
-            @foreach (var method in Enum.GetValues(typeof(PaymentMethod)))
+    <h4>Pozycje na rachunku</h4>
+    <table class="table table-bordered">
+        <thead><tr><th>Usługa</th><th>Ilość</th><th>Cena jednostkowa</th><th>Wartość</th></tr></thead>
+        <tbody>
+            <tr><td>Nocleg</td><td>1</td><td>@Model.Reservation.TotalPrice zł</td><td>@Model.Reservation.TotalPrice zł</td></tr>
+            @if (Model.Reservation.Breakfast)
             {
-                <option value="@method">@method</option>
+                    <tr><td>Śniadanie</td><td>1</td><td>40 zł</td><td>40 zł</td></tr>
             }
-        </select>
-    </div>
-
-    <div class="form-group">
-        <label>Typ dokumentu:</label>
-        <select asp-for="DocumentType" class="form-control">
-            @foreach (var type in Enum.GetValues(typeof(DocumentType)))
+            @if (Model.Reservation.Parking)
             {
-                <option value="@type">@type</option>
+                    <tr><td>Parking</td><td>1</td><td>20 zł</td><td>20 zł</td></tr>
             }
-        </select>
-    </div>
+            @if (Model.Reservation.ExtraBed)
+            {
+                    <tr><td>Dodatkowe łóżko</td><td>1</td><td>30 zł</td><td>30 zł</td></tr>
+            }
+            @foreach (var s in Model.ServicesUsed)
+            {
+                    <tr>
+                        <td>@s.Service.Name</td>
+                        <td>@s.Quantity</td>
+                        <td>@s.Service.Price zł</td>
+                        <td>@(s.Quantity * s.Service.Price) zł</td>
+                    </tr>
+            }
+        </tbody>
+    </table>
 
-    <div class="form-check">
-        <input class="form-check-input" type="checkbox" asp-for="IsCompany" id="isCompanyCheckbox" />
-        <label class="form-check-label" for="isCompanyCheckbox">Faktura na firmę</label>
-    </div>
+    <button class="btn btn-outline-primary mb-3" data-bs-toggle="modal" data-bs-target="#addServiceModal">Dodaj usługę ręczną</button>
 
-    <div id="companyFields" style="display:none;">
-        <input asp-for="CompanyName" class="form-control" placeholder="Nazwa firmy" />
-        <input asp-for="CompanyNip" class="form-control" placeholder="NIP" />
-        <input asp-for="CompanyAddress" class="form-control" placeholder="Adres firmy" />
-    </div>
+    <h4>Płatności</h4>
+    <ul>
+        @foreach (var p in Model.Payments)
+        {
+                <li>@p.PaidAt.ToShortDateString() - @p.Amount zł (@p.Method)</li>
+        }
+    </ul>
+    <button class="btn btn-outline-success mb-3" data-bs-toggle="modal" data-bs-target="#addPaymentModal">Dodaj płatność</button>
 
-    <div id="personalFields" style="display:none;">
-        <input asp-for="PersonalName" class="form-control" placeholder="Imię i nazwisko" />
-        <input asp-for="PersonalAddress" class="form-control" placeholder="Adres" />
-    </div>
+    <h4>Pozostało do zapłaty:</h4>
+    <h3 style="color:@(Model.RemainingToPay > 0 ? "red" : "green")">@Model.RemainingToPay zł</h3>
 
-    <button type="submit" class="btn btn-primary mt-3">Zakończ rozliczenie</button>
-</form>
+    <hr />
+    <h4>Typ dokumentu</h4>
+    <form asp-action="Finalize" method="post">
+        <input type="hidden" asp-for="Reservation.Id" />
+        <input type="hidden" asp-for="IsCompany" />
+
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label><input type="radio" name="DocumentType" value="Receipt" checked onchange="toggleBuyerFields('paragon')" /> Paragon</label>
+            </div>
+            <div class="col-md-3">
+                <label><input type="radio" name="DocumentType" value="Invoice" onchange="toggleBuyerFields('nip')" /> FV z NIP</label>
+            </div>
+            <div class="col-md-3">
+                <label><input type="radio" name="DocumentType" value="InvoiceForeign" onchange="toggleBuyerFields('foreign')" /> FV zagraniczna</label>
+            </div>
+            <div class="col-md-3">
+                <label><input type="radio" name="DocumentType" value="InvoicePersonal" onchange="toggleBuyerFields('personal')" /> FV imienna</label>
+            </div>
+        </div>
+
+        <div id="nipFields" class="buyer-field" style="display:none">
+            <input asp-for="CompanyName" class="form-control mb-2" placeholder="Nazwa firmy" />
+            <input asp-for="CompanyNip" class="form-control mb-2" placeholder="NIP" />
+            <input asp-for="CompanyAddress" class="form-control mb-2" placeholder="Adres firmy" />
+        </div>
+
+        <div id="foreignFields" class="buyer-field" style="display:none">
+            <input asp-for="CompanyName" class="form-control mb-2" placeholder="Nazwa firmy" />
+            <input asp-for="CompanyAddress" class="form-control mb-2" placeholder="Adres" />
+        </div>
+
+        <div id="personalFields" class="buyer-field" style="display:none">
+            <input asp-for="PersonalName" class="form-control mb-2" placeholder="Imię i nazwisko" />
+            <input asp-for="PersonalAddress" class="form-control mb-2" placeholder="Adres" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Zakończ rozliczenie</button>
+    </form>
+</div>
+
+<!-- Modal: Dodaj usługę -->
+<div class="modal fade" id="addServiceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AddService" method="post">
+                <div class="modal-header"><h5 class="modal-title">Dodaj usługę</h5></div>
+                <div class="modal-body">
+                    <input type="hidden" asp-for="Reservation.Id" />
+                    <div class="form-group">
+                        <label>Usługa:</label>
+                        <select asp-for="NewServiceId" asp-items="@(new SelectList(Model.AvailableServices, "Id", "Name"))" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ilość:</label>
+                        <input asp-for="NewServiceQuantity" class="form-control" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-success">Dodaj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Dodaj płatność -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AddPayment" method="post">
+                <div class="modal-header"><h5 class="modal-title">Dodaj płatność</h5></div>
+                <div class="modal-body">
+                    <input type="hidden" asp-for="Reservation.Id" />
+                    <div class="form-group">
+                        <label>Kwota:</label>
+                        <input asp-for="NewPaymentAmount" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Metoda:</label>
+                        <select asp-for="NewPaymentMethod" class="form-control">
+                            @foreach (var method in Enum.GetValues(typeof(PaymentMethod)))
+                            {
+                                    <option value="@method">@method</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-success">Dodaj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script>
-    document.getElementById("isCompanyCheckbox").addEventListener("change", function() {
-        if (this.checked) {
-            document.getElementById("companyFields").style.display = "block";
-            document.getElementById("personalFields").style.display = "none";
-        } else {
-            document.getElementById("companyFields").style.display = "none";
-            document.getElementById("personalFields").style.display = "block";
+    function toggleBuyerFields(type) {
+        document.querySelectorAll('.buyer-field').forEach(div => div.style.display = 'none');
+
+        const isCompanyInput = document.querySelector('input[name="IsCompany"]');
+        if (isCompanyInput) {
+            isCompanyInput.value = (type === 'nip' || type === 'foreign') ? 'true' : 'false';
         }
-    });
-    window.onload = () => document.getElementById("isCompanyCheckbox").dispatchEvent(new Event('change'));
+
+        if (type === 'nip') document.getElementById('nipFields').style.display = 'block';
+        if (type === 'foreign') document.getElementById('foreignFields').style.display = 'block';
+        if (type === 'personal') document.getElementById('personalFields').style.display = 'block';
+    }
 </script>

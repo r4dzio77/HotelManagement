@@ -4,13 +4,16 @@ using HotelManagement.Models;
 using HotelManagement.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Infrastructure; // ← DODANE
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ✅ Ustawienie licencji QuestPDF – DODANE
+QuestPDF.Settings.License = LicenseType.Community;
 
 // Konfiguracja bazy danych SQLite
 builder.Services.AddDbContext<HotelManagementContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 
 // ASP.NET Identity + role
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
@@ -29,7 +32,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/Identity/Account/AccessDenied";
 });
 
-// Sesja (opcjonalnie – jeśli używasz gdziekolwiek)
+// Sesja
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -40,18 +43,14 @@ builder.Services.AddSession(options =>
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
-
 // Dodajemy kontrolery i widoki
 builder.Services.AddControllersWithViews();
-builder.Services.AddScoped<HotelManagement.Services.AvailabilityService>();
+builder.Services.AddScoped<AvailabilityService>();
 builder.Services.AddScoped<ReservationPriceCalculator>();
 builder.Services.AddScoped<RoomAllocatorService>();
-
+builder.Services.AddTransient<PdfDocumentGenerator>();
 
 var app = builder.Build();
-
-
-
 
 // Middleware pipeline
 if (!app.Environment.IsDevelopment())
@@ -67,7 +66,7 @@ app.UseRouting();
 
 // Używamy sesji i logowania
 app.UseSession();
-app.UseAuthentication();  // Używamy uwierzytelniania przed autoryzacją
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Mapowanie endpointów
@@ -75,7 +74,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-app.MapRazorPages(); // obsługuje /Identity/Account/Login itd.
+app.MapRazorPages();
 
 // SEED: Dodanie ról i użytkowników
 using (var scope = app.Services.CreateScope())
@@ -85,12 +84,9 @@ using (var scope = app.Services.CreateScope())
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var context = services.GetRequiredService<HotelManagementContext>();
 
-    // SEED: typy pokoi
     RoomTypeSeeder.Seed(context);
     RoomSeeder.Seed(context);
 
-
-    // Role
     string[] roles = { "Admin", "Kierownik", "Pracownik", "Klient" };
     foreach (var role in roles)
     {
@@ -100,7 +96,6 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // Kierownik testowy
     string emailManager = "kierownik@hotel.pl";
     if (await userManager.FindByEmailAsync(emailManager) == null)
     {
@@ -120,21 +115,16 @@ using (var scope = app.Services.CreateScope())
             if (!roleResultManager.Succeeded)
             {
                 foreach (var error in roleResultManager.Errors)
-                {
                     Console.WriteLine($"Błąd przy przypisywaniu roli Kierownika: {error.Description}");
-                }
             }
         }
         else
         {
             foreach (var error in resultManager.Errors)
-            {
                 Console.WriteLine($"Błąd przy tworzeniu Kierownika: {error.Description}");
-            }
         }
     }
 
-    // Klient testowy
     string emailClient = "klient@hotel.pl";
     if (await userManager.FindByEmailAsync(emailClient) == null)
     {
@@ -154,17 +144,13 @@ using (var scope = app.Services.CreateScope())
             if (!roleResultClient.Succeeded)
             {
                 foreach (var error in roleResultClient.Errors)
-                {
                     Console.WriteLine($"Błąd przy przypisywaniu roli Klienta: {error.Description}");
-                }
             }
         }
         else
         {
             foreach (var error in resultClient.Errors)
-            {
                 Console.WriteLine($"Błąd przy tworzeniu Klienta: {error.Description}");
-            }
         }
     }
 }
