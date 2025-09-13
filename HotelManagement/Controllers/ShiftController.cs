@@ -223,7 +223,7 @@ namespace HotelManagement.Controllers
         }
 
         [Authorize(Roles = "Pracownik,Kierownik")]
-        public async Task<IActionResult> MySchedule(DateTime? month)
+        public async Task<IActionResult> MySchedule(DateTime? month, bool all = false)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
@@ -235,19 +235,25 @@ namespace HotelManagement.Controllers
             var isPublished = await _context.PublishedSchedules
                 .AnyAsync(p => p.Year == firstDay.Year && p.Month == firstDay.Month && p.IsPublished);
 
+            ViewBag.Month = firstDay;
+            ViewBag.IsPublished = isPublished;
+            ViewBag.ShowAll = all;
+
             if (!isPublished)
             {
-                ViewBag.Month = firstDay;
-                ViewBag.IsPublished = false;
                 return View("MySchedule", new List<WorkShift>());
             }
 
-            var shifts = await _context.WorkShifts
-                .Where(ws => ws.UserId == user.Id && ws.Date >= firstDay && ws.Date < lastDay)
-                .ToListAsync();
+            IQueryable<WorkShift> query = _context.WorkShifts
+                .Include(ws => ws.User)
+                .Where(ws => ws.Date >= firstDay && ws.Date < lastDay);
 
-            ViewBag.Month = firstDay;
-            ViewBag.IsPublished = true;
+            if (!all)
+            {
+                query = query.Where(ws => ws.UserId == user.Id);
+            }
+
+            var shifts = await query.OrderBy(ws => ws.Date).ThenBy(ws => ws.ShiftType).ToListAsync();
             return View("MySchedule", shifts);
         }
     }
