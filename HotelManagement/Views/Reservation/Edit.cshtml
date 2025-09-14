@@ -92,12 +92,12 @@
     <div class="form-group mt-3">
         @foreach (var service in Model.Services)
         {
-            <div class="form-check">
-                <input type="checkbox" name="SelectedServiceIds" value="@service.Id" class="form-check-input"
-                       id="service-@service.Id" onchange="updatePrice()"
-                       @(Model.SelectedServiceIds.Contains(service.Id) ? "checked" : "") />
-                <label class="form-check-label" for="service-@service.Id">@service.Name (@service.Price PLN)</label>
-            </div>
+                <div class="form-check">
+                    <input type="checkbox" name="SelectedServiceIds" value="@service.Id" class="form-check-input"
+                           id="service-@service.Id" onchange="updatePrice()"
+                @(Model.SelectedServiceIds.Contains(service.Id) ? "checked" : "") />
+                    <label class="form-check-label" for="service-@service.Id">@service.Name (@service.Price PLN)</label>
+                </div>
         }
     </div>
 
