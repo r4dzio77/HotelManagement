@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using HotelManagement.Services; // jeśli masz serwis mailowy w tym namespace
+using HotelManagement.Enums;
+using HotelManagement.Data;
 
 namespace HotelManagement.Controllers
 {
@@ -11,19 +13,21 @@ namespace HotelManagement.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly IEmailSender _emailSender; // dodaj serwis mailowy
+        private readonly IEmailSender _emailSender;
+        private readonly HotelManagementContext _context; // ⬅️ dodane
 
         public AccountController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
-            IEmailSender emailSender) // dodaj wstrzyknięcie serwisu mailowego
+            IEmailSender emailSender,
+            HotelManagementContext context) // ⬅️ dodane
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
+            _context = context; // ⬅️ dodane
         }
 
-        // Istniejące metody Login, Register, Logout bez zmian
         public IActionResult Login()
         {
             return View();
@@ -55,9 +59,11 @@ namespace HotelManagement.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Register(string firstName, string lastName, string email, string password)
+        public async Task<IActionResult> Register(string firstName, string lastName, string email, string phoneNumber, string password)
         {
-            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName)
+                || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(phoneNumber)
+                || string.IsNullOrWhiteSpace(password))
             {
                 ModelState.AddModelError(string.Empty, "Wszystkie pola są wymagane.");
                 return View();
@@ -76,8 +82,27 @@ namespace HotelManagement.Controllers
 
             if (result.Succeeded)
             {
+                // ➡️ Tworzymy powiązanego Guest z numerem telefonu
+                var guest = new Guest
+                {
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Email = email,
+                    PhoneNumber = phoneNumber, // teraz uzupełnione z formularza
+                    LoyaltyStatus = LoyaltyStatus.Classic,
+                    TotalNights = 0
+                };
+                guest.AssignLoyaltyCard();
+
+                _context.Guests.Add(guest);
+                await _context.SaveChangesAsync();
+
+                user.GuestId = guest.Id;
+                await _userManager.UpdateAsync(user);
+
                 await _userManager.AddToRoleAsync(user, "Klient");
                 await _signInManager.SignInAsync(user, isPersistent: false);
+
                 return RedirectToAction("Index", "Home");
             }
 
@@ -89,23 +114,19 @@ namespace HotelManagement.Controllers
             return View();
         }
 
-        // POST: /Account/Logout
+
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
             return RedirectToAction("Login", "Account");
         }
 
-
-
-        // GET: /Account/RequestPasswordReset
         [HttpGet]
         public IActionResult RequestPasswordReset()
         {
             return View();
         }
 
-        // POST: /Account/RequestPasswordReset
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RequestPasswordReset(string email)
@@ -119,7 +140,6 @@ namespace HotelManagement.Controllers
             var user = await _userManager.FindByEmailAsync(email);
             if (user == null)
             {
-                // Nie informujemy, że użytkownik nie istnieje (bezpieczeństwo)
                 return RedirectToAction(nameof(PasswordResetConfirmation));
             }
 
@@ -134,13 +154,11 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(PasswordResetConfirmation));
         }
 
-        // GET: /Account/PasswordResetConfirmation
         public IActionResult PasswordResetConfirmation()
         {
             return View();
         }
 
-        // GET: /Account/ResetPassword
         [HttpGet]
         public IActionResult ResetPassword(string token, string email)
         {
@@ -153,7 +171,6 @@ namespace HotelManagement.Controllers
             return View(model);
         }
 
-        // POST: /Account/ResetPassword
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
@@ -164,7 +181,6 @@ namespace HotelManagement.Controllers
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
             {
-                // Nie informujemy, że użytkownik nie istnieje
                 return RedirectToAction(nameof(ResetPasswordConfirmation));
             }
 
@@ -182,14 +198,12 @@ namespace HotelManagement.Controllers
             return View(model);
         }
 
-        // GET: /Account/ResetPasswordConfirmation
         public IActionResult ResetPasswordConfirmation()
         {
             return View();
         }
     }
 
-    // Model widoku dla resetu hasła
     public class ResetPasswordViewModel
     {
         [Required]

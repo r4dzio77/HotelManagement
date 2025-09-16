@@ -190,16 +190,48 @@ namespace HotelManagement.Controllers
         {
             if (!ModelState.IsValid) return View(model);
 
-            var guest = new Guest
-            {
-                FirstName = model.FirstName,
-                LastName = model.LastName,
-                Email = model.Email,
-                PhoneNumber = model.PhoneNumber,
-                Preferences = model.Preferences
-            };
+            var user = await _userManager.GetUserAsync(User);
+            Guest guest;
 
-            _context.Guests.Add(guest);
+            if (user != null && user.GuestId.HasValue)
+            {
+                // ✅ użyj istniejącego gościa i zaktualizuj dane
+                guest = await _context.Guests.FindAsync(user.GuestId.Value);
+                if (guest != null)
+                {
+                    guest.FirstName = model.FirstName;
+                    guest.LastName = model.LastName;
+                    guest.Email = model.Email;
+                    guest.PhoneNumber = model.PhoneNumber;
+                    guest.Preferences = model.Preferences;
+
+                    _context.Guests.Update(guest);
+                }
+            }
+            else
+            {
+                // ✅ brak powiązanego gościa → utwórz nowego
+                guest = new Guest
+                {
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    Email = model.Email,
+                    PhoneNumber = model.PhoneNumber,
+                    Preferences = model.Preferences,
+                    LoyaltyStatus = LoyaltyStatus.Classic,
+                    TotalNights = 0
+                };
+
+                _context.Guests.Add(guest);
+                await _context.SaveChangesAsync();
+
+                if (user != null)
+                {
+                    user.GuestId = guest.Id;
+                    _context.Update(user);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             var roomType = await _context.RoomTypes.FindAsync(model.RoomTypeId);
@@ -214,7 +246,8 @@ namespace HotelManagement.Controllers
                 TotalPrice = roomType.PricePerNight * (decimal)(model.CheckOut - model.CheckIn).TotalDays,
                 Breakfast = model.Breakfast,
                 Parking = model.Parking,
-                ExtraBed = model.ExtraBed
+                ExtraBed = model.ExtraBed,
+                PersonCount = model.PersonCount
             };
 
             _context.Reservations.Add(reservation);
@@ -235,7 +268,6 @@ namespace HotelManagement.Controllers
         public async Task<IActionResult> Index()
         {
             var roomTypes = await _context.RoomTypes.ToListAsync();
-            var user = await _userManager.GetUserAsync(User);
             var isAdminOrManager = User.IsInRole("Kierownik") || User.IsInRole("Admin");
             ViewBag.IsAdminOrManager = isAdminOrManager;
 

@@ -4,6 +4,7 @@ using HotelManagement.Models;
 using HotelManagement.Services;
 using HotelManagement.ViewModels;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -15,18 +16,24 @@ namespace HotelManagement.Controllers
         private readonly HotelManagementContext _context;
         private readonly ReservationPriceCalculator _priceCalculator;
         private readonly RoomAllocatorService _roomAllocator;
+        private readonly LoyaltyService _loyaltyService;
+        private readonly UserManager<ApplicationUser> _userManager;
 
         public ReservationController(
             HotelManagementContext context,
             ReservationPriceCalculator priceCalculator,
-            RoomAllocatorService roomAllocator)
+            RoomAllocatorService roomAllocator,
+            LoyaltyService loyaltyService,
+            UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _priceCalculator = priceCalculator;
             _roomAllocator = roomAllocator;
+            _loyaltyService = loyaltyService;
+            _userManager = userManager;
         }
 
-        // Tworzenie gościa
+        // Tworzenie gościa (tylko dla pracownika)
         [HttpGet]
         public IActionResult CreateGuest() => View();
 
@@ -37,8 +44,14 @@ namespace HotelManagement.Controllers
             if (!ModelState.IsValid)
                 return View(guest);
 
+            // 👇 Gość tworzony ręcznie przez pracownika -> brak karty lojalnościowej
+            guest.LoyaltyCardNumber = null;
+            guest.LoyaltyStatus = LoyaltyStatus.Classic;
+            guest.TotalNights = 0;
+
             _context.Guests.Add(guest);
             await _context.SaveChangesAsync();
+
             HttpContext.Session.SetInt32("GuestId", guest.Id);
             return RedirectToAction(nameof(CreateReservation));
         }
@@ -47,11 +60,7 @@ namespace HotelManagement.Controllers
         [HttpGet]
         public async Task<IActionResult> CreateReservation()
         {
-            var guestId = HttpContext.Session.GetInt32("GuestId");
-            if (!guestId.HasValue)
-                return RedirectToAction(nameof(CreateGuest));
-
-            var guest = await _context.Guests.FindAsync(guestId.Value);
+            var guest = await GetCurrentGuestAsync();
             if (guest == null)
                 return RedirectToAction(nameof(CreateGuest));
 
@@ -68,15 +77,7 @@ namespace HotelManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateReservation(ReservationViewModel vm)
         {
-            var guestId = HttpContext.Session.GetInt32("GuestId");
-            if (!guestId.HasValue)
-            {
-                ModelState.AddModelError("", "Gość nie został znaleziony.");
-                vm = await BuildReservationViewModel(vm.Reservation, vm.Guest);
-                return View(vm);
-            }
-
-            var guest = await _context.Guests.FindAsync(guestId.Value);
+            var guest = await GetCurrentGuestAsync();
             if (guest == null)
             {
                 ModelState.AddModelError("", "Gość nie został znaleziony.");
@@ -150,6 +151,14 @@ namespace HotelManagement.Controllers
             };
 
             _context.Reservations.Add(reservation);
+
+            // ✅ Aktualizujemy dane gościa zamiast tworzyć nowego
+            guest.FirstName = vm.Guest.FirstName;
+            guest.LastName = vm.Guest.LastName;
+            guest.Email = vm.Guest.Email;
+            guest.PhoneNumber = vm.Guest.PhoneNumber;
+            guest.Preferences = vm.Guest.Preferences;
+
             await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");
@@ -288,6 +297,7 @@ namespace HotelManagement.Controllers
                 });
             }
 
+            // ✅ aktualizacja danych gościa powiązanego z rezerwacją
             reservation.Guest.FirstName = vm.Guest.FirstName;
             reservation.Guest.LastName = vm.Guest.LastName;
             reservation.Guest.Email = vm.Guest.Email;
@@ -336,7 +346,11 @@ namespace HotelManagement.Controllers
             reservation.Status = ReservationStatus.CheckedOut;
             await _context.SaveChangesAsync();
 
-            TempData["Notification"] = $"Wymeldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {reservation.Room.Number}";
+            // ✅ Nalicz punkty lojalnościowe po wymeldowaniu
+            _loyaltyService.AwardPointsForCheckout(reservation);
+
+            var roomNumber = reservation.Room != null ? reservation.Room.Number : "nieprzydzielony";
+            TempData["Notification"] = $"Wymeldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {roomNumber}";
 
             return RedirectToAction(nameof(Index));
         }
@@ -383,7 +397,7 @@ namespace HotelManagement.Controllers
             return availableRooms;
         }
 
-        // DODANE DLA MODALA
+        // Modal do AJAX
         [HttpGet]
         public async Task<IActionResult> GetAvailableRooms(int roomTypeId, DateTime checkIn, DateTime checkOut)
         {
@@ -437,7 +451,6 @@ namespace HotelManagement.Controllers
                     query = query.Where(r => r.Guest.LastName.ToLower().Contains(lowerLastName));
                 }
 
-
                 if (fromDate.HasValue)
                 {
                     query = query.Where(r => r.CheckIn.Date == fromDate.Value.Date);
@@ -459,9 +472,6 @@ namespace HotelManagement.Controllers
 
             return View(filteredReservations);
         }
-
-
-
 
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin,Pracownik")]
@@ -490,6 +500,24 @@ namespace HotelManagement.Controllers
             ViewBag.TodayDate = today.ToString("yyyy-MM-dd");
 
             return View();
+        }
+
+        // ✅ Helper do pobierania aktualnego Guest
+        private async Task<Guest?> GetCurrentGuestAsync()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user != null && user.GuestId.HasValue)
+            {
+                return await _context.Guests.FindAsync(user.GuestId.Value);
+            }
+
+            var guestId = HttpContext.Session.GetInt32("GuestId");
+            if (guestId.HasValue)
+            {
+                return await _context.Guests.FindAsync(guestId.Value);
+            }
+
+            return null;
         }
     }
 }
