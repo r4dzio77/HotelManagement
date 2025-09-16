@@ -49,6 +49,8 @@ builder.Services.AddScoped<AvailabilityService>();
 builder.Services.AddScoped<ReservationPriceCalculator>();
 builder.Services.AddScoped<RoomAllocatorService>();
 builder.Services.AddTransient<PdfDocumentGenerator>();
+builder.Services.AddScoped<LoyaltyService>();
+
 
 var app = builder.Build();
 

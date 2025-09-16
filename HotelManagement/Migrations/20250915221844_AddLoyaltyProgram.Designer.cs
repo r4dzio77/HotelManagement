@@ -3,6 +3,7 @@ using System;
 using HotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HotelManagement.Migrations
 {
     [DbContext(typeof(HotelManagementContext))]
-    partial class HotelManagementContextModelSnapshot : ModelSnapshot
+    [Migration("20250915221844_AddLoyaltyProgram")]
+    partial class AddLoyaltyProgram
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.13");
@@ -304,6 +307,7 @@ namespace HotelManagement.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("UserId")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -780,7 +784,8 @@ namespace HotelManagement.Migrations
                     b.HasOne("HotelManagement.Models.ApplicationUser", "User")
                         .WithMany("LoyaltyPoints")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Guest");
 

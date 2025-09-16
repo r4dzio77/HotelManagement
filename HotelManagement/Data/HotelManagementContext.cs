@@ -26,7 +26,7 @@ namespace HotelManagement.Data
         public DbSet<Guest> Guests { get; set; }
         public DbSet<Company> Companies { get; set; }
 
-        // ✅ DODAJ TO:
+        // grafiki zmian
         public DbSet<PublishedSchedule> PublishedSchedules { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -99,6 +99,27 @@ namespace HotelManagement.Data
                 .WithMany(u => u.ShiftPreferences)
                 .HasForeignKey(sp => sp.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Guest ↔ LoyaltyPoint (obowiązkowe)
+            modelBuilder.Entity<LoyaltyPoint>()
+                .HasOne(lp => lp.Guest)
+                .WithMany()
+                .HasForeignKey(lp => lp.GuestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ApplicationUser ↔ LoyaltyPoint (opcjonalne)
+            modelBuilder.Entity<LoyaltyPoint>()
+                .HasOne(lp => lp.User)
+                .WithMany(u => u.LoyaltyPoints)
+                .HasForeignKey(lp => lp.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
+
+            // Unikalny numer karty lojalnościowej (NULL dozwolony)
+            modelBuilder.Entity<Guest>()
+                .HasIndex(g => g.LoyaltyCardNumber)
+                .IsUnique()
+                .HasFilter("[LoyaltyCardNumber] IS NOT NULL");
         }
     }
 }

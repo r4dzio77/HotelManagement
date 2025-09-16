@@ -1,9 +1,10 @@
-﻿using HotelManagement.Models;
+﻿using HotelManagement.Data;
+using HotelManagement.Models;
 using HotelManagement.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Controllers
 {
@@ -11,13 +12,15 @@ namespace HotelManagement.Controllers
     public class AccountSettingsController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly HotelManagementContext _context;
 
-        public AccountSettingsController(UserManager<ApplicationUser> userManager)
+        public AccountSettingsController(UserManager<ApplicationUser> userManager, HotelManagementContext context)
         {
             _userManager = userManager;
+            _context = context;
         }
 
-        // GET: /AccountSettings
+        // GET: /AccountSettings (profil użytkownika)
         [HttpGet]
         public async Task<IActionResult> Index()
         {
@@ -31,6 +34,35 @@ namespace HotelManagement.Controllers
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber,
                 Preferences = user.Preferences
+            };
+
+            return View(model);
+        }
+
+        // GET: /AccountSettings/Loyalty (program lojalnościowy)
+        [HttpGet]
+        public async Task<IActionResult> Loyalty()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || !user.GuestId.HasValue) return NotFound();
+
+            var guest = await _context.Guests
+                .FirstOrDefaultAsync(g => g.Id == user.GuestId.Value);
+
+            if (guest == null) return NotFound();
+
+            var model = new LoyaltyViewModel
+            {
+                LoyaltyCardNumber = guest.LoyaltyCardNumber,
+                LoyaltyStatus = guest.LoyaltyStatus.ToString(),
+                LoyaltyPoints = await _context.LoyaltyPoints
+                    .Where(lp => lp.GuestId == guest.Id)
+                    .SumAsync(lp => lp.Points),
+                TotalNights = guest.TotalNights,
+                History = await _context.LoyaltyPoints
+                    .Where(lp => lp.GuestId == guest.Id)
+                    .OrderByDescending(lp => lp.AwardedAt)
+                    .ToListAsync()
             };
 
             return View(model);
