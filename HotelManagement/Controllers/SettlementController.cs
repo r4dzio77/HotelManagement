@@ -57,18 +57,29 @@ public class SettlementController : Controller
     [HttpPost]
     public IActionResult AddService(SettlementViewModel model)
     {
+        var reservation = _context.Reservations.Find(model.Reservation.Id);
+        if (reservation == null) return NotFound();
+
+        // 🔒 Blokada dodawania usług, jeśli rachunek zamknięty
+        if (reservation.IsClosed)
+        {
+            TempData["Error"] = "Rachunek jest zamknięty – nie można dodać nowych usług.";
+            return RedirectToAction(nameof(Settle), new { reservationId = reservation.Id });
+        }
+
         if (model.NewServiceId > 0)
         {
             var usage = new ServiceUsage
             {
-                ReservationId = model.Reservation.Id,
+                ReservationId = reservation.Id,
                 ServiceId = model.NewServiceId,
                 Quantity = model.NewServiceQuantity
             };
             _context.ServiceUsages.Add(usage);
             _context.SaveChanges();
         }
-        return RedirectToAction(nameof(Settle), new { reservationId = model.Reservation.Id });
+
+        return RedirectToAction(nameof(Settle), new { reservationId = reservation.Id });
     }
 
     [HttpPost]
@@ -77,12 +88,19 @@ public class SettlementController : Controller
         var reservation = _context.Reservations.Find(model.Reservation.Id);
         if (reservation == null) return NotFound();
 
+        // 🔒 Blokada dodawania płatności, jeśli rachunek zamknięty
+        if (reservation.IsClosed)
+        {
+            TempData["Error"] = "Rachunek jest zamknięty – nie można dodać nowych płatności.";
+            return RedirectToAction(nameof(Settle), new { reservationId = reservation.Id });
+        }
+
         if (model.NewPaymentAmount > 0 && model.NewPaymentMethod != null)
         {
             var payment = new Payment
             {
                 ReservationId = reservation.Id,
-                PaidAt = DateTime.UtcNow,
+                PaidAt = DateTime.Now, // 🕒 lokalny czas
                 Amount = model.NewPaymentAmount,
                 Method = model.NewPaymentMethod.Value,
                 GuestId = reservation.GuestId
@@ -90,6 +108,7 @@ public class SettlementController : Controller
             _context.Payments.Add(payment);
             _context.SaveChanges();
         }
+
         return RedirectToAction("Settle", new { reservationId = reservation.Id });
     }
 
@@ -138,7 +157,7 @@ public class SettlementController : Controller
         {
             ReservationId = reservation.Id,
             Type = model.DocumentType,
-            IssueDate = DateTime.UtcNow,
+            IssueDate = DateTime.Now, // 🕒 lokalny czas
             TotalAmount = total,
             BuyerName = buyerName,
             BuyerAddress = buyerAddress,
@@ -147,18 +166,18 @@ public class SettlementController : Controller
         };
 
         _context.Documents.Add(document);
-        await _context.SaveChangesAsync();
 
-        Console.WriteLine("📄 PDF GENERATOR będzie wywołany dla dokumentu: " + document.Id);
+        // 🔒 oznacz rezerwację jako zamkniętą
+        reservation.IsClosed = true;
+
+        await _context.SaveChangesAsync();
 
         try
         {
             await _pdfGen.GenerateAsync(document.Id);
-            Console.WriteLine("✅ PDF wygenerowany.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine("❌ Błąd PDF: " + ex.Message);
             TempData["Error"] = "Błąd PDF: " + ex.Message;
         }
 

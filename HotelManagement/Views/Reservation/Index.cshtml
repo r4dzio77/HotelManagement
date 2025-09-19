@@ -2,22 +2,43 @@
 
 @if (TempData["Notification"] != null)
 {
-    <div class="alert alert-success text-center fixed-top mt-3 mx-auto shadow" style="width: 50%; z-index: 9999;">
+        <div class="alert alert-success text-center fixed-top mt-3 mx-auto shadow" style="width: 50%; z-index: 9999;">
         @TempData["Notification"]
-    </div>
-    <script>
-        setTimeout(function () {
-            document.querySelector('.alert').style.display = 'none';
-        }, 4000);
-    </script>
+        </div>
+        <script>
+            setTimeout(function () {
+                document.querySelector('.alert').style.display = 'none';
+            }, 4000);
+        </script>
 }
 
 @{
     ViewData["Title"] = "Rezerwacje";
+
+    var today = DateTime.Today;
+    var arrivals = ViewBag.Arrivals != null ? ((IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Arrivals).Count() : 0;
+    var stays = ViewBag.InStay != null ? ((IEnumerable<HotelManagement.Models.Reservation>)ViewBag.InStay).Count() : 0;
+    var departures = ViewBag.Departures != null ? ((IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Departures).Count() : 0;
 }
 
 <div class="container mt-5">
     <h2 class="text-center mb-4">Rezerwacje</h2>
+
+    <!-- Podsumowanie liczbowe -->
+    <div class="d-flex justify-content-center gap-5 mb-4">
+        <div class="text-center">
+            <h6 class="text-muted">📥 Przyjazdy</h6>
+            <h3 class="text-primary fw-bold">@arrivals</h3>
+        </div>
+        <div class="text-center">
+            <h6 class="text-muted">🏨 Pobyty</h6>
+            <h3 class="text-success fw-bold">@stays</h3>
+        </div>
+        <div class="text-center">
+            <h6 class="text-muted">📤 Wyjazdy</h6>
+            <h3 class="text-danger fw-bold">@departures</h3>
+        </div>
+    </div>
 
     <div class="text-end my-4">
         <h5 class="mb-3">
@@ -48,7 +69,6 @@
         <div class="tab-pane fade show active" id="arrivals" role="tabpanel">
             <h3 class="mt-3">Przyjazdy</h3>
             @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Arrivals)
-
         </div>
 
         <!-- Pobyty -->

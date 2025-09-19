@@ -38,7 +38,6 @@ namespace HotelManagement.Models
         public decimal TotalPrice { get; set; }
         public int PersonCount { get; set; }
 
-
         // Usługi dodatkowe
         public bool Breakfast { get; set; }
         public bool Parking { get; set; }
@@ -48,5 +47,8 @@ namespace HotelManagement.Models
         public ICollection<ServiceUsage> ServicesUsed { get; set; } = new List<ServiceUsage>();
         public ICollection<Payment> Payments { get; set; } = new List<Payment>();
         public ICollection<Document> Documents { get; set; } = new List<Document>();
+
+        // 🔒 Flaga zamknięcia rachunku
+        public bool IsClosed { get; set; } = false;
     }
 }
