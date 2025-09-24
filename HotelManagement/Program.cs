@@ -4,16 +4,19 @@ using HotelManagement.Models;
 using HotelManagement.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using QuestPDF.Infrastructure; // ← DODANE
+using QuestPDF.Infrastructure; // ← QuestPDF
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ Ustawienie licencji QuestPDF – DODANE
+// ✅ Ustawienie licencji QuestPDF
 QuestPDF.Settings.License = LicenseType.Community;
 
-// Konfiguracja bazy danych SQLite
+// 🔄 KONFIGURACJA BAZY
 builder.Services.AddDbContext<HotelManagementContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        new MySqlServerVersion(new Version(8, 0, 34)) // dopasuj do wersji MySQL
+    ));
 
 // ASP.NET Identity + role
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
@@ -43,14 +46,13 @@ builder.Services.AddSession(options =>
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
-// Dodajemy kontrolery i widoki
+// Usługi aplikacji
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<AvailabilityService>();
 builder.Services.AddScoped<ReservationPriceCalculator>();
 builder.Services.AddScoped<RoomAllocatorService>();
 builder.Services.AddTransient<PdfDocumentGenerator>();
 builder.Services.AddScoped<LoyaltyService>();
-
 
 var app = builder.Build();
 
@@ -66,19 +68,17 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-// Używamy sesji i logowania
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Mapowanie endpointów
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.MapRazorPages();
 
-// SEED: Dodanie ról i użytkowników
+// SEED: role i użytkownicy startowi
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
