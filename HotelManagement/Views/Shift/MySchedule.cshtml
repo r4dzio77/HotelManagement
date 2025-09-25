@@ -9,49 +9,17 @@
     var isManager = User.IsInRole("Kierownik");
 }
 
-@functions {
-    string GetCellSymbol(WorkShift? shift)
-    {
-        return shift?.ShiftType switch
-        {
-            "Day" => "D",
-            "Night" => "N",
-            _ => "—"
-        };
-    }
-
-    string GetCellClass(DateTime day)
-    {
-        return day.DayOfWeek switch
-        {
-            DayOfWeek.Saturday => "bg-info-subtle",
-            DayOfWeek.Sunday => "bg-danger-subtle",
-            _ => ""
-        };
-    }
-
-    string GetCommentTooltip(WorkShift? shift)
-    {
-        if (shift == null) return "";
-        var comment = shift.Comments.FirstOrDefault()?.Text;
-        var hours = shift.StartHour.HasValue && shift.EndHour.HasValue
-            ? $"{shift.StartHour:hh\\:mm}–{shift.EndHour:hh\\:mm}"
-            : "";
-
-        return $"{hours} {(string.IsNullOrEmpty(comment) ? "" : "- " + comment)}";
-    }
-
-    double GetWorkedHours(WorkShift? shift)
-    {
-        if (shift?.StartHour == null || shift?.EndHour == null)
-            return 0;
-
-        var duration = shift.EndHour.Value - shift.StartHour.Value;
-        return Math.Round(duration.TotalHours, 1);
-    }
-}
-
 <h2>@ViewData["Title"] – @month.ToString("MMMM yyyy", new CultureInfo("pl-PL"))</h2>
+
+<!-- ✅ Komunikaty -->
+@if (TempData["Message"] is string msg)
+{
+    <div class="alert alert-success">@msg</div>
+}
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger">@err</div>
+}
 
 <form method="get" asp-action="MySchedule" class="mb-3 d-flex align-items-center gap-3">
     <div>
@@ -61,26 +29,34 @@
 
     @if (!isManager)
     {
-            <div class="form-check form-switch">
-                <input type="checkbox" class="form-check-input" id="showAllToggle" @(showAll ? "checked" : "") />
-                <label class="form-check-label" for="showAllToggle">Pokaż cały grafik</label>
-            </div>
+        <div class="form-check form-switch">
+            <input type="checkbox" class="form-check-input" id="showAllToggle" @(showAll ? "checked" : "") />
+            <label class="form-check-label" for="showAllToggle">Pokaż cały grafik</label>
+        </div>
     }
 
     <button type="submit" class="btn btn-sm btn-primary ms-2">Pokaż</button>
 </form>
 
+<!-- ☁️ Eksport do Google -->
+<form method="post" asp-action="ExportMyShiftsToGoogle" asp-route-month="@month.ToString("yyyy-MM-01")" class="mb-3">
+    @Html.AntiForgeryToken()
+    <button type="submit" class="btn btn-outline-success">
+        ☁️ Dodaj mój grafik do Google Calendar
+    </button>
+</form>
+
 @if (!isPublished)
 {
-        <div class="alert alert-warning">
-            Grafik na wybrany miesiąc nie został jeszcze udostępniony przez kierownika.
-        </div>
+    <div class="alert alert-warning">
+        Grafik na wybrany miesiąc nie został jeszcze udostępniony przez kierownika.
+    </div>
 }
 else if (!Model.Any())
 {
-        <div class="alert alert-info">
-            Brak przypisanych zmian na ten miesiąc.
-        </div>
+    <div class="alert alert-info">
+        Brak przypisanych zmian na ten miesiąc.
+    </div>
 }
 else
 {
@@ -96,64 +72,63 @@ else
         };
     }
 
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm text-center align-middle">
-                <thead class="table-light sticky-top">
-                    <tr>
-                        <th class="text-start">Pracownik</th>
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm text-center align-middle">
+            <thead class="table-light sticky-top">
+                <tr>
+                    <th class="text-start">Pracownik</th>
                     @foreach (var day in daysInMonth)
                     {
-                                <th class="@GetCellClass(day)" title="@day.ToString("dddd", new CultureInfo("pl-PL"))">@day.Day</th>
+                        <th title="@day.ToString("dddd", new CultureInfo("pl-PL"))">@day.Day</th>
                     }
-                        <th>Zmien</th>
-                        <th>Godzin</th>
-                    </tr>
-                </thead>
-                <tbody>
+                    <th>Zmien</th>
+                    <th>Godzin</th>
+                </tr>
+            </thead>
+            <tbody>
                 @foreach (var group in grouped)
                 {
                     var userId = group.Key.Id;
                     var totalShifts = 0;
                     var totalHours = 0.0;
 
-                            <tr>
-                                <td class="text-start">@group.Key.FullName</td>
+                    <tr>
+                        <td class="text-start">@group.Key.FullName</td>
 
                         @foreach (var day in daysInMonth)
                         {
                             var shift = Model.FirstOrDefault(s => s.UserId == userId && s.Date.Date == day.Date);
-                            var tooltip = GetCommentTooltip(shift);
-                            var hours = GetWorkedHours(shift);
-                            totalHours += hours;
                             if (shift != null) totalShifts++;
 
-                                        <td class="@GetCellClass(day)" title="@tooltip">
-                                            <span class="fw-bold">@GetCellSymbol(shift)</span>
-                                        </td>
+                            <td>
+                                <span class="fw-bold">
+                                    @(shift?.ShiftType == "Day" ? "D" : shift?.ShiftType == "Night" ? "N" : "—")
+                                </span>
+                            </td>
                         }
 
-                                <td class="fw-bold">@totalShifts</td>
-                                <td class="fw-bold">@totalHours.ToString("0.0") h</td>
-                            </tr>
+                        <td class="fw-bold">@totalShifts</td>
+                        <td class="fw-bold">@totalHours.ToString("0.0") h</td>
+                    </tr>
                 }
-                </tbody>
-            </table>
-        </div>
+            </tbody>
+        </table>
+    </div>
 }
 
 @section Scripts {
-        <script>
-            document.getElementById("showAllToggle")?.addEventListener("change", function () {
-                const isChecked = this.checked;
-                const month = document.getElementById("monthInput").value;
-                const url = new URL(window.location.href);
-                url.searchParams.set("month", month);
-                if (isChecked) {
-                    url.searchParams.set("all", "true");
-                } else {
-                    url.searchParams.delete("all");
-                }
-                window.location.href = url.toString();
-            });
-        </script>
+    <script>
+        document.getElementById("showAllToggle")?.addEventListener("change", function () {
+            const isChecked = this.checked;
+            const month = document.getElementById("monthInput").value;
+            const url = new URL(window.location.href);
+            url.searchParams.set("month", month);
+            if (isChecked) {
+                url.searchParams.set("all", "true");
+            } else {
+                url.searchParams.delete("all");
+            }
+            window.location.href = url.toString();
+        });
+    </script>
 }

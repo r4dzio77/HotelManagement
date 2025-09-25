@@ -4,6 +4,7 @@ using HotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HotelManagement.Migrations
 {
     [DbContext(typeof(HotelManagementContext))]
-    partial class HotelManagementContextModelSnapshot : ModelSnapshot
+    [Migration("20250925212719_AddGoogleTokensToUser")]
+    partial class AddGoogleTokensToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -617,9 +620,6 @@ namespace HotelManagement.Migrations
                     b.Property<TimeSpan?>("EndHour")
                         .HasColumnType("time(6)");
 
-                    b.Property<string>("GoogleEventId")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("ShiftType")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -792,7 +792,7 @@ namespace HotelManagement.Migrations
                         .IsRequired();
 
                     b.HasOne("HotelManagement.Models.WorkShift", "WorkShift")
-                        .WithMany()
+                        .WithMany("Comments")
                         .HasForeignKey("WorkShiftId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1040,6 +1040,11 @@ namespace HotelManagement.Migrations
             modelBuilder.Entity("HotelManagement.Models.Service", b =>
                 {
                     b.Navigation("Usages");
+                });
+
+            modelBuilder.Entity("HotelManagement.Models.WorkShift", b =>
+                {
+                    b.Navigation("Comments");
                 });
 #pragma warning restore 612, 618
         }

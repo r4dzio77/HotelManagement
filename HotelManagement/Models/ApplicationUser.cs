@@ -25,5 +25,10 @@ namespace HotelManagement.Models
         public ICollection<ShiftPreference> ShiftPreferences { get; set; } = new List<ShiftPreference>();
 
         public ICollection<LoyaltyPoint> LoyaltyPoints { get; set; } = new List<LoyaltyPoint>();
+
+        // 🌐 Google Calendar integracja
+        public string? GoogleAccessToken { get; set; }
+        public string? GoogleRefreshToken { get; set; }
+        public DateTime? GoogleTokenExpiry { get; set; }
     }
 }

@@ -1,24 +1,26 @@
-﻿using System.Xml.Linq;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HotelManagement.Models
-
 {
     public class WorkShift
     {
+        [Key]
         public int Id { get; set; }
 
-        public string UserId { get; set; } = null!;
-        public ApplicationUser User { get; set; } = null!;
+        public DateTime Date { get; set; }
+        public string ShiftType { get; set; } = string.Empty;
 
-        public DateTime Date { get; set; }            // Dzień zmiany
-        public string ShiftType { get; set; } = null!; // "Day" lub "Night"
+        // ⏰ opcjonalnie, jeśli już masz
+        public TimeSpan? StartHour { get; set; }
+        public TimeSpan? EndHour { get; set; }
 
-        public TimeSpan? StartHour { get; set; }      // np. 07:00
-        public TimeSpan? EndHour { get; set; }        // np. 19:00
+        // Powiązanie z użytkownikiem
+        public string UserId { get; set; }
+        [ForeignKey("UserId")]
+        public ApplicationUser User { get; set; }
 
-        public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+        // 🔑 Google Calendar
+        public string? GoogleEventId { get; set; }
     }
-
-
-
 }

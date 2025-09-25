@@ -2,10 +2,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
-using System.Threading.Tasks;
-using HotelManagement.Services; // jeśli masz serwis mailowy w tym namespace
+using HotelManagement.Services;
 using HotelManagement.Enums;
 using HotelManagement.Data;
+using Microsoft.AspNetCore.Authentication;
 
 namespace HotelManagement.Controllers
 {
@@ -14,24 +14,23 @@ namespace HotelManagement.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IEmailSender _emailSender;
-        private readonly HotelManagementContext _context; // ⬅️ dodane
+        private readonly HotelManagementContext _context;
 
         public AccountController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IEmailSender emailSender,
-            HotelManagementContext context) // ⬅️ dodane
+            HotelManagementContext context)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
-            _context = context; // ⬅️ dodane
+            _context = context;
         }
 
-        public IActionResult Login()
-        {
-            return View();
-        }
+        // ================= LOGIN =================
+
+        public IActionResult Login() => View();
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -52,10 +51,84 @@ namespace HotelManagement.Controllers
             return View();
         }
 
-        public IActionResult Register()
+        // ================= LOGIN GOOGLE =================
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ExternalLogin(string provider, string returnUrl = null)
         {
-            return View();
+            var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Account", new { returnUrl });
+            var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
+            return Challenge(properties, provider);
         }
+
+        public async Task<IActionResult> ExternalLoginCallback(string returnUrl = null, string remoteError = null)
+        {
+            returnUrl ??= Url.Content("~/");
+
+            if (remoteError != null)
+            {
+                TempData["Error"] = $"Błąd logowania zewnętrznego: {remoteError}";
+                return RedirectToAction(nameof(Login));
+            }
+
+            var info = await _signInManager.GetExternalLoginInfoAsync();
+            if (info == null) return RedirectToAction(nameof(Login));
+
+            // Logowanie użytkownika jeśli istnieje
+            var signInResult = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false);
+
+            ApplicationUser user;
+
+            if (signInResult.Succeeded)
+            {
+                user = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+            }
+            else
+            {
+                // Nowy użytkownik – tworzymy
+                var email = info.Principal.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value;
+                user = await _userManager.FindByEmailAsync(email);
+
+                if (user == null)
+                {
+                    user = new ApplicationUser
+                    {
+                        UserName = email,
+                        Email = email,
+                        FirstName = info.Principal.Identity?.Name?.Split(' ').FirstOrDefault() ?? "",
+                        LastName = info.Principal.Identity?.Name?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+                        EmailConfirmed = true
+                    };
+
+                    await _userManager.CreateAsync(user);
+                    await _userManager.AddToRoleAsync(user, "Pracownik"); // domyślna rola, możesz zmienić
+                }
+
+                await _userManager.AddLoginAsync(user, info);
+                await _signInManager.SignInAsync(user, isPersistent: false);
+            }
+
+            // 🔑 Pobieramy tokeny Google i zapisujemy w ApplicationUser
+            var tokens = info.AuthenticationTokens?.ToList();
+            if (tokens != null)
+            {
+                user.GoogleAccessToken = tokens.FirstOrDefault(t => t.Name == "access_token")?.Value;
+                user.GoogleRefreshToken = tokens.FirstOrDefault(t => t.Name == "refresh_token")?.Value;
+
+                var expiry = tokens.FirstOrDefault(t => t.Name == "expires_at")?.Value;
+                if (DateTime.TryParse(expiry, out var exp))
+                    user.GoogleTokenExpiry = exp;
+
+                await _userManager.UpdateAsync(user);
+            }
+
+            return LocalRedirect(returnUrl);
+        }
+
+        // ================= REGISTER =================
+
+        public IActionResult Register() => View();
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -82,13 +155,12 @@ namespace HotelManagement.Controllers
 
             if (result.Succeeded)
             {
-                // ➡️ Tworzymy powiązanego Guest z numerem telefonu
                 var guest = new Guest
                 {
                     FirstName = firstName,
                     LastName = lastName,
                     Email = email,
-                    PhoneNumber = phoneNumber, // teraz uzupełnione z formularza
+                    PhoneNumber = phoneNumber,
                     LoyaltyStatus = LoyaltyStatus.Classic,
                     TotalNights = 0
                 };
@@ -114,6 +186,7 @@ namespace HotelManagement.Controllers
             return View();
         }
 
+        // ================= LOGOUT =================
 
         public async Task<IActionResult> Logout()
         {
@@ -121,11 +194,10 @@ namespace HotelManagement.Controllers
             return RedirectToAction("Login", "Account");
         }
 
+        // ================= RESET HASŁA =================
+
         [HttpGet]
-        public IActionResult RequestPasswordReset()
-        {
-            return View();
-        }
+        public IActionResult RequestPasswordReset() => View();
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -154,10 +226,7 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(PasswordResetConfirmation));
         }
 
-        public IActionResult PasswordResetConfirmation()
-        {
-            return View();
-        }
+        public IActionResult PasswordResetConfirmation() => View();
 
         [HttpGet]
         public IActionResult ResetPassword(string token, string email)
@@ -198,10 +267,7 @@ namespace HotelManagement.Controllers
             return View(model);
         }
 
-        public IActionResult ResetPasswordConfirmation()
-        {
-            return View();
-        }
+        public IActionResult ResetPasswordConfirmation() => View();
     }
 
     public class ResetPasswordViewModel

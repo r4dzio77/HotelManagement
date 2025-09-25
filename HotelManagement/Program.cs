@@ -28,6 +28,17 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<HotelManagementContext>();
 
+// 🔐 Google OAuth (z uprawnieniami do Kalendarza)
+builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? "";
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? "";
+        options.Scope.Add("https://www.googleapis.com/auth/calendar");
+        options.SaveTokens = true;
+        // options.CallbackPath = "/signin-google"; // tylko jeśli potrzebujesz innej ścieżki
+    });
+
 // Konfiguracja ciasteczek logowania
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -54,6 +65,10 @@ builder.Services.AddScoped<RoomAllocatorService>();
 builder.Services.AddTransient<PdfDocumentGenerator>();
 builder.Services.AddScoped<LoyaltyService>();
 
+// ✅ Dodane do Google Calendar
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<GoogleCalendarHelper>();
+
 var app = builder.Build();
 
 // Middleware pipeline
@@ -69,7 +84,7 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseSession();
-app.UseAuthentication();
+app.UseAuthentication(); // ⬅️ musi być przed UseAuthorization
 app.UseAuthorization();
 
 app.MapControllerRoute(

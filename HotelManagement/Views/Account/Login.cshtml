@@ -1,23 +1,41 @@
 ﻿@{
     ViewData["Title"] = "Logowanie";
+    Layout = "_Layout";
 }
 
-<h2>Zaloguj się</h2>
+<h2 class="mb-4">Zaloguj się</h2>
 
-<form asp-action="Login" method="post">
-    <div class="form-group">
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<form asp-action="Login" method="post" class="mb-3">
+    @Html.AntiForgeryToken()
+    <div class="form-group mb-3">
         <label for="email">Email</label>
         <input name="email" type="email" class="form-control" required />
     </div>
 
-    <div class="form-group">
+    <div class="form-group mb-3">
         <label for="password">Hasło</label>
         <input name="password" type="password" class="form-control" required />
     </div>
 
-    <button type="submit" class="btn btn-primary mt-3">Zaloguj</button>
+    <button type="submit" class="btn btn-primary w-100">Zaloguj</button>
 </form>
 
-<p class="mt-3">
+<hr />
+
+<!-- 🔑 Logowanie przez Google -->
+<form asp-action="ExternalLogin" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="provider" value="Google" />
+    <button type="submit" class="btn btn-outline-danger w-100">
+        <i class="bi bi-google"></i> Zaloguj się przez Google
+    </button>
+</form>
+
+<p class="mt-3 text-center">
     <a asp-action="RequestPasswordReset" asp-controller="Account">Nie pamiętasz hasła? Zresetuj je tutaj.</a>
 </p>

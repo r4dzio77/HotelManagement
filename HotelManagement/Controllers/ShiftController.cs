@@ -1,5 +1,6 @@
 ﻿using HotelManagement.Data;
 using HotelManagement.Models;
+using HotelManagement.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -13,13 +14,21 @@ namespace HotelManagement.Controllers
         private readonly HotelManagementContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly GoogleCalendarHelper _googleCalendarHelper; // ✅ helper
 
-        public ShiftController(HotelManagementContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public ShiftController(
+            HotelManagementContext context,
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
+            GoogleCalendarHelper googleCalendarHelper) // ✅ DI
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
+            _googleCalendarHelper = googleCalendarHelper;
         }
+
+        // ==================== ZARZĄDZANIE PRACOWNIKAMI ====================
 
         [Authorize(Roles = "Kierownik")]
         public async Task<IActionResult> Employees()
@@ -88,6 +97,8 @@ namespace HotelManagement.Controllers
             }
             return RedirectToAction("Employees");
         }
+
+        // ==================== GRAFIK ====================
 
         [Authorize(Roles = "Kierownik")]
         public async Task<IActionResult> ManageSchedule(DateTime? month)
@@ -256,5 +267,38 @@ namespace HotelManagement.Controllers
             var shifts = await query.OrderBy(ws => ws.Date).ThenBy(ws => ws.ShiftType).ToListAsync();
             return View("MySchedule", shifts);
         }
+
+        // ==================== EKSPORT DO GOOGLE CALENDAR ====================
+
+        [Authorize(Roles = "Pracownik,Kierownik")]
+        public async Task<IActionResult> ExportMyShiftsToGoogle(DateTime? month)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            if (string.IsNullOrEmpty(user.GoogleAccessToken))
+            {
+                TempData["Error"] = "Musisz zalogować się przez Google, aby eksportować grafik.";
+                return RedirectToAction("MySchedule", new { month });
+            }
+
+            var target = month ?? DateTime.Today;
+            var firstDay = new DateTime(target.Year, target.Month, 1);
+            var lastDay = firstDay.AddMonths(1);
+
+            var shifts = await _context.WorkShifts
+                .Include(ws => ws.User)
+                .Where(ws => ws.UserId == user.Id && ws.Date >= firstDay && ws.Date < lastDay)
+                .ToListAsync();
+
+            await _googleCalendarHelper.SyncShiftsAsync(user, shifts, user.GoogleAccessToken);
+
+            // 🔑 zapisz GoogleEventId w DB
+            await _context.SaveChangesAsync();
+
+            TempData["Message"] = "Twój grafik został zsynchronizowany z Google Calendar ✅";
+            return RedirectToAction("MySchedule", new { month });
+        }
+
     }
 }
