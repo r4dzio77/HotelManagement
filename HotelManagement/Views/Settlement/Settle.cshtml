@@ -1,0 +1,280 @@
+﻿@model SettlementViewModel
+@using HotelManagement.Enums
+
+@{
+    ViewData["Title"] = $"Rozliczenie - Rezerwacja #{Model.Reservation.Id}";
+    var guest = Model.Reservation.Guest;
+    var document = Model.Reservation.Documents?.FirstOrDefault();
+    var nights = (Model.Reservation.CheckOut - Model.Reservation.CheckIn).Days;
+    var unitPrice = nights > 0 ? Model.Reservation.TotalPrice / nights : Model.Reservation.TotalPrice;
+}
+
+<div class="container my-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Rozliczenie – Rezerwacja #@Model.Reservation.Id</h2>
+        <span class="text-muted">
+            @Model.Reservation.CheckIn.ToString("dd.MM.yyyy") – @Model.Reservation.CheckOut.ToString("dd.MM.yyyy")
+        </span>
+    </div>
+
+    <h5 class="mb-3">Gość: @guest.FirstName @guest.LastName</h5>
+
+    @if (document != null)
+    {
+        var file = document.Number.Replace("/", "-") + ".pdf";
+        var folder = document.Type == DocumentType.Receipt ? "receipts" : "invoices";
+        var path = $"/{folder}/{file}";
+            <div class="alert alert-success d-flex justify-content-between align-items-center">
+                <span>Dokument został wygenerowany: <strong>@document.Number</strong></span>
+                <a href="@path" class="btn btn-outline-dark" target="_blank" download>📄 Pobierz PDF</a>
+            </div>
+    }
+
+    @if (Model.Reservation.IsClosed)
+    {
+            <div class="alert alert-info">
+                🔒 Ten rachunek został zamknięty. Nie można już dodawać usług ani płatności.
+            </div>
+    }
+
+    <div class="row">
+        <!-- Pozycje / usługi -->
+        <div class="col-md-8">
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Pozycje na rachunku</h5>
+                    <button class="btn btn-sm btn-outline-primary"
+                            data-bs-toggle="modal" data-bs-target="#addServiceModal"
+                    @(Model.Reservation.IsClosed ? "disabled" : "")>
+                        ➕ Dodaj usługę
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr><th>Usługa</th><th>Ilość</th><th>Cena jednostkowa</th><th>Wartość</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Nocleg</td>
+                                <td>@nights</td>
+                                <td>@unitPrice zł</td>
+                                <td>@Model.Reservation.TotalPrice zł</td>
+                            </tr>
+                            @if (Model.Reservation.Breakfast)
+                            {
+                                    <tr>
+                                        <td>Śniadanie</td>
+                                        <td>@nights</td>
+                                        <td>40 zł</td>
+                                        <td>@(nights * 40) zł</td>
+                                    </tr>
+                            }
+                            @if (Model.Reservation.Parking)
+                            {
+                                    <tr>
+                                        <td>Parking</td>
+                                        <td>@nights</td>
+                                        <td>20 zł</td>
+                                        <td>@(nights * 20) zł</td>
+                                    </tr>
+                            }
+                            @if (Model.Reservation.ExtraBed)
+                            {
+                                    <tr>
+                                        <td>Dodatkowe łóżko</td>
+                                        <td>@nights</td>
+                                        <td>30 zł</td>
+                                        <td>@(nights * 30) zł</td>
+                                    </tr>
+                            }
+                            @foreach (var s in Model.ServicesUsed)
+                            {
+                                    <tr>
+                                        <td>@s.Service.Name</td>
+                                        <td>@s.Quantity</td>
+                                        <td>@s.Service.Price zł</td>
+                                        <td>@(s.Quantity * s.Service.Price) zł</td>
+                                    </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Płatności -->
+        <div class="col-md-4">
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Płatności</h5>
+                    <button class="btn btn-sm btn-outline-success"
+                            data-bs-toggle="modal" data-bs-target="#addPaymentModal"
+                    @(Model.Reservation.IsClosed ? "disabled" : "")>
+                        ➕ Dodaj płatność
+                    </button>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        @foreach (var p in Model.Payments)
+                        {
+                                <li class="list-group-item">
+                                    <strong>@p.Amount zł</strong> – @p.PaidAt.ToLocalTime().ToShortDateString() (@p.Method)
+                                </li>
+                        }
+                    </ul>
+                    <div class="mt-3">
+                        <h6>Pozostało do zapłaty:</h6>
+                        <h4 style="color:@(Model.RemainingToPay > 0 ? "red" : "green")">
+                            @Model.RemainingToPay zł
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zamknij rachunek -->
+    <div class="text-end mt-4">
+        <button class="btn btn-lg btn-primary"
+                data-bs-toggle="modal" data-bs-target="#finalizeModal"
+        @(Model.Reservation.IsClosed ? "disabled" : "")>
+            ✅ Zamknij rachunek
+        </button>
+    </div>
+</div>
+
+<!-- Modal: Dodaj usługę -->
+<div class="modal fade" id="addServiceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AddService" method="post">
+                <div class="modal-header"><h5 class="modal-title">Dodaj usługę</h5></div>
+                <div class="modal-body">
+                    <input type="hidden" asp-for="Reservation.Id" />
+                    <div class="form-group mb-3">
+                        <label>Usługa:</label>
+                        <select asp-for="NewServiceId" asp-items="@(new SelectList(Model.AvailableServices, "Id", "Name"))" class="form-control"></select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label>Ilość:</label>
+                        <input asp-for="NewServiceQuantity" class="form-control" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-success">Dodaj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Dodaj płatność -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AddPayment" method="post">
+                <div class="modal-header"><h5 class="modal-title">Dodaj płatność</h5></div>
+                <div class="modal-body">
+                    <input type="hidden" asp-for="Reservation.Id" />
+
+                    <div class="form-group mb-3">
+                        <label>Kwota do zapłaty:</label>
+                        <input asp-for="NewPaymentAmount" class="form-control" 
+                               value="@Model.RemainingToPay" />
+                        <small class="text-muted">
+                            Domyślnie ustawiono pozostałą kwotę: <strong>@Model.RemainingToPay zł</strong>.
+                            Możesz zmienić, jeśli klient płaci częściowo.
+                        </small>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label>Metoda:</label>
+                        <select asp-for="NewPaymentMethod" class="form-control"
+                                asp-items="Html.GetEnumSelectList<PaymentMethod>()">
+                        </select>
+                        <span asp-validation-for="NewPaymentMethod" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-success">Dodaj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Zamknij rachunek -->
+<div class="modal fade" id="finalizeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form asp-action="Finalize" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Zamknij rachunek</h5>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" asp-for="Reservation.Id" />
+                    <input type="hidden" asp-for="IsCompany" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Wybierz typ dokumentu:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="DocumentType" value="Receipt" checked onchange="toggleBuyerFields('paragon')" />
+                            <label class="form-check-label">Paragon</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="DocumentType" value="Invoice" onchange="toggleBuyerFields('nip')" />
+                            <label class="form-check-label">Faktura z NIP</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="DocumentType" value="InvoiceForeign" onchange="toggleBuyerFields('foreign')" />
+                            <label class="form-check-label">Faktura zagraniczna</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="DocumentType" value="InvoicePersonal" onchange="toggleBuyerFields('personal')" />
+                            <label class="form-check-label">Faktura imienna</label>
+                        </div>
+                    </div>
+
+                    <div id="nipFields" class="buyer-field" style="display:none">
+                        <input asp-for="CompanyName" class="form-control mb-2" placeholder="Nazwa firmy" />
+                        <input asp-for="CompanyNip" class="form-control mb-2" placeholder="NIP" />
+                        <input asp-for="CompanyAddress" class="form-control mb-2" placeholder="Adres firmy" />
+                    </div>
+
+                    <div id="foreignFields" class="buyer-field" style="display:none">
+                        <input asp-for="CompanyName" class="form-control mb-2" placeholder="Nazwa firmy" />
+                        <input asp-for="CompanyAddress" class="form-control mb-2" placeholder="Adres" />
+                    </div>
+
+                    <div id="personalFields" class="buyer-field" style="display:none">
+                        <input asp-for="PersonalName" class="form-control mb-2" placeholder="Imię i nazwisko" />
+                        <input asp-for="PersonalAddress" class="form-control mb-2" placeholder="Adres" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Potwierdź i zamknij</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleBuyerFields(type) {
+        document.querySelectorAll('.buyer-field').forEach(div => div.style.display = 'none');
+
+        const isCompanyInput = document.querySelector('input[name="IsCompany"]');
+        if (isCompanyInput) {
+            isCompanyInput.value = (type === 'nip' || type === 'foreign') ? 'true' : 'false';
+        }
+
+        if (type === 'nip') document.getElementById('nipFields').style.display = 'block';
+        if (type === 'foreign') document.getElementById('foreignFields').style.display = 'block';
+        if (type === 'personal') document.getElementById('personalFields').style.display = 'block';
+    }
+</script>

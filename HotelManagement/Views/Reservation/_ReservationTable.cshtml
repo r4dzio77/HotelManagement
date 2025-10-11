@@ -1,0 +1,99 @@
+﻿@model IEnumerable<HotelManagement.Models.Reservation>
+@using HotelManagement.Enums
+
+@if (Model == null || !Model.Any())
+{
+    <p class="text-center my-4">Brak rezerwacji do wyświetlenia.</p>
+}
+else
+{
+    <table class="table table-hover table-bordered sortable mt-3">
+        <thead class="table-light">
+            <tr>
+                <th onclick="sortTable(this)">Gość</th>
+                <th onclick="sortTable(this)">Numer rezerwacji</th>
+                <th onclick="sortTable(this)">Pokój</th>
+                <th onclick="sortTable(this)">Typ pokoju</th>
+                <th onclick="sortTable(this)">Zameldowanie</th>
+                <th onclick="sortTable(this)">Wymeldowanie</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var reservation in Model)
+            {
+                <tr>
+                    <td>@reservation.Guest.FirstName @reservation.Guest.LastName</td>
+                    <td>@reservation.Id</td>
+                    <td>@(reservation.Room != null ? reservation.Room.Number : "Brak")</td>
+                    <td>@(reservation.Room?.RoomType != null ? reservation.Room.RoomType.Name : "Brak")</td>
+                    <td>@reservation.CheckIn.ToShortDateString()</td>
+                    <td>@reservation.CheckOut.ToShortDateString()</td>
+                    <td>
+                        <div class="btn-group">
+
+                            <!-- Szczegóły -->
+                            <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#detailsModal-@reservation.Id">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+
+                            <!-- Edycja -->
+                            <a asp-action="Edit" asp-route-id="@reservation.Id" class="btn btn-sm btn-warning">Edytuj</a>
+
+                            <!-- Check In -->
+                            @if (reservation.Status == ReservationStatus.Confirmed)
+                            {
+                                <form asp-action="CheckIn" method="post" asp-route-id="@reservation.Id" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-success">Check In</button>
+                                </form>
+                            }
+
+                            <!-- Check Out -->
+                            @if (reservation.Status == ReservationStatus.CheckedIn && reservation.CheckOut.Date == DateTime.Today)
+                            {
+                                <form asp-action="CheckOut" method="post" asp-route-id="@reservation.Id" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-danger">Check Out</button>
+                                </form>
+                            }
+
+                            <!-- Rozliczanie -->
+                            @if (reservation.Status == ReservationStatus.CheckedIn || reservation.Status == ReservationStatus.CheckedOut)
+                            {
+                                <a asp-controller="Settlement" asp-action="Settle" asp-route-reservationId="@reservation.Id" class="btn btn-sm btn-primary">Rozlicz</a>
+                            }
+
+                        </div>
+
+
+                        <!-- Modal szczegółów -->
+                        <div class="modal fade" id="detailsModal-@reservation.Id" tabindex="-1" aria-labelledby="detailsModalLabel-@reservation.Id" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="detailsModalLabel-@reservation.Id">Szczegóły rezerwacji</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p><strong>Gość:</strong> @reservation.Guest.FirstName @reservation.Guest.LastName</p>
+                                        <p><strong>Pokój:</strong> @(reservation.Room != null ? reservation.Room.Number : "Nieprzydzielony")</p>
+                                        <p><strong>Typ pokoju:</strong> @(reservation.Room?.RoomType != null ? reservation.Room.RoomType.Name : "Nieznany")</p>
+                                        <p><strong>Daty:</strong> @reservation.CheckIn.ToShortDateString() – @reservation.CheckOut.ToShortDateString()</p>
+                                        <p><strong>Status:</strong> @reservation.Status</p>
+                                        <p><strong>Śniadanie:</strong> @(reservation.Breakfast ? "Tak" : "Nie")</p>
+                                        <p><strong>Parking:</strong> @(reservation.Parking ? "Tak" : "Nie")</p>
+                                        <p><strong>Dodatkowe łóżko:</strong> @(reservation.ExtraBed ? "Tak" : "Nie")</p>
+                                        <p><strong>Cena łączna:</strong> @reservation.TotalPrice zł</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

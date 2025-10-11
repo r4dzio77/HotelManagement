@@ -1,0 +1,14 @@
+﻿@model HotelManagement.Models.Reservation
+
+<h2>Szczegóły rezerwacji</h2>
+
+<p><strong>Gość:</strong> @Model.Guest.FirstName @Model.Guest.LastName</p>
+<p><strong>Pokój:</strong> @Model.Room.Number (@Model.RoomType.Name)</p>
+<p><strong>Daty:</strong> @Model.CheckIn.ToShortDateString() - @Model.CheckOut.ToShortDateString()</p>
+<p><strong>Status:</strong> @Model.Status</p>
+<p><strong>Śniadanie:</strong> @(Model.Breakfast ? "Tak" : "Nie")</p>
+<p><strong>Parking:</strong> @(Model.Parking ? "Tak" : "Nie")</p>
+<p><strong>Łóżko dodatkowe:</strong> @(Model.ExtraBed ? "Tak" : "Nie")</p>
+<p><strong>Cena:</strong> @Model.TotalPrice zł</p>
+
+<a asp-action="Index" class="btn btn-secondary">Powrót</a>

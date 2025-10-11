@@ -1,0 +1,216 @@
+﻿@model List<HotelManagement.Models.WorkShift>
+@using HotelManagement.Models
+@{
+    ViewData["Title"] = "Grafik miesięczny";
+    var month = (DateTime)ViewBag.Month;
+    var isPublished = (bool)ViewBag.IsPublished;
+    var firstDay = new DateTime(month.Year, month.Month, 1);
+    var daysInMonth = DateTime.DaysInMonth(month.Year, month.Month);
+    var startOffset = ((int)firstDay.DayOfWeek + 6) % 7;
+    var shifts = Model.GroupBy(s => s.Date.Date).ToDictionary(g => g.Key, g => g.ToList());
+    var employees = ViewBag.Employees as List<ApplicationUser>;
+}
+
+<h2 class="mb-4">@ViewData["Title"] – @month.ToString("MMMM yyyy")</h2>
+
+<div class="mb-4 d-flex justify-content-between align-items-center">
+    <form method="get" asp-action="ManageSchedule" class="d-flex align-items-center gap-2">
+        <label for="month">Wybierz miesiąc:</label>
+        <input type="month" name="month" id="month" class="form-control" value="@month.ToString("yyyy-MM")" />
+        <button class="btn btn-sm btn-primary">Pokaż</button>
+    </form>
+
+    @if (!isPublished)
+    {
+        <form method="post" asp-action="PublishSchedule" asp-route-year="@month.Year" asp-route-month="@month.Month">
+            <button class="btn btn-success">Zatwierdź grafik</button>
+        </form>
+    }
+    else
+    {
+        <span class="text-success fw-bold">Grafik opublikowany</span>
+    }
+</div>
+
+<a asp-action="Employees" class="btn btn-outline-secondary mb-3">👥 Zarządzaj pracownikami</a>
+
+<div class="table-responsive">
+    <table class="table table-bordered text-center align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Pn</th>
+                <th>Wt</th>
+                <th>Śr</th>
+                <th>Cz</th>
+                <th>Pt</th>
+                <th>Sb</th>
+                <th>Nd</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                int currentDay = 1;
+                int totalCells = startOffset + daysInMonth;
+                int totalRows = (int)Math.Ceiling(totalCells / 7.0);
+                for (int week = 0; week < totalRows; week++)
+                {
+                    <tr>
+                        @for (int dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++)
+                        {
+                            int cellIndex = week * 7 + dayOfWeek;
+                            if (cellIndex < startOffset || currentDay > daysInMonth)
+                            {
+                                <td class="bg-light"></td>
+                            }
+                            else
+                            {
+                                var date = new DateTime(month.Year, month.Month, currentDay);
+                                var dayShifts = shifts.ContainsKey(date) ? shifts[date].OrderBy(s => s.ShiftType == "Night" ? 1 : 0).ToList() : new List<WorkShift>();
+                                <td style="min-height: 120px; vertical-align: top;">
+                                    <div class="fw-bold">@currentDay</div>
+
+                                    @foreach (var s in dayShifts)
+                                    {
+                                        var badgeClass = s.ShiftType == "Night" ? "bg-dark text-white" : "bg-info text-dark";
+                                        <div class="small text-start mt-1">
+                                            <span class="badge @badgeClass" title="@s.User.Email">@s.ShiftType</span><br />
+                                            @s.User.FirstName @s.User.LastName
+                                            <form asp-action="DeleteShift" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Usuń zmianę">❌</button>
+                                            </form>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-link text-primary p-0 ms-1 edit-btn"
+                                                    data-id="@s.Id"
+                                                    data-date="@s.Date.ToString("yyyy-MM-dd")"
+                                                    data-userid="@s.UserId"
+                                                    data-shifttype="@s.ShiftType"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editModal">
+                                                ✏️
+                                            </button>
+                                        </div>
+                                    }
+
+                                    <button class="btn btn-sm btn-outline-primary mt-2 w-100"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#assignModal"
+                                            data-date="@date.ToString("yyyy-MM-dd")">
+                                        + Dodaj zmianę
+                                    </button>
+                                </td>
+                                currentDay++;
+                            }
+                        }
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal dodawania -->
+<div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-action="AssignShift">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignModalLabel">Przypisz zmianę</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="date" id="modal-date" />
+                    <div class="mb-3">
+                        <label>Zmiana</label>
+                        <select name="shiftType" class="form-select" required>
+                            <option value="">-- wybierz --</option>
+                            <option value="Day">Dzień (07–19)</option>
+                            <option value="Night">Noc (19–07)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Pracownik</label>
+                        <select name="userId" class="form-select" required>
+                            @foreach (var emp in employees)
+                            {
+                                <option value="@emp.Id">@emp.FirstName @emp.LastName</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Zapisz</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edycji -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-action="EditShift">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">Edytuj zmianę</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="edit-id" />
+                    <div class="mb-3">
+                        <label>Data</label>
+                        <input type="text" id="edit-date" class="form-control" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label>Zmiana</label>
+                        <select name="shiftType" id="edit-shiftType" class="form-select" required>
+                            <option value="Day">Dzień (07–19)</option>
+                            <option value="Night">Noc (19–07)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Pracownik</label>
+                        <select name="userId" id="edit-userId" class="form-select" required>
+                            @foreach (var emp in employees)
+                            {
+                                <option value="@emp.Id">@emp.FirstName @emp.LastName</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Zapisz</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // ustawianie daty w modalu dodawania
+        const assignModal = document.getElementById('assignModal');
+        assignModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const date = button.getAttribute('data-date');
+            document.getElementById('modal-date').value = date;
+        });
+
+        // ustawianie wartości w modalu edycji
+        const editButtons = document.querySelectorAll('.edit-btn');
+        editButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('edit-id').value = btn.dataset.id;
+                document.getElementById('edit-date').value = btn.dataset.date;
+                document.getElementById('edit-userId').value = btn.dataset.userid;
+                document.getElementById('edit-shiftType').value = btn.dataset.shifttype;
+            });
+        });
+    </script>
+}
+

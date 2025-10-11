@@ -1,0 +1,140 @@
+﻿@{
+    ViewData["Title"] = "Witamy w HotelManagement";
+}
+
+<style>
+    .hero {
+        position: relative;
+        background: url('/images/hotel-hero.jpg') center center/cover no-repeat;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+    }
+
+    .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+    }
+
+    /* 🔥 Animacje */
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @@keyframes slideInLeft {
+        from { transform: translateX(-100px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    @@keyframes bounce {
+        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-20px); }
+        60% { transform: translateY(-10px); }
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    /* Klasy pomocnicze */
+    .animate-fade { animation: fadeIn 1.2s ease forwards; }
+    .animate-slide-left { animation: slideInLeft 1.2s ease forwards; }
+    .animate-bounce { animation: bounce 2s infinite; }
+    .animate-pulse { animation: pulse 1.5s infinite; }
+
+    .btn-cta {
+        padding: 1rem 2.5rem;
+        font-size: 1.3rem;
+        border-radius: 50px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+    }
+
+    .btn-cta:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.45);
+    }
+
+    .features {
+        margin-top: -5rem;
+    }
+
+    .feature-card {
+        border-radius: 1rem;
+        transition: transform 0.3s ease;
+        opacity: 0;
+    }
+
+    .feature-card.visible {
+        opacity: 1;
+        animation: fadeIn 1.2s ease forwards;
+    }
+</style>
+
+<!-- Sekcja hero -->
+<section class="hero">
+    <div class="hero-content">
+        <h1 class="display-3 fw-bold animate-fade">Witaj w <span class="text-warning">HotelManagement</span></h1>
+        <p class="lead mt-3 animate-slide-left">Twój komfort i wygoda w najlepszym wydaniu ✨</p>
+        <a href="@Url.Action("Index", "RoomType")" class="btn btn-warning btn-cta mt-4 animate-bounce">
+            <i class="bi bi-door-open me-2"></i> Zobacz dostępne pokoje
+        </a>
+    </div>
+</section>
+
+<!-- Sekcja cech hotelu -->
+<div class="container features">
+    <div class="row text-center g-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 feature-card p-4">
+                <i class="bi bi-cup-hot display-5 text-primary mb-3"></i>
+                <h5 class="fw-bold">Śniadanie w cenie</h5>
+                <p class="text-muted">Rozpocznij dzień pysznym bufetem serwowanym w naszej restauracji.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 feature-card p-4">
+                <i class="bi bi-wifi display-5 text-success mb-3"></i>
+                <h5 class="fw-bold">Szybkie Wi-Fi</h5>
+                <p class="text-muted">Pozostań w kontakcie z bliskimi lub pracuj zdalnie bez przeszkód.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 feature-card p-4">
+                <i class="bi bi-car-front display-5 text-danger mb-3"></i>
+                <h5 class="fw-bold">Parking dla gości</h5>
+                <p class="text-muted">Bezpieczny parking dostępny 24/7 dla wszystkich naszych gości.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Animacja kart przy scrollu
+    document.addEventListener("DOMContentLoaded", () => {
+        const cards = document.querySelectorAll(".feature-card");
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add("visible");
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.2 });
+
+        cards.forEach(card => observer.observe(card));
+    });
+</script>

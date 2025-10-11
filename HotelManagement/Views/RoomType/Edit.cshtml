@@ -1,0 +1,49 @@
+﻿@model HotelManagement.Models.RoomType
+
+@{
+    ViewData["Title"] = "Edytuj typ pokoju";
+}
+
+<h2>Edytuj typ pokoju</h2>
+
+<form asp-action="Edit" method="post" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(model => model.Id)
+
+    <div class="form-group">
+        <label for="Name">Nazwa</label>
+        @Html.TextBoxFor(model => model.Name, new { @class = "form-control", placeholder = "Nazwa typu pokoju" })
+        @Html.ValidationMessageFor(model => model.Name, "", new { @class = "text-danger" })
+    </div>
+
+    <div class="form-group">
+        <label for="Description">Opis</label>
+        @Html.TextAreaFor(model => model.Description, new { @class = "form-control", rows = 4, placeholder = "Opis typu pokoju" })
+        @Html.ValidationMessageFor(model => model.Description, "", new { @class = "text-danger" })
+    </div>
+
+    <div class="form-group">
+        <label for="Capacity">Pojemność (osób)</label>
+        @Html.TextBoxFor(model => model.Capacity, new { @class = "form-control", type = "number", min = "1" })
+        @Html.ValidationMessageFor(model => model.Capacity, "", new { @class = "text-danger" })
+    </div>
+
+    <div class="form-group">
+        <label for="PricePerNight">Cena za noc (PLN)</label>
+        @Html.TextBoxFor(model => model.PricePerNight, "{0:F2}", new { @class = "form-control", type = "number", step = "0.01", min = "0" })
+        @Html.ValidationMessageFor(model => model.PricePerNight, "", new { @class = "text-danger" })
+    </div>
+
+    <div class="form-group">
+        <label for="ImageFile">Obrazek (opcjonalnie)</label>
+        <input type="file" name="imageFile" class="form-control-file" />
+        @if (!string.IsNullOrEmpty(Model.ImagePath))
+        {
+            <p>Aktualny obrazek:</p>
+            <img src="@Model.ImagePath" alt="Obrazek typu pokoju" style="max-width: 200px; max-height: 150px;" />
+        }
+    </div>
+
+    <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+    <a asp-action="Index" class="btn btn-secondary ml-2">Anuluj</a>
+</form>

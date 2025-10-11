@@ -1,0 +1,127 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using HotelManagement.Models
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+
+@{
+    ApplicationUser currentUser = null;
+    if (SignInManager.IsSignedIn(User))
+    {
+        currentUser = await UserManager.GetUserAsync(User);
+    }
+}
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - HotelManagement</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm mb-3">
+            <div class="container">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">HotelManagement</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Home" asp-action="Index">Strona główna</a>
+                        </li>
+                    </ul>
+
+                    @* Wywołanie partiala zarządzającego logowaniem/wylogowaniem *@
+                    @await Html.PartialAsync("_LoginPartial")
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main role="main" class="container mb-5">
+        @RenderBody()
+    </main>
+
+    <footer class="border-top text-muted py-3 bg-light">
+        <div class="container">
+            &copy; @DateTime.Now.Year - HotelManagement
+        </div>
+    </footer>
+
+    <!-- 🔹 MODAL -->
+    <div class="modal fade" id="availabilityModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Dostępność pokoi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="availabilityContent">
+                        <p>Ładowanie...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔹 JS DO ŁADOWANIA DANYCH -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Funkcja otwierająca modal i ładująca dane
+        function showAvailability(startDate, days = 7) {
+            const date = startDate || new Date().toISOString().split('T')[0];
+            fetch('/Availability/Partial?startDate=' + date + '&days=' + days)
+                .then(r => r.text())
+                .then(html => {
+                    document.getElementById("availabilityContent").innerHTML = html;
+                    const modalEl = document.getElementById('availabilityModal');
+                    let modal = bootstrap.Modal.getInstance(modalEl);
+                    if (!modal) {
+                        modal = new bootstrap.Modal(modalEl);
+                    }
+                    modal.show();
+                })
+                .catch(() => {
+                    document.getElementById("availabilityContent").innerHTML = "<p>Błąd ładowania.</p>";
+                });
+        }
+
+        // Delegacja zdarzenia submit dla formularza w modalu
+        document.addEventListener("submit", function (e) {
+            if (e.target && e.target.id === "availabilityForm") {
+                e.preventDefault();
+                const data = new FormData(e.target);
+                const url = `/Availability/Partial?startDate=${data.get("startDate")}&days=${data.get("days")}`;
+
+                fetch(url)
+                    .then(r => r.text())
+                    .then(html => {
+                        document.getElementById("availabilityContent").innerHTML = html;
+                        const modalEl = document.getElementById('availabilityModal');
+                        let modal = bootstrap.Modal.getInstance(modalEl);
+                        if (!modal) {
+                            modal = new bootstrap.Modal(modalEl);
+                        }
+                        modal.show();
+                    });
+            }
+        });
+
+        // Sprzątanie backdropów po zamknięciu modala
+        document.getElementById('availabilityModal').addEventListener('hidden.bs.modal', function () {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        });
+    </script>
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

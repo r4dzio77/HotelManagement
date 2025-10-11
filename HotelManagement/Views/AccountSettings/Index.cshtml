@@ -1,0 +1,98 @@
+﻿@model HotelManagement.ViewModels.AccountSettingsViewModel
+
+<h2 class="mb-4">Ustawienia konta</h2>
+
+@if (TempData["Message"] != null)
+{
+        <div class="alert alert-success">@TempData["Message"]</div>
+}
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Imię</dt>
+            <dd class="col-sm-9">@Model.FirstName</dd>
+
+            <dt class="col-sm-3">Nazwisko</dt>
+            <dd class="col-sm-9">@Model.LastName</dd>
+
+            <dt class="col-sm-3">Email</dt>
+            <dd class="col-sm-9">@Model.Email</dd>
+
+            <dt class="col-sm-3">Telefon</dt>
+            <dd class="col-sm-9 d-flex align-items-center justify-content-between">
+                <span>
+                    @Html.Raw(string.IsNullOrWhiteSpace(Model.PhoneNumber) ? "<em>Brak</em>" : Model.PhoneNumber)
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editPhoneModal">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </dd>
+
+            <dt class="col-sm-3">Preferencje</dt>
+            <dd class="col-sm-9 d-flex align-items-center justify-content-between">
+                <span>
+                    @Html.Raw(string.IsNullOrWhiteSpace(Model.Preferences) ? "<em>Brak</em>" : Model.Preferences)
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editPreferencesModal">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a asp-action="ChangePassword" class="btn btn-secondary">Zmień hasło</a>
+    <a asp-action="Loyalty" class="btn btn-outline-primary ms-2">
+        <i class="bi bi-stars"></i> Program lojalnościowy
+    </a>
+</div>
+
+<!-- Modal telefonu -->
+<div class="modal fade" id="editPhoneModal" tabindex="-1" aria-labelledby="editPhoneModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form asp-action="UpdatePhone" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editPhoneModalLabel">Edytuj telefon</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+        </div>
+        <div class="modal-body">
+          <input asp-for="PhoneNumber" class="form-control" placeholder="Dodaj numer telefonu" />
+          <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal preferencji -->
+<div class="modal fade" id="editPreferencesModal" tabindex="-1" aria-labelledby="editPreferencesModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form asp-action="UpdatePreferences" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editPreferencesModalLabel">Edytuj preferencje</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+        </div>
+        <div class="modal-body">
+          <textarea asp-for="Preferences" class="form-control" placeholder="Dodaj swoje preferencje"></textarea>
+          <span asp-validation-for="Preferences" class="text-danger"></span>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+        <partial name="_ValidationScriptsPartial" />
+}

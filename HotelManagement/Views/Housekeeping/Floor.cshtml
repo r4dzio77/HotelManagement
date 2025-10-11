@@ -1,0 +1,153 @@
+﻿@model IEnumerable<HotelManagement.Models.Room>
+@{
+    var floors = ViewBag.Floors as List<int>;
+    int? selected = ViewBag.SelectedFloor;
+}
+
+<style>
+    .floor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 15px;
+    }
+
+    .room-box {
+        border: 1px solid #ccc;
+        padding: 15px;
+        text-align: center;
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        position: relative;
+        transition: transform 0.2s, box-shadow 0.3s;
+        cursor: pointer;
+    }
+
+        .room-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+
+        .room-box.blocked {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .room-box.clean {
+            background-color: #ffffff;
+        }
+
+        .room-box.arrival {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .room-box.stay {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .room-box.departure {
+            background-color: #b30000;
+            color: white;
+        }
+
+    .broom-icon {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 22px;
+        background-color: rgba(255, 255, 255, 0.7);
+        border-radius: 50%;
+        padding: 5px;
+    }
+
+    .room-actions form {
+        margin-top: 5px;
+    }
+
+    /* Responsywność */
+    @@media (max-width: 768px) {
+        .floor-grid
+
+    {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 10px;
+    }
+
+    }
+</style>
+
+<div class="row">
+    <div class="col-12 col-md-2 mb-3">
+        <div class="list-group">
+            @foreach (var floor in floors)
+            {
+                <a asp-action="Floor" asp-route-floor="@floor" class="list-group-item list-group-item-action @(floor == selected ? "active" : "")">
+                    Piętro @floor
+                </a>
+            }
+        </div>
+    </div>
+
+    <div class="col-12 col-md-10">
+        <h4>Piętro @selected</h4>
+        <div class="floor-grid">
+            @foreach (var room in Model)
+            {
+                var cssClass = room.IsBlocked ? "blocked" :
+                room.Tag == "pobyt" ? "stay" :
+                room.Tag == "przyjazd" ? "arrival" :
+                room.Tag == "wyjazd" ? "departure" :
+                "clean";
+
+                <div class="room-box @cssClass">
+                    @if (room.IsDirty)
+                    {
+                        <div class="broom-icon">🧹</div>
+                    }
+
+                    <div><strong>Pokój @room.Number</strong></div>
+
+                    @if (room.Tag == "pobyt")
+                    {
+                        <div><small>Pobyt</small></div>
+                    }
+                    else if (room.Tag == "przyjazd")
+                    {
+                        <div><small>Przyjazd</small></div>
+                    }
+                    else if (room.Tag == "wyjazd")
+                    {
+                        <div><small>Wyjazd</small></div>
+                    }
+                    else
+                    {
+                        <div><small>Wolny</small></div>
+                    }
+
+                    <div class="room-actions">
+                        <form asp-action="MarkDirty" asp-route-id="@room.Id" method="post">
+                            <input type="submit" class="btn btn-sm btn-warning mt-1" value="Brudny" />
+                        </form>
+                        <form asp-action="MarkClean" asp-route-id="@room.Id" method="post">
+                            <input type="submit" class="btn btn-sm btn-success mt-1" value="Czysty" />
+                        </form>
+
+                        @if (!room.IsBlocked && room.Tag != "pobyt")
+                        {
+                            <form asp-action="Block" asp-route-id="@room.Id" method="post">
+                                <input type="submit" class="btn btn-sm btn-danger mt-1" value="Zablokuj" />
+                            </form>
+                        }
+                        else if (room.IsBlocked)
+                        {
+                            <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
+                                <input type="submit" class="btn btn-sm btn-primary mt-1" value="Odblokuj" />
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

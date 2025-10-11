@@ -1,0 +1,158 @@
+﻿@model List<HotelManagement.Models.WorkShift>
+@using System.Globalization
+@using HotelManagement.Models
+@{
+    ViewData["Title"] = "Mój grafik";
+    var month = (DateTime)ViewBag.Month;
+    var isPublished = (bool)ViewBag.IsPublished;
+    var showAll = ViewBag.ShowAll as bool? ?? false;
+    var isManager = User.IsInRole("Kierownik");
+}
+
+<h2>@ViewData["Title"] – @month.ToString("MMMM yyyy", new CultureInfo("pl-PL"))</h2>
+
+<!-- ✅ Komunikaty -->
+@if (TempData["Message"] is string msg)
+{
+    <div class="alert alert-success">@msg</div>
+}
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger">@err</div>
+}
+
+<form method="get" asp-action="MySchedule" class="mb-3 d-flex align-items-center gap-3">
+    <div>
+        <label for="monthInput">Wybierz miesiąc:</label>
+        <input type="month" id="monthInput" name="month" value="@month.ToString("yyyy-MM")" class="form-control d-inline-block w-auto" />
+    </div>
+
+    @if (!isManager)
+    {
+        <div class="form-check form-switch">
+            <input type="checkbox" class="form-check-input" id="showAllToggle" @(showAll ? "checked" : "") />
+            <label class="form-check-label" for="showAllToggle">Pokaż cały grafik</label>
+        </div>
+    }
+
+    <button type="submit" class="btn btn-sm btn-primary ms-2">Pokaż</button>
+</form>
+
+<!-- ☁️ Eksport do Google -->
+@if (isPublished && Model.Any())
+{
+    <form id="exportForm" method="post" asp-action="ExportMyShiftsToGoogle" asp-route-month="@month.ToString("yyyy-MM-01")" class="mb-3">
+        @Html.AntiForgeryToken()
+        <button id="exportBtn" type="submit" class="btn btn-outline-success">
+            <i class="bi bi-google"></i> ☁️ Eksportuj grafik do Google Calendar
+        </button>
+    </form>
+
+    <!-- 🔄 komunikat o synchronizacji -->
+    <div id="loadingMessage" class="alert alert-info d-none">
+        <i class="bi bi-hourglass-split"></i> Trwa synchronizacja z Google Calendar… proszę czekać.
+    </div>
+}
+
+@if (!isPublished)
+{
+    <div class="alert alert-warning">
+        Grafik na wybrany miesiąc nie został jeszcze udostępniony przez kierownika.
+    </div>
+}
+else if (!Model.Any())
+{
+    <div class="alert alert-info">
+        Brak przypisanych zmian na ten miesiąc.
+    </div>
+}
+else
+{
+    var daysInMonth = Enumerable.Range(1, DateTime.DaysInMonth(month.Year, month.Month))
+                                .Select(day => new DateTime(month.Year, month.Month, day))
+                                .ToList();
+
+    var grouped = Model.GroupBy(s => s.User).ToList();
+    if (!showAll)
+    {
+        grouped = new List<IGrouping<ApplicationUser, WorkShift>> {
+            Model.GroupBy(s => s.User).FirstOrDefault()
+        };
+    }
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm text-center align-middle">
+            <thead class="table-light sticky-top">
+                <tr>
+                    <th class="text-start">Pracownik</th>
+                    @foreach (var day in daysInMonth)
+                    {
+                        <th title="@day.ToString("dddd", new CultureInfo("pl-PL"))">@day.Day</th>
+                    }
+                    <th>Zmien</th>
+                    <th>Godzin</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var group in grouped.Where(g => g != null))
+                {
+                    var userId = group.Key.Id;
+                    var totalShifts = 0;
+                    var totalHours = 0.0;
+
+                    <tr>
+                        <td class="text-start">@group.Key.FullName</td>
+
+                        @foreach (var day in daysInMonth)
+                        {
+                            var shift = Model.FirstOrDefault(s => s.UserId == userId && s.Date.Date == day.Date);
+                            if (shift != null)
+                            {
+                                totalShifts++;
+                                totalHours += 12; // każda zmiana = 12h
+                            }
+
+                            <td>
+                                <span class="fw-bold">
+                                    @(shift?.ShiftType == "Day" ? "D" : shift?.ShiftType == "Night" ? "N" : "—")
+                                </span>
+                            </td>
+                        }
+
+                        <td class="fw-bold">@totalShifts</td>
+                        <td class="fw-bold">@totalHours.ToString("0.0") h</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        // ✅ Pokazanie komunikatu o synchronizacji
+        const exportForm = document.getElementById("exportForm");
+        const exportBtn = document.getElementById("exportBtn");
+        const loadingMsg = document.getElementById("loadingMessage");
+
+        exportForm?.addEventListener("submit", function () {
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Synchronizuję…';
+            loadingMsg?.classList.remove("d-none");
+        });
+
+        // ✅ Przełącznik "Pokaż cały grafik"
+        document.getElementById("showAllToggle")?.addEventListener("change", function () {
+            const isChecked = this.checked;
+            const month = document.getElementById("monthInput").value;
+            const url = new URL(window.location.href);
+            url.searchParams.set("month", month);
+            if (isChecked) {
+                url.searchParams.set("all", "true");
+            } else {
+                url.searchParams.delete("all");
+            }
+            window.location.href = url.toString();
+        });
+    </script>
+}

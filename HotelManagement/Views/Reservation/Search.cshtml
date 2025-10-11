@@ -1,0 +1,62 @@
+﻿@model IEnumerable<HotelManagement.Models.Reservation>
+
+<h2>Wyszukaj rezerwacje</h2>
+
+<form method="get" asp-action="Search" class="form-inline mb-3">
+    <input type="text" name="reservationNumber" placeholder="Nr rezerwacji" value="@ViewBag.ReservationNumber" class="form-control mr-2" />
+    <input type="text" name="firstName" placeholder="Imię" value="@ViewBag.FirstName" class="form-control mr-2" />
+    <input type="text" name="lastName" placeholder="Nazwisko" value="@ViewBag.LastName" class="form-control mr-2" />
+    <input type="date" name="fromDate" value="@ViewBag.FromDate" class="form-control mr-2" />
+    <input type="date" name="toDate" value="@ViewBag.ToDate" class="form-control mr-2" />
+    <button type="submit" class="btn btn-primary mr-2">Szukaj</button>
+    <a asp-action="Search" class="btn btn-secondary">Reset</a>
+</form>
+
+@{
+    bool hasFilter = !string.IsNullOrEmpty((string)ViewBag.ReservationNumber)
+                     || !string.IsNullOrEmpty((string)ViewBag.FirstName)
+                     || !string.IsNullOrEmpty((string)ViewBag.LastName)
+                     || !string.IsNullOrEmpty((string)ViewBag.FromDate)
+                     || !string.IsNullOrEmpty((string)ViewBag.ToDate);
+}
+
+@if (!hasFilter)
+{
+    <p>Proszę podać kryteria wyszukiwania.</p>
+}
+else if (!Model.Any())
+{
+    <p>Brak wyników dla podanych kryteriów.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Gość</th>
+                <th>Pokój</th>
+                <th>Typ pokoju</th>
+                <th>Data zameldowania</th>
+                <th>Data wymeldowania</th>
+                <th>Status</th>
+                <th>Cena całkowita</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var reservation in Model)
+            {
+                <tr>
+                    <td>@reservation.Id</td>
+                    <td>@reservation.Guest.FirstName @reservation.Guest.LastName</td>
+                    <td>@(reservation.Room != null ? reservation.Room.Number : "Brak pokoju")</td>
+                    <td>@reservation.RoomType.Name</td>
+                    <td>@reservation.CheckIn.ToShortDateString()</td>
+                    <td>@reservation.CheckOut.ToShortDateString()</td>
+                    <td>@reservation.Status</td>
+                    <td>@reservation.TotalPrice.ToString("C")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
