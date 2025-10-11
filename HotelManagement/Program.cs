@@ -15,7 +15,7 @@ QuestPDF.Settings.License = LicenseType.Community;
 builder.Services.AddDbContext<HotelManagementContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(8, 0, 34)) // dopasuj do wersji MySQL
+        new MySqlServerVersion(new Version(8, 0, 34))
     ));
 
 // ✅ ASP.NET Identity + role
@@ -28,44 +28,40 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<HotelManagementContext>();
 
-// 🔐 Google OAuth (pełna konfiguracja z dostępem do Kalendarza)
-builder.Services.AddAuthentication(options =>
+// 🔐 Integracja tylko z Google Calendar (bez logowania przez Google)
+if (!string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientId"]))
 {
-    options.DefaultScheme = IdentityConstants.ApplicationScheme;
-    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-    options.DefaultChallengeScheme = "Google";
-})
-.AddCookie()
-.AddGoogle("Google", options =>
-{
-    options.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? "";
-    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? "";
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
+            options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+            options.DefaultChallengeScheme = IdentityConstants.ExternalScheme;
+        })
+        .AddCookie()
+        .AddGoogle(options =>
+        {
+            options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+            options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 
-    // 📅 Uprawnienia do Kalendarza Google
-    options.Scope.Clear();
-    options.Scope.Add("openid");
-    options.Scope.Add("profile");
-    options.Scope.Add("email");
-    options.Scope.Add("https://www.googleapis.com/auth/calendar");
-    options.Scope.Add("https://www.googleapis.com/auth/calendar.events");
+            // 📅 Uprawnienia tylko do Google Calendar
+            options.Scope.Clear();
+            options.Scope.Add("https://www.googleapis.com/auth/calendar");
+            options.Scope.Add("https://www.googleapis.com/auth/calendar.events");
 
-    // 💾 Zapis tokenów
-    options.SaveTokens = true;
+            // 💾 Zapis tokenów (access + refresh)
+            options.SaveTokens = true;
 
-    // 🧠 Wymuszenie pobrania refresh_token (zgodne z .NET 6)
-    options.Events.OnRedirectToAuthorizationEndpoint = context =>
-    {
-        context.Response.Redirect(context.RedirectUri + "&prompt=consent&access_type=offline");
-        return Task.CompletedTask;
-    };
-});
-
+            // 🔄 wymuszenie zapytania o refresh_token
+            options.AuthorizationEndpoint += "?prompt=consent&access_type=offline";
+        });
+}
 
 // ⚙️ Konfiguracja ciasteczek logowania
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/Identity/Account/Login";
-    options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
 });
 
 // 💾 Sesja
@@ -107,7 +103,7 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseSession();
-app.UseAuthentication(); // ⬅️ musi być przed UseAuthorization
+app.UseAuthentication(); // ⬅️ musi być przed Authorization
 app.UseAuthorization();
 
 app.MapControllerRoute(

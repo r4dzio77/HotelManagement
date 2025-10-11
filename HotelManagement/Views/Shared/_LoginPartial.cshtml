@@ -43,7 +43,13 @@
                             <li><a class="dropdown-item" asp-controller="Reservation" asp-action="Index">Rezerwacje</a></li>
                             <li><a class="dropdown-item" asp-controller="Reservation" asp-action="Search">Wyszukaj</a></li>
                             <li><a class="dropdown-item" asp-controller="Housekeeping" asp-action="Floor" asp-route-floor="1">Serwis pięter</a></li>
-                        </ul>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Reports" asp-action="Index">
+                            <i class="bi bi-graph-up"></i> Raporty
+                        </a>
+                    </li>
+
+                </ul>
                     </li>
 
                     <button class="btn btn-primary" onclick="showAvailability()">Dostępność</button>

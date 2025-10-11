@@ -1,0 +1,75 @@
+﻿@{
+    ViewData["Title"] = "Raporty";
+    Layout = "_Layout";
+}
+
+<h2 class="mb-4">📊 Raporty hotelowe</h2>
+
+<p>Wybierz jeden z dostępnych raportów, aby wygenerować zestawienie operacyjne:</p>
+
+<div class="row g-3 mt-4">
+
+    <!-- ✅ Oczekiwane przyjazdy -->
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-person-walking fs-1 text-primary"></i>
+                <h5 class="mt-2 fw-bold">Oczekiwane przyjazdy</h5>
+                <p class="text-muted small">Lista gości, którzy przyjeżdżają w danym dniu.</p>
+                <a asp-action="ExpectedArrivals" asp-controller="Reports" class="btn btn-outline-primary btn-sm">
+                    Otwórz raport
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🚪 Oczekiwane wyjazdy -->
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-door-open fs-1 text-warning"></i>
+                <h5 class="mt-2 fw-bold">Oczekiwane wyjazdy</h5>
+                <p class="text-muted small">Lista gości, którzy kończą pobyt w danym dniu.</p>
+                <a asp-action="ExpectedDepartures" asp-controller="Reports" class="btn btn-outline-warning btn-sm">
+                    Otwórz raport
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🧹 Status pokoi -->
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-house-gear fs-1 text-info"></i>
+                <h5 class="mt-2 fw-bold">Status pokoi</h5>
+                <p class="text-muted small">Raport dla pań pokojowych – stan pokoi, pobyty i wyjazdy.</p>
+                <a asp-action="RoomStatus" asp-controller="Reports" class="btn btn-outline-info btn-sm">
+                    Otwórz raport
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📈 Obłożenie pokoi -->
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-bar-chart fs-1 text-success"></i>
+                <h5 class="mt-2 fw-bold">Obłożenie pokoi</h5>
+                <p class="text-muted small">Statystyka zajętości i wolnych pokoi na wybrany dzień.</p>
+                <a asp-action="OccupancyReport" asp-controller="Reports"
+                   class="btn btn-outline-success btn-sm disabled" title="W przygotowaniu">
+                    W przygotowaniu
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<hr class="mt-5" />
+
+<p class="text-muted small text-end">
+    System <strong>HotelManagement</strong> – moduł raportów © @DateTime.Now.Year
+</p>

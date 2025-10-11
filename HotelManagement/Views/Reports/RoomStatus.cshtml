@@ -1,0 +1,99 @@
+﻿@model IEnumerable<dynamic>
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Status pokoi";
+    Layout = "_Layout";
+    var selectedDate = (DateTime)ViewBag.SelectedDate;
+}
+
+<h2 class="mb-4">🧹 Status pokoi – @selectedDate.ToString("dd MMMM yyyy", new CultureInfo("pl-PL"))</h2>
+
+<form method="get" asp-action="RoomStatus" class="mb-4 d-flex align-items-center gap-3">
+    <div>
+        <label for="date">Data:</label>
+        <input type="date" id="date" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" class="form-control d-inline-block w-auto" />
+    </div>
+    <button type="submit" class="btn btn-primary">Pokaż</button>
+</form>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Brak danych dla wybranego dnia.</div>
+}
+else
+{
+    <form method="post" asp-action="ExportRoomStatus" class="mb-3">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" />
+        <button type="submit" class="btn btn-outline-danger">
+            <i class="bi bi-filetype-pdf"></i> Eksportuj do PDF
+        </button>
+    </form>
+
+    <table class="table table-bordered table-striped text-center align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>Pokój</th>
+                <th>Typ pokoju</th>
+                <th>Status pokoju</th>
+                <th>Zajętość</th>
+                <th>Gość</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                int i = 1;
+                foreach (var r in Model)
+                {
+                    string statusClass = r.Status switch
+                    {
+                        "Czysty" => "text-success fw-bold",
+                        "Brudny" => "text-danger fw-bold",
+                        "Zablokowany" => "text-secondary fw-bold",
+                        _ => "text-muted"
+                    };
+
+                    string occupancyClass = r.Occupancy switch
+                    {
+                        "Pobyt" => "text-primary fw-bold",
+                        "Wyjazd" => "text-warning fw-bold",
+                        "Wolny" => "text-muted",
+                        _ => "text-muted"
+                    };
+
+                    string statusIcon = r.Status switch
+                    {
+                        "Czysty" => "🟢",
+                        "Brudny" => "🔴",
+                        "Zablokowany" => "⚫",
+                        _ => "⚪"
+                    };
+
+                    string occIcon = r.Occupancy switch
+                    {
+                        "Pobyt" => "🔵",
+                        "Wyjazd" => "🟡",
+                        "Wolny" => "⚪",
+                        _ => "⚪"
+                    };
+
+                    <tr>
+                        <td>@i++</td>
+                        <td>@r.Number</td>
+                        <td>@r.RoomType</td>
+                        <td class="@statusClass">@statusIcon @r.Status</td>
+                        <td class="@occupancyClass">@occIcon @r.Occupancy</td>
+                        <td>@r.Guest</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+<hr class="mt-4" />
+<p class="text-muted small text-end">
+    System <strong>HotelManagement</strong> – raport statusu pokoi © @DateTime.Now.Year
+</p>

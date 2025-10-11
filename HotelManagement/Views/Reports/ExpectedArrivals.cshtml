@@ -1,0 +1,62 @@
+﻿@model List<HotelManagement.Models.Reservation>
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Oczekiwane przyjazdy";
+    Layout = "_Layout";
+    var selectedDate = (DateTime)ViewBag.SelectedDate;
+}
+
+<h2 class="mb-4">📅 Oczekiwane przyjazdy – @selectedDate.ToString("dd MMMM yyyy", new CultureInfo("pl-PL"))</h2>
+
+<form method="get" asp-action="ExpectedArrivals" class="mb-4 d-flex align-items-center gap-3">
+    <div>
+        <label for="date">Data:</label>
+        <input type="date" id="date" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" class="form-control d-inline-block w-auto" />
+    </div>
+    <button type="submit" class="btn btn-primary">Pokaż</button>
+</form>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Brak zaplanowanych przyjazdów w wybranym dniu.</div>
+}
+else
+{
+    <form method="post" asp-action="ExportExpectedArrivals" class="mb-3">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" />
+        <button type="submit" class="btn btn-outline-danger">
+            <i class="bi bi-filetype-pdf"></i> Eksportuj do PDF
+        </button>
+    </form>
+
+    <table class="table table-bordered table-striped text-center align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>Gość</th>
+                <th>Pokój</th>
+                <th>Data przyjazdu</th>
+                <th>Data wyjazdu</th>
+                <th>Osób</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                int i = 1;
+                foreach (var r in Model)
+                {
+                    <tr>
+                        <td>@i++</td>
+                        <td>@($"{r.Guest.FirstName} {r.Guest.LastName}")</td>
+                        <td>@(r.Room?.Number?.ToString() ?? "—")</td>
+                        <td>@r.CheckIn.ToString("dd.MM.yyyy")</td>
+                        <td>@r.CheckOut.ToString("dd.MM.yyyy")</td>
+                        <td>@r.PersonCount</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
