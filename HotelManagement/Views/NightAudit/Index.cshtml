@@ -1,29 +1,170 @@
 ﻿@{
     ViewData["Title"] = "Nocny audyt";
-    var businessDate = ViewData["BusinessDate"]?.ToString() ?? "";
 }
 
-<div class="container mt-4">
-    <h2 class="mb-3">🕛 Nocny audyt</h2>
+<div class="container my-4">
+    <h2>Nocny audyt</h2>
+    <p class="text-muted">Uruchom audyt dobowy. W trakcie zobaczysz postęp krok po kroku. Po zakończeniu powstanie Raport Dobowy (PDF).</p>
 
-    <div class="card shadow-sm p-4 mb-3">
-        <p class="mb-1">Aktualna data operacyjna:</p>
-        <h4 class="text-primary">@businessDate</h4>
-
-        <p class="mt-3 text-muted">
-            Nocny audyt zamyka bieżący dzień, nalicza noclegi, aktualizuje statusy rezerwacji
-            i przesuwa datę operacyjną o jeden dzień naprzód.
-        </p>
-
-        <form method="post" asp-action="Run">
-            <button type="submit" class="btn btn-dark mt-2">
-                <i class="bi bi-moon-stars"></i> Wykonaj nocny audyt
+    <div class="d-flex gap-2">
+        <form id="startForm" method="post" asp-action="Start">
+            @Html.AntiForgeryToken()
+            <button id="btnStart" type="submit" class="btn btn-primary">
+                <span class="spinner-border spinner-border-sm d-none" id="btnSpinner" role="status" aria-hidden="true"></span>
+                <span id="btnText">Uruchom audyt</span>
             </button>
+        </form>
+
+        <form method="post" asp-action="SyncToToday">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-secondary">Zsynchronizuj datę operacyjną z dzisiejszą</button>
         </form>
     </div>
 
-    <div class="alert alert-info mt-3">
-        <strong>Uwaga:</strong> Data systemowa (<code>@DateTime.Now.ToString("yyyy-MM-dd")</code>)
-        nie ma wpływu na system. Aplikacja korzysta z daty operacyjnej kontrolowanej przez nocny audyt.
+    @if (TempData["Notification"] is string note && !string.IsNullOrWhiteSpace(note))
+    {
+        <div class="alert alert-info mt-3">@note</div>
+    }
+
+    <div class="mt-4 d-none" id="progressCard">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong>Postęp</strong>
+                    <span id="percentLabel">0%</span>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Postęp audytu" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%;"></div>
+                </div>
+
+                <ul class="list-group mt-3" id="stepsList"></ul>
+
+                <div class="mt-3">
+                    <h6 class="mb-2 text-muted">Komunikaty</h6>
+                    <ul class="list-group small" id="msgList"></ul>
+                </div>
+
+                <div class="alert mt-3 d-none" id="resultAlert"></div>
+
+                <div id="reportLink" class="mt-3 d-none">
+                    <a target="_blank" class="btn btn-outline-dark">📄 Otwórz Raport Dobowy</a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        const stepsTemplate = (steps) => (steps || []).map((s, i) => `
+            <li class="list-group-item d-flex align-items-center" data-step="${i+1}">
+                <span class="badge me-2 bg-secondary step-badge">•</span>
+                <span class="step-text">${s}</span>
+            </li>`).join('');
+
+        function setStepState(stepEl, state) {
+            const badge = stepEl.querySelector('.step-badge');
+            stepEl.classList.remove('list-group-item-success','list-group-item-warning','list-group-item-secondary');
+            badge.classList.remove('bg-success','bg-warning','bg-secondary');
+            if (state === 'pending') { stepEl.classList.add('list-group-item-secondary'); badge.classList.add('bg-secondary'); badge.textContent = '•'; }
+            if (state === 'running') { stepEl.classList.add('list-group-item-warning');  badge.classList.add('bg-warning');  badge.textContent = '↻'; }
+            if (state === 'done')    { stepEl.classList.add('list-group-item-success'); badge.classList.add('bg-success'); badge.textContent = '✔'; }
+        }
+
+        let pollTimer = null;
+        let auditId = null;
+
+        document.getElementById('startForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnStart');
+            const spn = document.getElementById('btnSpinner');
+            const txt = document.getElementById('btnText');
+            spn.classList.remove('d-none'); txt.textContent = 'Uruchamiam…'; btn.disabled = true;
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const resp = await fetch('@Url.Action("Start")', {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': token, 'Accept': 'application/json' },
+                cache: 'no-store'
+            });
+            const data = await resp.json();
+            auditId = data.auditId;
+
+            document.getElementById('progressCard').classList.remove('d-none');
+
+            poll();
+            pollTimer = setInterval(poll, 600);
+        });
+
+        function renderMessages(msgs) {
+            const ul = document.getElementById('msgList');
+            ul.innerHTML = '';
+            (msgs || []).forEach(m => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = m;
+                ul.appendChild(li);
+            });
+        }
+
+        function pick(obj, camel, pascal, def = null) {
+            return (obj[camel] !== undefined ? obj[camel] :
+                   (obj[pascal] !== undefined ? obj[pascal] : def));
+        }
+
+        async function poll() {
+            const resp = await fetch('@Url.Action("Progress")' + '?id=' + auditId + '&t=' + Date.now(), {
+                headers: { 'Accept': 'application/json' },
+                cache: 'no-store'
+            });
+            if (!resp.ok) return;
+            const p = await resp.json();
+
+            // ⚠️ camelCase z fallbackiem na PascalCase
+            const percent     = pick(p, 'percent', 'Percent', 0);
+            const currentStep = pick(p, 'currentStep', 'CurrentStep', 0);
+            const steps       = pick(p, 'steps', 'Steps', []);
+            const messages    = pick(p, 'messages', 'Messages', []);
+            const isCompleted = pick(p, 'isCompleted', 'IsCompleted', false);
+            const isSuccess   = pick(p, 'isSuccess', 'IsSuccess', false);
+            const reportPath  = pick(p, 'reportPath', 'ReportPath', null);
+
+            const ul = document.getElementById('stepsList');
+            if (ul.childElementCount === 0) {
+                ul.innerHTML = stepsTemplate(steps);
+            }
+
+            document.getElementById('percentLabel').textContent = `${percent}%`;
+            document.getElementById('progressBar').style.width = `${percent}%`;
+
+            [...ul.children].forEach(li => setStepState(li, 'pending'));
+            if (currentStep > 0) {
+                for (let i = 0; i < currentStep - 1; i++) setStepState(ul.children[i], 'done');
+                setStepState(ul.children[currentStep - 1], isCompleted ? 'done' : 'running');
+            }
+
+            renderMessages(messages);
+
+            if (isCompleted) {
+                clearInterval(pollTimer);
+                const result = document.getElementById('resultAlert');
+                result.classList.remove('d-none', 'alert-danger', 'alert-success');
+                result.classList.add(isSuccess ? 'alert-success' : 'alert-danger');
+                result.textContent = isSuccess ? 'Audyt zakończony pomyślnie.' : 'Audyt zakończył się błędem.';
+
+                if (reportPath) {
+                    const linkWrap = document.getElementById('reportLink');
+                    linkWrap.classList.remove('d-none');
+                    linkWrap.querySelector('a').setAttribute('href', reportPath);
+                }
+
+                const btn = document.getElementById('btnStart');
+                const spn = document.getElementById('btnSpinner');
+                const txt = document.getElementById('btnText');
+                spn.classList.add('d-none'); txt.textContent = 'Uruchom audyt'; btn.disabled = false;
+
+                document.getElementById('progressBar').classList.remove('progress-bar-animated');
+            }
+        }
+    </script>
+}

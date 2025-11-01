@@ -4,6 +4,7 @@ using HotelManagement.Models;
 using HotelManagement.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using QuestPDF.Infrastructure; // ← QuestPDF
 
 var builder = WebApplication.CreateBuilder(args);
@@ -86,7 +87,9 @@ builder.Services.AddScoped<LoyaltyService>();
 
 // ✅ Business Date + Night Audit
 builder.Services.AddScoped<IBusinessDateProvider, BusinessDateProvider>();
-builder.Services.AddScoped<NightAuditService>();
+builder.Services.AddSingleton<NightAuditProgressStore>();          // ⬅️ postęp audytu (RAM)
+builder.Services.AddScoped<IDailyReportGenerator, DailyReportGenerator>(); // ⬅️ PDF Raportu Dobowego
+builder.Services.AddScoped<NightAuditService>(); // uruchamianie audytu
 
 // ✅ Google Calendar Helper
 builder.Services.AddHttpContextAccessor();
@@ -133,9 +136,7 @@ using (var scope = app.Services.CreateScope())
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
-        {
             await roleManager.CreateAsync(new IdentityRole(role));
-        }
     }
 
     // Użytkownik: Kierownik
@@ -175,9 +176,7 @@ using (var scope = app.Services.CreateScope())
 
         var resultClient = await userManager.CreateAsync(client, "klient123*");
         if (resultClient.Succeeded)
-        {
             await userManager.AddToRoleAsync(client, "Klient");
-        }
     }
 
     // ✅ BusinessDateState – jeśli brak, ustaw start na dzisiejszą datę (UTC.Date)
@@ -191,7 +190,7 @@ using (var scope = app.Services.CreateScope())
         await context.SaveChangesAsync();
     }
 
-    // ✅ Podstawowe usługi używane w nocnym audycie
+    // ✅ Podstawowe usługi używane w nocnym audycie (jeśli nie istnieją)
     if (!context.Services.Any(s => s.Name == "Śniadanie" || s.Name == "Breakfast"))
         context.Services.Add(new Service { Name = "Śniadanie", Price = 0m });
     if (!context.Services.Any(s => s.Name == "Parking"))

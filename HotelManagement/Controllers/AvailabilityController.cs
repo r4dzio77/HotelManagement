@@ -2,8 +2,7 @@
 using HotelManagement.Models.ViewModels;
 using HotelManagement.Services;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Controllers
 {
@@ -11,7 +10,7 @@ namespace HotelManagement.Controllers
     {
         private readonly AvailabilityService _availabilityService;
         private readonly HotelManagementContext _context;
-        private readonly IBusinessDateProvider _businessDate; // ⬅️ data operacyjna (audytowa)
+        private readonly IBusinessDateProvider _businessDate;
 
         public AvailabilityController(
             AvailabilityService availabilityService,
@@ -25,30 +24,27 @@ namespace HotelManagement.Controllers
 
         public async Task<IActionResult> Partial(DateTime? startDate, int days = 7)
         {
-            // 📅 domyślny start z daty audytowej
-            var start = startDate ?? await _businessDate.GetCurrentBusinessDateAsync();
+            // 📅 domyślnie używamy daty operacyjnej, jeśli użytkownik nie wybrał ręcznie
+            var businessDate = await _businessDate.GetCurrentBusinessDateAsync();
+            var start = startDate?.Date ?? businessDate;
             var end = start.AddDays(days - 1);
 
-            // 🧮 pobierz dostępność z serwisu
             var availability = _availabilityService.GetAvailability(start, end);
 
-            // 🧱 budowa modelu widoku
-            var viewModel = _context.RoomTypes
+            var viewModel = await _context.RoomTypes
                 .Select(rt => new RoomAvailabilityViewModel
                 {
                     RoomTypeName = rt.Name,
                     Availability = availability.ContainsKey(rt.Id)
-                        ? availability[rt.Id] // Dictionary<DateTime, int>
+                        ? availability[rt.Id]
                         : new Dictionary<DateTime, int>()
                 })
-                .ToList();
+                .ToListAsync();
 
-            ViewBag.Dates = Enumerable.Range(0, days)
-                .Select(i => start.AddDays(i))
-                .ToList();
-
+            ViewBag.Dates = Enumerable.Range(0, days).Select(i => start.AddDays(i)).ToList();
             ViewBag.StartDate = start;
             ViewBag.Days = days;
+            ViewBag.BusinessDate = businessDate; // 🟢 przekazujemy do widoku
 
             return PartialView("_AvailabilityTable", viewModel);
         }

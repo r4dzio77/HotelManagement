@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Threading.Tasks;
 using HotelManagement.Data;
 using HotelManagement.Models;
@@ -18,31 +17,54 @@ namespace HotelManagement.Services
 
         public async Task<DateTime> GetCurrentBusinessDateAsync()
         {
-            var state = await _context.Set<BusinessDateState>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == 1);
+            var state = await _context.BusinessDateStates.FirstOrDefaultAsync();
             if (state == null)
             {
-                state = new BusinessDateState { Id = 1, CurrentDate = DateTime.UtcNow.Date };
-                _context.Add(state);
+                state = new BusinessDateState
+                {
+                    Id = 1,
+                    CurrentDate = DateTime.UtcNow.Date
+                };
+                _context.BusinessDateStates.Add(state);
                 await _context.SaveChangesAsync();
             }
-            return state.CurrentDate.Date;
+            return state.CurrentDate;
         }
 
-        public async Task<DateTime> AdvanceToNextDateAsync(string? userId = null)
+        public async Task RollToNextDayAsync(string? userId)
         {
-            var state = await _context.Set<BusinessDateState>().FirstOrDefaultAsync(x => x.Id == 1);
+            var state = await _context.BusinessDateStates.FirstOrDefaultAsync();
             if (state == null)
             {
                 state = new BusinessDateState { Id = 1, CurrentDate = DateTime.UtcNow.Date };
-                _context.Add(state);
+                _context.BusinessDateStates.Add(state);
             }
 
-            state.CurrentDate = state.CurrentDate.Date.AddDays(1);
+            state.CurrentDate = state.CurrentDate.AddDays(1);
             state.LastAuditAtUtc = DateTime.UtcNow;
             state.LastAuditUserId = userId;
 
             await _context.SaveChangesAsync();
-            return state.CurrentDate.Date;
         }
+
+        public async Task SetCurrentBusinessDateAsync(DateTime date, string? userId)
+        {
+            var state = await _context.BusinessDateStates.FirstOrDefaultAsync();
+            if (state == null)
+            {
+                state = new BusinessDateState { Id = 1, CurrentDate = date.Date };
+                _context.BusinessDateStates.Add(state);
+            }
+            else
+            {
+                state.CurrentDate = date.Date;
+            }
+
+            state.LastAuditAtUtc = DateTime.UtcNow;
+            state.LastAuditUserId = userId;
+
+            await _context.SaveChangesAsync();
+        }
+
     }
 }
