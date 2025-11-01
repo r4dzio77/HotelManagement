@@ -1,0 +1,62 @@
+﻿@model HotelManagement.Controllers.ReportsController.BreakfastReportViewModel
+@{
+    ViewData["Title"] = "Raport śniadań";
+}
+
+<div class="container mt-3">
+    <h2>Raport śniadań — @Model.Date.ToString("yyyy-MM-dd")</h2>
+
+    <form method="get" class="row g-2 my-3">
+        <div class="col-auto">
+            <input type="date" class="form-control" name="date" value="@Model.Date.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Pokaż</button>
+        </div>
+    </form>
+
+    <form method="post" asp-action="ExportBreakfastReport" class="mb-3">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="date" value="@Model.Date.ToString("yyyy-MM-dd")" />
+        <button type="submit" class="btn btn-outline-secondary">Eksportuj do PDF</button>
+    </form>
+
+    <div class="alert alert-info">
+        <strong>Łącznie śniadań:</strong> @Model.TotalBreakfasts
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th style="width:60px;">#</th>
+                    <th>Pokój</th>
+                    <th>Gość</th>
+                    <th class="text-end">Ilość</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">Brak śniadań w tym dniu.</td>
+                    </tr>
+                }
+                else
+                {
+                    var idx = 1;
+                    foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td>@idx</td>
+                            <td>@row.RoomNumber</td>
+                            <td>@row.GuestName</td>
+                            <td class="text-end">@row.Quantity</td>
+                        </tr>
+                        idx++;
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

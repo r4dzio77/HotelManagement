@@ -84,6 +84,10 @@ builder.Services.AddScoped<RoomAllocatorService>();
 builder.Services.AddTransient<PdfDocumentGenerator>();
 builder.Services.AddScoped<LoyaltyService>();
 
+// ✅ Business Date + Night Audit
+builder.Services.AddScoped<IBusinessDateProvider, BusinessDateProvider>();
+builder.Services.AddScoped<NightAuditService>();
+
 // ✅ Google Calendar Helper
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<GoogleCalendarHelper>();
@@ -112,7 +116,7 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
-// 📦 SEED: role i użytkownicy startowi
+// 📦 SEED: role, użytkownicy startowi, data operacyjna i podstawowe usługi
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -120,10 +124,12 @@ using (var scope = app.Services.CreateScope())
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var context = services.GetRequiredService<HotelManagementContext>();
 
+    // seed pokoi
     RoomTypeSeeder.Seed(context);
     RoomSeeder.Seed(context);
 
-    string[] roles = { "Admin", "Kierownik", "Pracownik", "Klient" };
+    // Role — dodajemy oba warianty kierownika (PL i EN), aby pasowało do kontrolerów
+    string[] roles = { "Admin", "Manager", "Kierownik", "Pracownik", "Klient" };
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
@@ -132,6 +138,7 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
+    // Użytkownik: Kierownik
     string emailManager = "kierownik@hotel.pl";
     if (await userManager.FindByEmailAsync(emailManager) == null)
     {
@@ -147,10 +154,13 @@ using (var scope = app.Services.CreateScope())
         var resultManager = await userManager.CreateAsync(manager, "kierownik123*");
         if (resultManager.Succeeded)
         {
+            // dodaj oba role kierownicze
             await userManager.AddToRoleAsync(manager, "Kierownik");
+            await userManager.AddToRoleAsync(manager, "Manager");
         }
     }
 
+    // Użytkownik: Klient
     string emailClient = "klient@hotel.pl";
     if (await userManager.FindByEmailAsync(emailClient) == null)
     {
@@ -169,6 +179,28 @@ using (var scope = app.Services.CreateScope())
             await userManager.AddToRoleAsync(client, "Klient");
         }
     }
+
+    // ✅ BusinessDateState – jeśli brak, ustaw start na dzisiejszą datę (UTC.Date)
+    if (!context.BusinessDateStates.Any())
+    {
+        context.BusinessDateStates.Add(new BusinessDateState
+        {
+            Id = 1,
+            CurrentDate = DateTime.UtcNow.Date
+        });
+        await context.SaveChangesAsync();
+    }
+
+    // ✅ Podstawowe usługi używane w nocnym audycie
+    if (!context.Services.Any(s => s.Name == "Śniadanie" || s.Name == "Breakfast"))
+        context.Services.Add(new Service { Name = "Śniadanie", Price = 0m });
+    if (!context.Services.Any(s => s.Name == "Parking"))
+        context.Services.Add(new Service { Name = "Parking", Price = 0m });
+    if (!context.Services.Any(s => s.Name == "Dostawka" || s.Name == "ExtraBed"))
+        context.Services.Add(new Service { Name = "Dostawka", Price = 0m });
+
+    if (context.ChangeTracker.HasChanges())
+        await context.SaveChangesAsync();
 }
 
 app.Run();

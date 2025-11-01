@@ -1,7 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using HotelManagement.Enums;
+﻿using HotelManagement.Enums;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HotelManagement.Models
 {
@@ -34,7 +36,8 @@ namespace HotelManagement.Models
         // Status rezerwacji
         public ReservationStatus Status { get; set; } = ReservationStatus.Confirmed;
 
-        // Cena
+        [Column(TypeName = "decimal(18,2)")]
+        [DisplayFormat(DataFormatString = "{0:N2}")]
         public decimal TotalPrice { get; set; }
         public int PersonCount { get; set; }
 

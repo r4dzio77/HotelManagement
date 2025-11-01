@@ -18,22 +18,24 @@ namespace HotelManagement.Controllers
         private readonly RoomAllocatorService _roomAllocator;
         private readonly LoyaltyService _loyaltyService;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IBusinessDateProvider _businessDate;
 
         public ReservationController(
             HotelManagementContext context,
             ReservationPriceCalculator priceCalculator,
             RoomAllocatorService roomAllocator,
             LoyaltyService loyaltyService,
-            UserManager<ApplicationUser> userManager)
+            UserManager<ApplicationUser> userManager,
+            IBusinessDateProvider businessDate)
         {
             _context = context;
             _priceCalculator = priceCalculator;
             _roomAllocator = roomAllocator;
             _loyaltyService = loyaltyService;
             _userManager = userManager;
+            _businessDate = businessDate;
         }
 
-        // Tworzenie gościa (tylko dla pracownika)
         [HttpGet]
         public IActionResult CreateGuest() => View();
 
@@ -44,7 +46,6 @@ namespace HotelManagement.Controllers
             if (!ModelState.IsValid)
                 return View(guest);
 
-            // 👇 Gość tworzony ręcznie przez pracownika -> brak karty lojalnościowej
             guest.LoyaltyCardNumber = null;
             guest.LoyaltyStatus = LoyaltyStatus.Classic;
             guest.TotalNights = 0;
@@ -56,7 +57,6 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(CreateReservation));
         }
 
-        // GET: CreateReservation
         [HttpGet]
         public async Task<IActionResult> CreateReservation()
         {
@@ -64,10 +64,12 @@ namespace HotelManagement.Controllers
             if (guest == null)
                 return RedirectToAction(nameof(CreateGuest));
 
+            var businessToday = await _businessDate.GetCurrentBusinessDateAsync();
+
             var vm = await BuildReservationViewModel(new Reservation
             {
-                CheckIn = DateTime.Today,
-                CheckOut = DateTime.Today.AddDays(1)
+                CheckIn = businessToday,
+                CheckOut = businessToday.AddDays(1)
             }, guest);
 
             return View(vm);
@@ -131,6 +133,9 @@ namespace HotelManagement.Controllers
                 vm.SelectedServiceIds
             );
 
+            // ⬇⬇⬇ KLUCZOWE: zapisuj już zaokrąglone do 2 miejsc
+            totalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
+
             var reservation = new Reservation
             {
                 GuestId = guest.Id,
@@ -152,7 +157,6 @@ namespace HotelManagement.Controllers
 
             _context.Reservations.Add(reservation);
 
-            // ✅ Aktualizujemy dane gościa zamiast tworzyć nowego
             guest.FirstName = vm.Guest.FirstName;
             guest.LastName = vm.Guest.LastName;
             guest.Email = vm.Guest.Email;
@@ -181,10 +185,7 @@ namespace HotelManagement.Controllers
             var services = await _context.Services.ToListAsync();
 
             var availableRooms = await GetAvailableRoomsAsync(
-                reservation.RoomTypeId,
-                reservation.CheckIn,
-                reservation.CheckOut,
-                reservation.Id);
+                reservation.RoomTypeId, reservation.CheckIn, reservation.CheckOut, reservation.Id);
 
             var vm = new ReservationViewModel
             {
@@ -230,10 +231,7 @@ namespace HotelManagement.Controllers
             if (vm.RoomId.HasValue)
             {
                 bool isAvailable = await _roomAllocator.IsRoomAvailableAsync(
-                    vm.RoomId.Value,
-                    vm.Reservation.CheckIn,
-                    vm.Reservation.CheckOut,
-                    reservation.Id);
+                    vm.RoomId.Value, vm.Reservation.CheckIn, vm.Reservation.CheckOut, reservation.Id);
 
                 if (!isAvailable)
                 {
@@ -249,10 +247,7 @@ namespace HotelManagement.Controllers
             else
             {
                 allocatedRoom = await _roomAllocator.AllocateRoomAsync(
-                    vm.Reservation.RoomTypeId,
-                    vm.Reservation.CheckIn,
-                    vm.Reservation.CheckOut,
-                    reservation.Id);
+                    vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, reservation.Id);
 
                 if (allocatedRoom == null)
                 {
@@ -284,7 +279,8 @@ namespace HotelManagement.Controllers
                 vm.SelectedServiceIds
             );
 
-            reservation.TotalPrice = totalPrice;
+            // ⬇⬇⬇ KLUCZOWE: również przy edycji
+            reservation.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
 
             reservation.ServicesUsed.Clear();
             foreach (var serviceId in vm.SelectedServiceIds)
@@ -297,7 +293,6 @@ namespace HotelManagement.Controllers
                 });
             }
 
-            // ✅ aktualizacja danych gościa powiązanego z rezerwacją
             reservation.Guest.FirstName = vm.Guest.FirstName;
             reservation.Guest.LastName = vm.Guest.LastName;
             reservation.Guest.Email = vm.Guest.Email;
@@ -346,7 +341,6 @@ namespace HotelManagement.Controllers
             reservation.Status = ReservationStatus.CheckedOut;
             await _context.SaveChangesAsync();
 
-            // ✅ Nalicz punkty lojalnościowe po wymeldowaniu
             _loyaltyService.AwardPointsForCheckout(reservation);
 
             var roomNumber = reservation.Room != null ? reservation.Room.Number : "nieprzydzielony";
@@ -397,7 +391,6 @@ namespace HotelManagement.Controllers
             return availableRooms;
         }
 
-        // Modal do AJAX
         [HttpGet]
         public async Task<IActionResult> GetAvailableRooms(int roomTypeId, DateTime checkIn, DateTime checkOut)
         {
@@ -477,7 +470,7 @@ namespace HotelManagement.Controllers
         [Authorize(Roles = "Kierownik,Admin,Pracownik")]
         public async Task<IActionResult> Index()
         {
-            var today = DateTime.Today;
+            var today = await _businessDate.GetCurrentBusinessDateAsync();
 
             var reservations = await _context.Reservations
                 .Include(r => r.RoomType)
@@ -502,7 +495,6 @@ namespace HotelManagement.Controllers
             return View();
         }
 
-        // ✅ Helper do pobierania aktualnego Guest
         private async Task<Guest?> GetCurrentGuestAsync()
         {
             var user = await _userManager.GetUserAsync(User);

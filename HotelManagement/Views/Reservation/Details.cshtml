@@ -9,6 +9,8 @@
 <p><strong>Śniadanie:</strong> @(Model.Breakfast ? "Tak" : "Nie")</p>
 <p><strong>Parking:</strong> @(Model.Parking ? "Tak" : "Nie")</p>
 <p><strong>Łóżko dodatkowe:</strong> @(Model.ExtraBed ? "Tak" : "Nie")</p>
-<p><strong>Cena:</strong> @Model.TotalPrice zł</p>
+<p><strong>Cena łączna:</strong> @string.Format(System.Globalization.CultureInfo.GetCultureInfo("pl-PL"), "{0:N2}", Convert.ToDecimal(Model.TotalPrice)) zł</p>
+
+
 
 <a asp-action="Index" class="btn btn-secondary">Powrót</a>

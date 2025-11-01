@@ -1,5 +1,6 @@
 ﻿@model SettlementViewModel
 @using HotelManagement.Enums
+@using Microsoft.AspNetCore.Mvc.Rendering
 
 @{
     ViewData["Title"] = $"Rozliczenie - Rezerwacja #{Model.Reservation.Id}";
@@ -7,6 +8,8 @@
     var document = Model.Reservation.Documents?.FirstOrDefault();
     var nights = (Model.Reservation.CheckOut - Model.Reservation.CheckIn).Days;
     var unitPrice = nights > 0 ? Model.Reservation.TotalPrice / nights : Model.Reservation.TotalPrice;
+
+    string F2(decimal v) => $"{v:0.00}";
 }
 
 <div class="container my-4">
@@ -25,17 +28,17 @@
         var file = document.Number.Replace("/", "-") + ".pdf";
         var folder = document.Type == DocumentType.Receipt ? "receipts" : "invoices";
         var path = $"/{folder}/{file}";
-            <div class="alert alert-success d-flex justify-content-between align-items-center">
-                <span>Dokument został wygenerowany: <strong>@document.Number</strong></span>
-                <a href="@path" class="btn btn-outline-dark" target="_blank" download>📄 Pobierz PDF</a>
-            </div>
+        <div class="alert alert-success d-flex justify-content-between align-items-center">
+            <span>Dokument został wygenerowany: <strong>@document.Number</strong></span>
+            <a href="@path" class="btn btn-outline-dark" target="_blank" download>📄 Pobierz PDF</a>
+        </div>
     }
 
     @if (Model.Reservation.IsClosed)
     {
-            <div class="alert alert-info">
-                🔒 Ten rachunek został zamknięty. Nie można już dodawać usług ani płatności.
-            </div>
+        <div class="alert alert-info">
+            🔒 Ten rachunek został zamknięty. Nie można już dodawać usług ani płatności.
+        </div>
     }
 
     <div class="row">
@@ -46,7 +49,7 @@
                     <h5 class="mb-0">Pozycje na rachunku</h5>
                     <button class="btn btn-sm btn-outline-primary"
                             data-bs-toggle="modal" data-bs-target="#addServiceModal"
-                    @(Model.Reservation.IsClosed ? "disabled" : "")>
+                            @(Model.Reservation.IsClosed ? "disabled" : "")>
                         ➕ Dodaj usługę
                     </button>
                 </div>
@@ -59,44 +62,48 @@
                             <tr>
                                 <td>Nocleg</td>
                                 <td>@nights</td>
-                                <td>@unitPrice zł</td>
-                                <td>@Model.Reservation.TotalPrice zł</td>
+                                <td>@F2(unitPrice) zł</td>
+                                <td>@F2(Model.Reservation.TotalPrice) zł</td>
                             </tr>
+                            @* Pozycje stałe z widoku *@
                             @if (Model.Reservation.Breakfast)
                             {
-                                    <tr>
-                                        <td>Śniadanie</td>
-                                        <td>@nights</td>
-                                        <td>40 zł</td>
-                                        <td>@(nights * 40) zł</td>
-                                    </tr>
+                                <tr>
+                                    <td>Śniadanie</td>
+                                    <td>@nights</td>
+                                    <td>@F2(40m) zł</td>
+                                    <td>@F2(nights * 40m) zł</td>
+                                </tr>
                             }
                             @if (Model.Reservation.Parking)
                             {
-                                    <tr>
-                                        <td>Parking</td>
-                                        <td>@nights</td>
-                                        <td>20 zł</td>
-                                        <td>@(nights * 20) zł</td>
-                                    </tr>
+                                <tr>
+                                    <td>Parking</td>
+                                    <td>@nights</td>
+                                    <td>@F2(20m) zł</td>
+                                    <td>@F2(nights * 20m) zł</td>
+                                </tr>
                             }
                             @if (Model.Reservation.ExtraBed)
                             {
-                                    <tr>
-                                        <td>Dodatkowe łóżko</td>
-                                        <td>@nights</td>
-                                        <td>30 zł</td>
-                                        <td>@(nights * 30) zł</td>
-                                    </tr>
+                                <tr>
+                                    <td>Dodatkowe łóżko</td>
+                                    <td>@nights</td>
+                                    <td>@F2(30m) zł</td>
+                                    <td>@F2(nights * 30m) zł</td>
+                                </tr>
                             }
-                            @foreach (var s in Model.ServicesUsed)
+
+                            @* Usługi z bazy – pomijamy te z ceną 0, żeby nie zaśmiecać tabeli *@
+                            @foreach (var s in Model.ServicesUsed.Where(x => x.Service?.Price > 0))
                             {
-                                    <tr>
-                                        <td>@s.Service.Name</td>
-                                        <td>@s.Quantity</td>
-                                        <td>@s.Service.Price zł</td>
-                                        <td>@(s.Quantity * s.Service.Price) zł</td>
-                                    </tr>
+                                var line = s.Quantity * s.Service.Price;
+                                <tr>
+                                    <td>@s.Service.Name</td>
+                                    <td>@s.Quantity</td>
+                                    <td>@F2(s.Service.Price) zł</td>
+                                    <td>@F2(line) zł</td>
+                                </tr>
                             }
                         </tbody>
                     </table>
@@ -111,7 +118,7 @@
                     <h5 class="mb-0">Płatności</h5>
                     <button class="btn btn-sm btn-outline-success"
                             data-bs-toggle="modal" data-bs-target="#addPaymentModal"
-                    @(Model.Reservation.IsClosed ? "disabled" : "")>
+                            @(Model.Reservation.IsClosed ? "disabled" : "")>
                         ➕ Dodaj płatność
                     </button>
                 </div>
@@ -119,15 +126,15 @@
                     <ul class="list-group">
                         @foreach (var p in Model.Payments)
                         {
-                                <li class="list-group-item">
-                                    <strong>@p.Amount zł</strong> – @p.PaidAt.ToLocalTime().ToShortDateString() (@p.Method)
-                                </li>
+                            <li class="list-group-item">
+                                <strong>@F2(p.Amount) zł</strong> – @p.PaidAt.ToLocalTime().ToShortDateString() (@p.Method)
+                            </li>
                         }
                     </ul>
                     <div class="mt-3">
                         <h6>Pozostało do zapłaty:</h6>
                         <h4 style="color:@(Model.RemainingToPay > 0 ? "red" : "green")">
-                            @Model.RemainingToPay zł
+                            @F2(Model.RemainingToPay) zł
                         </h4>
                     </div>
                 </div>
@@ -139,7 +146,7 @@
     <div class="text-end mt-4">
         <button class="btn btn-lg btn-primary"
                 data-bs-toggle="modal" data-bs-target="#finalizeModal"
-        @(Model.Reservation.IsClosed ? "disabled" : "")>
+                @(Model.Reservation.IsClosed ? "disabled" : "")>
             ✅ Zamknij rachunek
         </button>
     </div>
@@ -182,10 +189,10 @@
 
                     <div class="form-group mb-3">
                         <label>Kwota do zapłaty:</label>
-                        <input asp-for="NewPaymentAmount" class="form-control" 
-                               value="@Model.RemainingToPay" />
+                        <input asp-for="NewPaymentAmount" class="form-control"
+                               value="@F2(Model.RemainingToPay)" />
                         <small class="text-muted">
-                            Domyślnie ustawiono pozostałą kwotę: <strong>@Model.RemainingToPay zł</strong>.
+                            Domyślnie ustawiono pozostałą kwotę: <strong>@F2(Model.RemainingToPay) zł</strong>.
                             Możesz zmienić, jeśli klient płaci częściowo.
                         </small>
                     </div>

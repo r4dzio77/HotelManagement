@@ -1,0 +1,29 @@
+﻿@{
+    ViewData["Title"] = "Nocny audyt";
+    var businessDate = ViewData["BusinessDate"]?.ToString() ?? "";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-3">🕛 Nocny audyt</h2>
+
+    <div class="card shadow-sm p-4 mb-3">
+        <p class="mb-1">Aktualna data operacyjna:</p>
+        <h4 class="text-primary">@businessDate</h4>
+
+        <p class="mt-3 text-muted">
+            Nocny audyt zamyka bieżący dzień, nalicza noclegi, aktualizuje statusy rezerwacji
+            i przesuwa datę operacyjną o jeden dzień naprzód.
+        </p>
+
+        <form method="post" asp-action="Run">
+            <button type="submit" class="btn btn-dark mt-2">
+                <i class="bi bi-moon-stars"></i> Wykonaj nocny audyt
+            </button>
+        </form>
+    </div>
+
+    <div class="alert alert-info mt-3">
+        <strong>Uwaga:</strong> Data systemowa (<code>@DateTime.Now.ToString("yyyy-MM-dd")</code>)
+        nie ma wpływu na system. Aplikacja korzysta z daty operacyjnej kontrolowanej przez nocny audyt.
+    </div>
+</div>

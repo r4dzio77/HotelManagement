@@ -1,0 +1,19 @@
+﻿@{
+    ViewData["Title"] = "Wynik nocnego audytu";
+    var businessDate = ViewData["BusinessDate"]?.ToString() ?? "";
+}
+
+<div class="container mt-4">
+    <div class="alert alert-success shadow-sm">
+        <h4 class="alert-heading">✅ Nocny audyt zakończony pomyślnie!</h4>
+        <p>Nowa data operacyjna: <strong>@businessDate</strong></p>
+        <hr />
+        <p class="mb-0">
+            Wszystkie rezerwacje, usługi i pokoje zostały zaktualizowane.
+        </p>
+    </div>
+
+    <a asp-action="Index" class="btn btn-secondary mt-3">
+        ← Powrót
+    </a>
+</div>

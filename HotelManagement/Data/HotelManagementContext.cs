@@ -29,6 +29,9 @@ namespace HotelManagement.Data
         // grafiki zmian
         public DbSet<PublishedSchedule> PublishedSchedules { get; set; }
 
+        // data operacyjna sterowana przez nocny audyt
+        public DbSet<BusinessDateState> BusinessDateStates { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -43,7 +46,7 @@ namespace HotelManagement.Data
             // Reservation ↔ Room
             modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.Room)
-                .WithMany(r => r.Reservations)
+                .WithMany(rm => rm.Reservations)
                 .HasForeignKey(r => r.RoomId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -65,19 +68,22 @@ namespace HotelManagement.Data
             modelBuilder.Entity<Reservation>()
                 .HasMany(r => r.ServicesUsed)
                 .WithOne(su => su.Reservation)
-                .HasForeignKey(su => su.ReservationId);
+                .HasForeignKey(su => su.ReservationId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Reservation ↔ Payments
             modelBuilder.Entity<Reservation>()
                 .HasMany(r => r.Payments)
                 .WithOne(p => p.Reservation)
-                .HasForeignKey(p => p.ReservationId);
+                .HasForeignKey(p => p.ReservationId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Reservation ↔ Documents
             modelBuilder.Entity<Reservation>()
                 .HasMany(r => r.Documents)
                 .WithOne(d => d.Reservation)
-                .HasForeignKey(d => d.ReservationId);
+                .HasForeignKey(d => d.ReservationId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Guest ↔ Company
             modelBuilder.Entity<Guest>()
@@ -100,14 +106,7 @@ namespace HotelManagement.Data
                 .HasForeignKey(sp => sp.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Guest ↔ LoyaltyPoint (obowiązkowe)
-            modelBuilder.Entity<LoyaltyPoint>()
-                .HasOne(lp => lp.Guest)
-                .WithMany()
-                .HasForeignKey(lp => lp.GuestId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // ApplicationUser ↔ LoyaltyPoint (opcjonalne)
+            // ApplicationUser ↔ LoyaltyPoint (zgodnie z modelem: tylko User)
             modelBuilder.Entity<LoyaltyPoint>()
                 .HasOne(lp => lp.User)
                 .WithMany(u => u.LoyaltyPoints)
@@ -115,11 +114,11 @@ namespace HotelManagement.Data
                 .OnDelete(DeleteBehavior.Cascade)
                 .IsRequired(false);
 
-            // Unikalny numer karty lojalnościowej (NULL dozwolony)
-            modelBuilder.Entity<Guest>()
-                .HasIndex(g => g.LoyaltyCardNumber)
-                .IsUnique()
-                .HasFilter("[LoyaltyCardNumber] IS NOT NULL");
+            // Opis stanu daty operacyjnej (BusinessDateState)
+            modelBuilder.Entity<BusinessDateState>()
+                .HasKey(b => b.Id);
+
+           
         }
     }
 }
