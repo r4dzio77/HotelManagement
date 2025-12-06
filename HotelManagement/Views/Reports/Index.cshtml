@@ -3,87 +3,406 @@
     Layout = "_Layout";
 }
 
-<h2 class="mb-4">📊 Raporty hotelowe</h2>
+<style>
+    .reports-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
 
-<p>Wybierz jeden z dostępnych raportów, aby wygenerować zestawienie operacyjne:</p>
+    .reports-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
 
-<div class="row g-3 mt-4">
+    .reports-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .25rem;
+    }
 
-    <!-- ✅ Oczekiwane przyjazdy -->
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 h-100">
-            <div class="card-body text-center">
-                <i class="bi bi-person-walking fs-1 text-primary"></i>
-                <h5 class="mt-2 fw-bold">Oczekiwane przyjazdy</h5>
-                <p class="text-muted small">Lista gości, którzy przyjeżdżają w danym dniu.</p>
-                <a asp-action="ExpectedArrivals" asp-controller="Reports" class="btn btn-outline-primary btn-sm">
-                    Otwórz raport
-                </a>
+    .reports-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(191, 219, 254, 0.9);
+        color: #1d4ed8;
+    }
+
+        .reports-pill i {
+            font-size: .9rem;
+        }
+
+    .reports-heading {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .reports-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .reports-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .reports-meta-badge {
+        border-radius: 999px;
+        padding: .2rem .7rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .reports-meta-refresh-row {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+    }
+
+    .reports-refresh-btn {
+        border-radius: 999px;
+        padding: .15rem .6rem;
+        font-size: .78rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+    }
+
+    .reports-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .report-card {
+        border-radius: 1rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+        .report-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 35px rgba(15, 23, 42, 0.12);
+            border-color: rgba(59, 130, 246, 0.6);
+        }
+
+    .report-card-body {
+        padding: 1.1rem .95rem 1rem;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: .4rem;
+        height: 100%;
+    }
+
+    .report-icon-wrap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: .9rem;
+        margin-bottom: .4rem;
+    }
+
+    .report-icon-wrap-primary {
+        background: rgba(37, 99, 235, 0.1);
+        color: #1d4ed8;
+    }
+
+    .report-icon-wrap-warning {
+        background: rgba(245, 158, 11, 0.12);
+        color: #d97706;
+    }
+
+    .report-icon-wrap-info {
+        background: rgba(14, 165, 233, 0.12);
+        color: #0369a1;
+    }
+
+    .report-icon-wrap-danger {
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+    }
+
+    .report-icon-wrap-success {
+        background: rgba(34, 197, 94, 0.12);
+        color: #15803d;
+    }
+
+    .report-title {
+        font-size: .98rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .report-desc {
+        font-size: .82rem;
+        color: #6b7280;
+        margin: 0;
+        flex: 1; /* żeby stopka była równo na dole kart */
+    }
+
+    .report-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .5rem;
+        margin-top: .5rem;
+        font-size: .75rem;
+        color: #9ca3af;
+    }
+
+    .report-tag {
+        border-radius: 999px;
+        padding: .15rem .55rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+    }
+
+    .report-card-disabled {
+        opacity: .6;
+    }
+
+    .reports-footer-note {
+        font-size: .78rem;
+        color: #9ca3af;
+        text-align: right;
+        margin-top: 1.5rem;
+    }
+
+    @@media (max-width: 1200px) {
+        .reports-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 992px) {
+        .reports-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .reports-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .reports-meta {
+            align-items: flex-start;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .reports-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+</style>
+
+<div class="reports-page">
+    <div class="reports-header">
+        <div class="reports-title-wrap">
+            <span class="reports-pill">
+                <i class="bi bi-graph-up-arrow"></i>
+                Moduł raportowy
+            </span>
+            <h2 class="reports-heading"></h2>
+            <p class="reports-subtitle">
+                Wybierz zestawienie operacyjne, aby podejrzeć dane z dnia operacyjnego i wygenerować raport.
+            </p>
+        </div>
+        <div class="reports-meta">
+            <div class="reports-meta-badge">
+                <i class="bi bi-info-circle"></i>
+                Raporty generowane są na podstawie aktualnych danych z systemu.
+            </div>
+            <div class="reports-meta-refresh-row">
+                <span>
+                    <i class="bi bi-clock-history me-1"></i>
+                    Ostatnia aktualizacja:
+                    <strong id="reportsLastRefresh">@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+                </span>
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm reports-refresh-btn"
+                        id="reportsRefreshBtn">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Odśwież
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- 🚪 Oczekiwane wyjazdy -->
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 h-100">
-            <div class="card-body text-center">
-                <i class="bi bi-door-open fs-1 text-warning"></i>
-                <h5 class="mt-2 fw-bold">Oczekiwane wyjazdy</h5>
-                <p class="text-muted small">Lista gości, którzy kończą pobyt w danym dniu.</p>
-                <a asp-action="ExpectedDepartures" asp-controller="Reports" class="btn btn-outline-warning btn-sm">
-                    Otwórz raport
-                </a>
+    <div class="reports-grid">
+        <!-- ✅ Oczekiwane przyjazdy -->
+        <div class="report-card">
+            <div class="report-card-body">
+                <div class="report-icon-wrap report-icon-wrap-primary">
+                    <i class="bi bi-person-walking fs-5"></i>
+                </div>
+                <h5 class="report-title">Oczekiwane przyjazdy</h5>
+                <p class="report-desc">
+                    Lista gości, którzy przyjeżdżają w wybranym dniu – pomocna dla recepcji i housekeepingu.
+                </p>
+                <div class="report-footer">
+                    <span class="report-tag">
+                        <i class="bi bi-calendar-event me-1"></i>Dzień operacyjny
+                    </span>
+                    <a asp-action="ExpectedArrivals"
+                       asp-controller="Reports"
+                       class="btn btn-outline-primary btn-sm">
+                        Otwórz raport
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🚪 Oczekiwane wyjazdy -->
+        <div class="report-card">
+            <div class="report-card-body">
+                <div class="report-icon-wrap report-icon-wrap-warning">
+                    <i class="bi bi-door-open fs-5"></i>
+                </div>
+                <h5 class="report-title">Oczekiwane wyjazdy</h5>
+                <p class="report-desc">
+                    Zestawienie gości kończących pobyt danego dnia – wsparcie dla rozliczeń i sprzątania.
+                </p>
+                <div class="report-footer">
+                    <span class="report-tag">
+                        <i class="bi bi-calendar-check me-1"></i>Check-out
+                    </span>
+                    <a asp-action="ExpectedDepartures"
+                       asp-controller="Reports"
+                       class="btn btn-outline-warning btn-sm">
+                        Otwórz raport
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🧹 Status pokoi -->
+        <div class="report-card">
+            <div class="report-card-body">
+                <div class="report-icon-wrap report-icon-wrap-info">
+                    <i class="bi bi-house-gear fs-5"></i>
+                </div>
+                <h5 class="report-title">Status pokoi</h5>
+                <p class="report-desc">
+                    Raport dla personelu sprzątającego – stan pokoi, pobyty, wyjazdy i pokoje wymagające uwagi.
+                </p>
+                <div class="report-footer">
+                    <span class="report-tag">
+                        <i class="bi bi-brush me-1"></i>Housekeeping
+                    </span>
+                    <a asp-action="RoomStatus"
+                       asp-controller="Reports"
+                       class="btn btn-outline-info btn-sm">
+                        Otwórz raport
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🍳 Raport śniadań -->
+        <div class="report-card">
+            <div class="report-card-body">
+                <div class="report-icon-wrap report-icon-wrap-danger">
+                    <i class="bi bi-egg-fried fs-5"></i>
+                </div>
+                <h5 class="report-title">Raport śniadań</h5>
+                <p class="report-desc">
+                    Lista pokoi z wykupionymi śniadaniami na wybrany dzień – wsparcie dla gastronomii.
+                </p>
+                <div class="report-footer">
+                    <span class="report-tag">
+                        <i class="bi bi-cup-hot me-1"></i>Restauracja
+                    </span>
+                    <a asp-action="BreakfastReport"
+                       asp-controller="Reports"
+                       class="btn btn-outline-danger btn-sm">
+                        Otwórz raport
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 📈 Obłożenie pokoi -->
+        <div class="report-card report-card-disabled">
+            <div class="report-card-body">
+                <div class="report-icon-wrap report-icon-wrap-success">
+                    <i class="bi bi-bar-chart fs-5"></i>
+                </div>
+                <h5 class="report-title">Obłożenie pokoi</h5>
+                <p class="report-desc">
+                    Statystyka zajętości i wolnych pokoi na wybrany dzień – raport w przygotowaniu.
+                </p>
+                <div class="report-footer">
+                    <span class="report-tag">
+                        <i class="bi bi-hourglass-split me-1"></i>W przygotowaniu
+                    </span>
+                    <a asp-action="OccupancyReport"
+                       asp-controller="Reports"
+                       class="btn btn-outline-success btn-sm disabled"
+                       title="W przygotowaniu">
+                        Niedostępny
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 🧹 Status pokoi -->
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 h-100">
-            <div class="card-body text-center">
-                <i class="bi bi-house-gear fs-1 text-info"></i>
-                <h5 class="mt-2 fw-bold">Status pokoi</h5>
-                <p class="text-muted small">Raport dla pań pokojowych – stan pokoi, pobyty i wyjazdy.</p>
-                <a asp-action="RoomStatus" asp-controller="Reports" class="btn btn-outline-info btn-sm">
-                    Otwórz raport
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🍳 Raport śniadań -->
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 h-100">
-            <div class="card-body text-center">
-                <i class="bi bi-egg-fried fs-1 text-danger"></i>
-                <h5 class="mt-2 fw-bold">Raport śniadań</h5>
-                <p class="text-muted small">Lista pokoi z wykupionymi śniadaniami na wybrany dzień.</p>
-                <a asp-action="BreakfastReport" asp-controller="Reports" class="btn btn-outline-danger btn-sm">
-                    Otwórz raport
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- 📈 Obłożenie pokoi -->
-    <div class="col-md-3">
-        <div class="card shadow-sm border-0 h-100">
-            <div class="card-body text-center">
-                <i class="bi bi-bar-chart fs-1 text-success"></i>
-                <h5 class="mt-2 fw-bold">Obłożenie pokoi</h5>
-                <p class="text-muted small">Statystyka zajętości i wolnych pokoi na wybrany dzień.</p>
-                <a asp-action="OccupancyReport" asp-controller="Reports"
-                   class="btn btn-outline-success btn-sm disabled" title="W przygotowaniu">
-                    W przygotowaniu
-                </a>
-            </div>
-        </div>
-    </div>
-
+    <p class="reports-footer-note">
+        System <strong>HotelManagement</strong> – moduł raportów · © @DateTime.Now.Year
+    </p>
 </div>
 
-<hr class="mt-5" />
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const refreshBtn = document.getElementById("reportsRefreshBtn");
+            const lastRefreshSpan = document.getElementById("reportsLastRefresh");
 
-<p class="text-muted small text-end">
-    System <strong>HotelManagement</strong> – moduł raportów © @DateTime.Now.Year
-</p>
+            if (refreshBtn && lastRefreshSpan) {
+                refreshBtn.addEventListener("click", function () {
+                    const now = new Date();
+                    const pad = (n) => n.toString().padStart(2, "0");
+
+                    const day = pad(now.getDate());
+                    const month = pad(now.getMonth() + 1);
+                    const year = now.getFullYear();
+                    const hours = pad(now.getHours());
+                    const minutes = pad(now.getMinutes());
+                    const seconds = pad(now.getSeconds());
+
+                    lastRefreshSpan.textContent = `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+                });
+            }
+        });
+    </script>
+}

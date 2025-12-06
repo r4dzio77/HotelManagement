@@ -1,153 +1,495 @@
 ﻿@model IEnumerable<HotelManagement.Models.Room>
+@inject HotelManagement.Services.IBusinessDateProvider BusinessDateProvider
+
 @{
     var floors = ViewBag.Floors as List<int>;
     int? selected = ViewBag.SelectedFloor;
+
+    var roomsList = Model?.ToList() ?? new List<HotelManagement.Models.Room>();
+
+    // DATA OPERACYJNA (z nocnego audytu)
+    var businessDate = await BusinessDateProvider.GetCurrentBusinessDateAsync();
+
+    // Układ jak przy przechodzeniu korytarzem – sortujemy po numerze pokoju
+    var orderedRooms = roomsList
+        .OrderBy(r => r.Number)
+        .ToList();
+
+    // Prosty podział: nieparzyste po jednej stronie, parzyste po drugiej
+    var leftSideRooms = orderedRooms
+        .Where(r =>
+        {
+            if (int.TryParse(r.Number, out var num))
+                return num % 2 == 1; // nieparzyste
+            return true; // jeśli nie da się sparsować, wrzucamy na lewą stronę
+        })
+        .ToList();
+
+    var rightSideRooms = orderedRooms
+        .Where(r =>
+        {
+            if (int.TryParse(r.Number, out var num))
+                return num % 2 == 0; // parzyste
+            return false;
+        })
+        .ToList();
 }
 
 <style>
-    .floor-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 15px;
+    .floor-layout-wrapper {
+        display: flex;
+        gap: 1.5rem;
     }
 
-    .room-box {
-        border: 1px solid #ccc;
-        padding: 15px;
-        text-align: center;
-        border-radius: 12px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .floor-plan-card {
+        border-radius: 1rem;
+        border: 0;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+    }
+
+    .floor-plan {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .floor-plan-row {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0.75rem;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+    }
+
+        .floor-plan-row::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .floor-plan-row::-webkit-scrollbar-thumb {
+            background-color: rgba(148, 163, 184, 0.8);
+            border-radius: 999px;
+        }
+
+    .corridor-strip {
         position: relative;
-        transition: transform 0.2s, box-shadow 0.3s;
+        height: 42px;
+        border-radius: 999px;
+        background: repeating-linear-gradient( 90deg, #e5e7eb, #e5e7eb 16px, #f9fafb 16px, #f9fafb 32px );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.4);
+    }
+
+        .corridor-strip::before,
+        .corridor-strip::after {
+            content: "";
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.6), transparent);
+        }
+
+        .corridor-strip::before {
+            top: 6px;
+        }
+
+        .corridor-strip::after {
+            bottom: 6px;
+        }
+
+    .room-box {
+        min-width: 160px;
+        max-width: 180px;
+        border-radius: 14px;
+        padding: 10px 10px 10px;
+        background: #ffffff;
+        position: relative;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
         cursor: pointer;
+        padding-bottom: 32px; /* miejsce na ikonę w dole */
     }
 
         .room-box:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-        }
-
-        .room-box.blocked {
-            background-color: #007bff;
-            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+            border-color: rgba(59, 130, 246, 0.7);
         }
 
         .room-box.clean {
-            background-color: #ffffff;
+            background: #f9fafb;
+        }
+
+        .room-box.blocked {
+            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+            color: #ffffff;
+            border-color: transparent;
         }
 
         .room-box.arrival {
-            background-color: #ffc107;
-            color: #333;
+            background: linear-gradient(135deg, #ffe08a, #ffcd39);
+            color: #3a3a3a;
+            border-color: transparent;
         }
 
         .room-box.stay {
-            background-color: #28a745;
-            color: white;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #ffffff;
+            border-color: transparent;
         }
 
         .room-box.departure {
-            background-color: #b30000;
-            color: white;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: #ffffff;
+            border-color: transparent;
         }
 
+    .room-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+
+    .room-number {
+        font-weight: 700;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .room-status-pill {
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: rgba(15, 23, 42, 0.12);
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .room-meta {
+        font-size: 0.75rem;
+        opacity: 0.9;
+    }
+
+    /* 🔧 Ikona sprzątania – dół po prawej, daleko od numeru i badge */
     .broom-icon {
         position: absolute;
-        top: 10px;
-        right: 10px;
-        font-size: 22px;
-        background-color: rgba(255, 255, 255, 0.7);
-        border-radius: 50%;
-        padding: 5px;
+        bottom: 8px;
+        right: 8px;
+        font-size: 15px;
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 999px;
+        padding: 3px 5px;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+        line-height: 1;
     }
 
-    .room-actions form {
-        margin-top: 5px;
+    .room-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
     }
 
-    /* Responsywność */
+        .room-actions form {
+            margin: 0;
+        }
+
+    .legend-badge {
+        font-size: 0.75rem;
+        border-radius: 999px;
+        padding: 3px 9px;
+    }
+
+    @@media (max-width: 992px) {
+        .floor-layout-wrapper {
+            flex-direction: column;
+        }
+    }
+
     @@media (max-width: 768px) {
-        .floor-grid
-
-    {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 10px;
-    }
-
+        .room-box {
+            min-width: 140px;
+        }
     }
 </style>
 
-<div class="row">
-    <div class="col-12 col-md-2 mb-3">
-        <div class="list-group">
-            @foreach (var floor in floors)
-            {
-                <a asp-action="Floor" asp-route-floor="@floor" class="list-group-item list-group-item-action @(floor == selected ? "active" : "")">
-                    Piętro @floor
-                </a>
-            }
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h2 class="h4 mb-1">Plan piętra</h2>
+        <p class="text-muted mb-0">
+            Stan pokoi na datę operacyjną
+            <strong>@businessDate.ToString("dd.MM.yyyy")</strong>.
+        </p>
+    </div>
+
+    <div class="d-none d-md-flex flex-wrap gap-2 align-items-center">
+        <span class="small text-muted me-1">Legenda:</span>
+        <span class="legend-badge bg-success-subtle text-success-emphasis">• Pobyt</span>
+        <span class="legend-badge bg-warning-subtle text-warning-emphasis">• Przyjazd</span>
+        <span class="legend-badge bg-danger-subtle text-danger-emphasis">• Wyjazd</span>
+        <span class="legend-badge bg-primary-subtle text-primary-emphasis">• Zablokowany</span>
+        <span class="legend-badge bg-light text-muted border">• Wolny</span>
+        <span class="legend-badge bg-secondary-subtle text-secondary-emphasis">🧹 • Do sprzątania</span>
+    </div>
+</div>
+
+<div class="floor-layout-wrapper">
+    <!-- Lewy panel: wybór piętra -->
+    <div class="col-12 col-md-3 col-lg-2 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent pb-2">
+                <h6 class="card-title mb-0">Piętra</h6>
+                <small class="text-muted">
+                    Wybierz poziom hotelu<br />
+                    <span class="text-secondary">Data operacyjna: @businessDate.ToString("dd.MM.yyyy")</span>
+                </small>
+            </div>
+            <div class="list-group list-group-flush">
+                @if (floors != null)
+                {
+                    foreach (var floor in floors)
+                    {
+                        <a asp-action="Floor"
+                           asp-route-floor="@floor"
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(floor == selected ? "active" : "")">
+                            <span>
+                                <i class="bi bi-building me-1"></i>
+                                Piętro @floor
+                            </span>
+                            @if (floor == selected)
+                            {
+                                <span class="badge bg-light text-primary border border-primary-subtle">aktualne</span>
+                            }
+                        </a>
+                    }
+                }
+            </div>
         </div>
     </div>
 
-    <div class="col-12 col-md-10">
-        <h4>Piętro @selected</h4>
-        <div class="floor-grid">
-            @foreach (var room in Model)
-            {
-                var cssClass = room.IsBlocked ? "blocked" :
-                room.Tag == "pobyt" ? "stay" :
-                room.Tag == "przyjazd" ? "arrival" :
-                room.Tag == "wyjazd" ? "departure" :
-                "clean";
-
-                <div class="room-box @cssClass">
-                    @if (room.IsDirty)
-                    {
-                        <div class="broom-icon">🧹</div>
-                    }
-
-                    <div><strong>Pokój @room.Number</strong></div>
-
-                    @if (room.Tag == "pobyt")
-                    {
-                        <div><small>Pobyt</small></div>
-                    }
-                    else if (room.Tag == "przyjazd")
-                    {
-                        <div><small>Przyjazd</small></div>
-                    }
-                    else if (room.Tag == "wyjazd")
-                    {
-                        <div><small>Wyjazd</small></div>
-                    }
-                    else
-                    {
-                        <div><small>Wolny</small></div>
-                    }
-
-                    <div class="room-actions">
-                        <form asp-action="MarkDirty" asp-route-id="@room.Id" method="post">
-                            <input type="submit" class="btn btn-sm btn-warning mt-1" value="Brudny" />
-                        </form>
-                        <form asp-action="MarkClean" asp-route-id="@room.Id" method="post">
-                            <input type="submit" class="btn btn-sm btn-success mt-1" value="Czysty" />
-                        </form>
-
-                        @if (!room.IsBlocked && room.Tag != "pobyt")
-                        {
-                            <form asp-action="Block" asp-route-id="@room.Id" method="post">
-                                <input type="submit" class="btn btn-sm btn-danger mt-1" value="Zablokuj" />
-                            </form>
-                        }
-                        else if (room.IsBlocked)
-                        {
-                            <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
-                                <input type="submit" class="btn btn-sm btn-primary mt-1" value="Odblokuj" />
-                            </form>
-                        }
-                    </div>
+    <!-- Prawy panel: plan piętra -->
+    <div class="col-12 col-md-9 col-lg-10">
+        <div class="card floor-plan-card">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="card-title mb-0">Piętro @selected</h5>
+                    <small class="text-muted">
+                        Układ pokoi po obu stronach korytarza –
+                        stan na <strong>@businessDate.ToString("dd.MM.yyyy")</strong>.
+                    </small>
                 </div>
-            }
+                <div class="d-md-none mt-2 mt-md-0">
+                    <span class="badge bg-light text-muted">
+                        @roomsList.Count pokoi
+                    </span>
+                </div>
+            </div>
+
+            <div class="card-body">
+                @if (!roomsList.Any())
+                {
+                    <div class="alert alert-info mb-0">
+                        Brak pokoi przypisanych do tego piętra na wybraną datę operacyjną.
+                    </div>
+                }
+                else
+                {
+                    <div class="floor-plan">
+                        <!-- Górna strona korytarza -->
+                        <div class="floor-plan-row">
+                            @foreach (var room in leftSideRooms)
+                            {
+                                var cssClass = room.IsBlocked ? "blocked" :
+                                room.Tag == "pobyt" ? "stay" :
+                                room.Tag == "przyjazd" ? "arrival" :
+                                room.Tag == "wyjazd" ? "departure" :
+                                "clean";
+
+                                <div class="room-box @cssClass">
+                                    @if (room.IsDirty)
+                                    {
+                                        <div class="broom-icon">
+                                            🧹
+                                        </div>
+                                    }
+
+                                    <div class="room-header">
+                                        <div class="room-number">
+                                            <i class="bi bi-door-open"></i>
+                                            <span>@room.Number</span>
+                                        </div>
+
+                                        <span class="room-status-pill">
+                                            @if (room.IsBlocked)
+                                            {
+                                                @:Zablokowany
+                                            }
+                                            else if (room.Tag == "pobyt")
+                                            {
+                                                @:Pobyt
+                                            }
+                                            else if (room.Tag == "przyjazd")
+                                            {
+                                                @:Przyjazd
+                                            }
+                                            else if (room.Tag == "wyjazd")
+                                            {
+                                                @:Wyjazd
+                                            }
+                                            else
+                                            {
+                                                @:Wolny
+                                            }
+                                        </span>
+                                    </div>
+
+                                    <div class="room-meta mb-1">
+                                        <div>
+                                            <i class="bi bi-people me-1"></i>
+                                            Max @room.Capacity os.
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(room.Description))
+                                        {
+                                            <div class="text-truncate">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                @room.Description
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="room-actions">
+                                        <form asp-action="MarkDirty" asp-route-id="@room.Id" method="post">
+                                            <input type="submit" class="btn btn-sm btn-outline-warning" value="Brudny" />
+                                        </form>
+                                        <form asp-action="MarkClean" asp-route-id="@room.Id" method="post">
+                                            <input type="submit" class="btn btn-sm btn-outline-success" value="Czysty" />
+                                        </form>
+
+                                        @if (!room.IsBlocked && room.Tag != "pobyt")
+                                        {
+                                            <form asp-action="Block" asp-route-id="@room.Id" method="post">
+                                                <input type="submit" class="btn btn-sm btn-outline-danger" value="Zablokuj" />
+                                            </form>
+                                        }
+                                        else if (room.IsBlocked)
+                                        {
+                                            <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
+                                                <input type="submit" class="btn btn-sm btn-outline-primary" value="Odblokuj" />
+                                            </form>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Korytarz -->
+                        <div class="corridor-strip">
+                            Korytarz – widok z góry
+                        </div>
+
+                        <!-- Dolna strona korytarza -->
+                        <div class="floor-plan-row">
+                            @foreach (var room in rightSideRooms)
+                            {
+                                var cssClass = room.IsBlocked ? "blocked" :
+                                room.Tag == "pobyt" ? "stay" :
+                                room.Tag == "przyjazd" ? "arrival" :
+                                room.Tag == "wyjazd" ? "departure" :
+                                "clean";
+
+                                <div class="room-box @cssClass">
+                                    @if (room.IsDirty)
+                                    {
+                                        <div class="broom-icon">
+                                            🧹
+                                        </div>
+                                    }
+
+                                    <div class="room-header">
+                                        <div class="room-number">
+                                            <i class="bi bi-door-open"></i>
+                                            <span>@room.Number</span>
+                                        </div>
+
+                                        <span class="room-status-pill">
+                                            @if (room.IsBlocked)
+                                            {
+                                                @:Zablokowany
+                                            }
+                                            else if (room.Tag == "pobyt")
+                                            {
+                                                @:Pobyt
+                                            }
+                                            else if (room.Tag == "przyjazd")
+                                            {
+                                                @:Przyjazd
+                                            }
+                                            else if (room.Tag == "wyjazd")
+                                            {
+                                                @:Wyjazd
+                                            }
+                                            else
+                                            {
+                                                @:Wolny
+                                            }
+                                        </span>
+                                    </div>
+
+                                    <div class="room-meta mb-1">
+                                        <div>
+                                            <i class="bi bi-people me-1"></i>
+                                            Max @room.Capacity os.
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(room.Description))
+                                        {
+                                            <div class="text-truncate">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                @room.Description
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="room-actions">
+                                        <form asp-action="MarkDirty" asp-route-id="@room.Id" method="post">
+                                            <input type="submit" class="btn btn-sm btn-outline-warning" value="Brudny" />
+                                        </form>
+                                        <form asp-action="MarkClean" asp-route-id="@room.Id" method="post">
+                                            <input type="submit" class="btn btn-sm btn-outline-success" value="Czysty" />
+                                        </form>
+
+                                        @if (!room.IsBlocked && room.Tag != "pobyt")
+                                        {
+                                            <form asp-action="Block" asp-route-id="@room.Id" method="post">
+                                                <input type="submit" class="btn btn-sm btn-outline-danger" value="Zablokuj" />
+                                            </form>
+                                        }
+                                        else if (room.IsBlocked)
+                                        {
+                                            <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
+                                                <input type="submit" class="btn btn-sm btn-outline-primary" value="Odblokuj" />
+                                            </form>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
         </div>
     </div>
 </div>

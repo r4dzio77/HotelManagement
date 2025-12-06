@@ -3,30 +3,352 @@
     Layout = "_Layout";
 }
 
-<h2 class="mb-4">Zaloguj się</h2>
+<style>
+    .auth-wrapper {
+        min-height: calc(100vh - 180px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-@if (TempData["Error"] is string error)
-{
-    <div class="alert alert-danger">@error</div>
-}
+    .auth-card {
+        width: 100%;
+        max-width: 880px;
+        border-radius: 1.1rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr);
+        opacity: 0;
+        animation: slideFadeIn .4s ease-out forwards;
+    }
 
-<form asp-action="Login" method="post" class="mb-3">
-    @Html.AntiForgeryToken()
-    <div class="form-group mb-3">
-        <label for="email">Email</label>
-        <input name="email" type="email" class="form-control" required />
+    .auth-left {
+        padding: 2.2rem 2.3rem 2rem;
+    }
+
+    .auth-right {
+        position: relative;
+        background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.4), transparent 55%), radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.25), transparent 60%), #020617;
+        color: #e5e7eb;
+        padding: 2.2rem 2.3rem 2rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .auth-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: .25rem;
+    }
+
+    .auth-subtitle {
+        font-size: .88rem;
+        color: #6b7280;
+        margin-bottom: 1.4rem;
+    }
+
+    .auth-label {
+        font-size: .85rem;
+        font-weight: 500;
+        margin-bottom: .2rem;
+    }
+
+    .auth-form-control {
+        font-size: .9rem;
+        border-radius: .6rem;
+    }
+
+    .auth-btn {
+        border-radius: .9rem;
+        font-weight: 600;
+        padding: .7rem 1rem;
+        font-size: .92rem;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
+    }
+
+    .auth-footer-text {
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+        .auth-footer-text a {
+            text-decoration: none;
+        }
+
+            .auth-footer-text a:hover {
+                text-decoration: underline;
+            }
+
+    .auth-error {
+        font-size: .85rem;
+    }
+
+    /* prawa strona */
+
+    .auth-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .25rem .65rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: rgba(15, 23, 42, 0.75);
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        color: #e5e7eb;
+        margin-bottom: 1rem;
+    }
+
+    .auth-right-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: .4rem;
+    }
+
+    .auth-right-text {
+        font-size: .85rem;
+        color: rgba(229, 231, 235, 0.9);
+        margin-bottom: .7rem;
+    }
+
+    .auth-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 1rem 0;
+        font-size: .8rem;
+        color: rgba(209, 213, 219, 0.95);
+    }
+
+        .auth-list li {
+            display: flex;
+            gap: .45rem;
+            margin-bottom: .25rem;
+        }
+
+        .auth-list i {
+            color: #22c55e;
+            margin-top: .12rem;
+        }
+
+    .auth-highlight-box {
+        border-radius: .8rem;
+        border: 1px solid rgba(148, 163, 184, 0.7);
+        background: rgba(15, 23, 42, 0.8);
+        padding: .7rem .75rem;
+        font-size: .78rem;
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+    }
+
+    .auth-highlight-badge {
+        padding: .25rem .45rem;
+        border-radius: .5rem;
+        background: rgba(37, 99, 235, 0.2);
+        border: 1px solid rgba(191, 219, 254, 0.85);
+        font-size: .7rem;
+        white-space: nowrap;
+    }
+
+    .auth-right-footer {
+        font-size: .78rem;
+        color: rgba(156, 163, 175, 0.95);
+        margin-top: 1rem;
+    }
+
+        .auth-right-footer a {
+            color: #e5e7eb;
+            text-decoration: none;
+        }
+
+            .auth-right-footer a:hover {
+                text-decoration: underline;
+            }
+
+    /* animacja lekkiego „wjechania” panelu */
+
+    @@keyframes slideFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(18px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@media (max-width: 992px) {
+        .auth-card {
+            max-width: 700px;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+        }
+
+        .auth-left,
+        .auth-right {
+            padding-inline: 1.6rem;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .auth-wrapper {
+            min-height: calc(100vh - 130px);
+        }
+
+        .auth-card {
+            max-width: 100%;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .auth-left,
+        .auth-right {
+            padding: 1.6rem 1.4rem 1.6rem;
+        }
+
+        .auth-right {
+            border-top: 1px solid rgba(31, 41, 55, 0.8);
+        }
+    }
+</style>
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <!-- LEWA STRONA – formularz -->
+        <div class="auth-left">
+            <div class="mb-3">
+                <h1 class="auth-title">
+                    Zaloguj się na swoje konto
+                </h1>
+                <div class="auth-subtitle">
+                    Dostęp do rezerwacji, historii pobytów i funkcji hotelu – dla gości i pracowników.
+                </div>
+            </div>
+
+            @if (TempData["Error"] is string error)
+            {
+                <div class="alert alert-danger auth-error">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    @error
+                </div>
+            }
+
+            <form asp-action="Login" method="post" class="mt-2">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label for="email" class="auth-label">
+                        Adres e-mail
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-envelope"></i>
+                        </span>
+                        <input id="email"
+                               name="email"
+                               type="email"
+                               class="form-control auth-form-control"
+                               autocomplete="username"
+                               required />
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label for="password" class="auth-label d-flex justify-content-between align-items-center">
+                        <span>Hasło</span>
+                        <a asp-action="RequestPasswordReset" asp-controller="Account" class="small text-decoration-none">
+                            <i class="bi bi-key me-1"></i>Nie pamiętasz hasła?
+                        </a>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-lock"></i>
+                        </span>
+                        <input id="password"
+                               name="password"
+                               type="password"
+                               class="form-control auth-form-control"
+                               autocomplete="current-password"
+                               required />
+                    </div>
+                </div>
+
+                <div class="form-check mb-3" style="font-size:.8rem;">
+                    <input class="form-check-input" type="checkbox" value="true" id="rememberMe" name="rememberMe" />
+                    <label class="form-check-label" for="rememberMe">
+                        Zapamiętaj mnie na tym urządzeniu
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 auth-btn">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>
+                    Zaloguj się
+                </button>
+            </form>
+
+            <div class="mt-3 text-center auth-footer-text">
+                Nie masz jeszcze konta?
+                <a asp-action="Register" asp-controller="Account">
+                    Załóż konto
+                </a>
+            </div>
+        </div>
+
+        <!-- PRAWA STRONA – info dla gości i pracowników -->
+        <aside class="auth-right">
+            <div>
+                <div class="auth-badge">
+                    <i class="bi bi-stars"></i>
+                    HotelManagement · Logowanie
+                </div>
+
+                <div class="auth-right-title">
+                    Jedno konto – różne role
+                </div>
+                <div class="auth-right-text">
+                    Ten ekran logowania obsługuje zarówno gości hotelowych, jak i pracowników. Po zalogowaniu
+                    zobaczysz tylko te funkcje, do których masz dostęp (np. rezerwacje, faktury, grafiki, raporty).
+                </div>
+
+                <ul class="auth-list">
+                    <li>
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span><strong>Goście:</strong> podgląd rezerwacji, danych pobytu i dokumentów.</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span><strong>Pracownicy:</strong> obsługa rezerwacji, pokoi i zadań w hotelu.</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Jedno, bezpieczne logowanie dla wszystkich typów użytkowników.</span>
+                    </li>
+                </ul>
+
+                <div class="auth-highlight-box">
+                    <span class="auth-highlight-badge">
+                        <i class="bi bi-shield-lock me-1"></i>
+                        Bezpieczeństwo
+                    </span>
+                    <span>
+                        Połącz się tylko z zaufanego urządzenia, nie udostępniaj loginu innym osobom
+                        i pamiętaj o wylogowaniu po zakończeniu korzystania z systemu.
+                    </span>
+                </div>
+            </div>
+
+            <div class="auth-right-footer">
+                Chcesz tylko zobaczyć ofertę hotelu?
+                Przejdź do strony głównej i sprawdź dostępne pokoje –
+                <a asp-controller="Home" asp-action="Index">
+                    przejdź do wizytówki →
+                </a>
+            </div>
+        </aside>
     </div>
-
-    <div class="form-group mb-3">
-        <label for="password">Hasło</label>
-        <input name="password" type="password" class="form-control" required />
-    </div>
-
-    <button type="submit" class="btn btn-primary w-100">Zaloguj</button>
-</form>
-
-<p class="mt-3 text-center">
-    <a asp-action="RequestPasswordReset" asp-controller="Account">
-        Nie pamiętasz hasła? Zresetuj je tutaj.
-    </a>
-</p>
+</div>

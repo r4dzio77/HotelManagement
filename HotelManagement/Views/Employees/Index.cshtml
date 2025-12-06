@@ -1,0 +1,503 @@
+﻿@using Microsoft.AspNetCore.Identity
+@model IEnumerable<HotelManagement.Models.ApplicationUser>
+@{
+    ViewData["Title"] = "Pracownicy";
+    Layout = "_Layout";
+
+    var employees = Model?.ToList() ?? new List<HotelManagement.Models.ApplicationUser>();
+    var totalCount = employees.Count;
+
+    var departments = employees
+        .Select(e => e.Department)
+        .Where(d => !string.IsNullOrWhiteSpace(d))
+        .Distinct()
+        .OrderBy(d => d)
+        .ToList();
+
+    var departmentStats = employees
+        .Where(e => !string.IsNullOrWhiteSpace(e.Department))
+        .GroupBy(e => e.Department)
+        .Select(g => new { Department = g.Key, Count = g.Count() })
+        .OrderByDescending(g => g.Count)
+        .ToList();
+}
+
+<style>
+    .page-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+        .page-header h1 {
+            margin-bottom: 0;
+        }
+
+    .page-subtitle {
+        font-size: 0.9rem;
+        color: #6b7280;
+    }
+
+    .employees-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .2rem .7rem;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: .8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+    }
+
+    .department-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .15rem .6rem;
+        border-radius: 999px;
+        background: #f3f4f6;
+        font-size: .75rem;
+        color: #4b5563;
+    }
+
+    .card-elevated {
+        border-radius: 1rem;
+        border: 0;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    .employee-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        background: #e5f0ff;
+        color: #1d4ed8;
+    }
+
+    .employee-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .employee-username {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+
+    .table-employees thead th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+    }
+
+    .table-employees tbody td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .btn-chip-danger {
+        border-radius: 999px;
+        padding: 0.18rem 0.6rem;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+        .btn-chip-danger i {
+            font-size: 0.85rem;
+        }
+
+    .form-section-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+        margin-bottom: .75rem;
+    }
+
+    .small-hint {
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+
+    @@media (max-width: 768px) {
+        .page-header {
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<div class="page-header mb-3">
+    <div>
+        <h1 class="h3 mb-1">Pracownicy</h1>
+        <div class="page-subtitle">
+            Zarządzanie zwykłymi pracownikami (bez kierowników).
+        </div>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-1">
+        <span class="employees-pill">
+            <i class="bi bi-people-fill"></i>
+            @totalCount pracownik@(totalCount == 1 ? "" : "ów")
+        </span>
+
+        @if (departmentStats.Any())
+        {
+            <div class="d-flex flex-wrap justify-content-end gap-1 mt-1">
+                @foreach (var stat in departmentStats)
+                {
+                    <span class="department-pill">
+                        <i class="bi bi-diagram-2-fill"></i>
+                        @stat.Department: @stat.Count
+                    </span>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (TempData["Message"] is string msg)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@msg
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>@err
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card card-elevated mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="form-section-title">
+                Dodaj nowego pracownika
+            </div>
+        </div>
+
+        <form asp-action="AddEmployee" method="post">
+            @Html.AntiForgeryToken()
+            <div class="row g-3">
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label">Imię</label>
+                    <input name="firstName" class="form-control" required />
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label">Nazwisko</label>
+                    <input name="lastName" class="form-control" required />
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label">E-mail (login)</label>
+                    <input name="email" type="email" class="form-control" required />
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label">Hasło tymczasowe</label>
+                    <input name="password" type="password" class="form-control" required />
+                    <div class="small-hint mt-1">
+                        Hasło można zmienić po pierwszym zalogowaniu.
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label">Dział / klasa</label>
+                    <select name="department" class="form-select" required>
+                        <option value="">Wybierz...</option>
+                        <option value="Recepcja">Recepcja</option>
+                        <option value="Housekeeping">Housekeeping</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-3 d-flex justify-content-end">
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-person-plus me-1"></i>
+                    Dodaj pracownika
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card card-elevated">
+    <div class="card-header">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                <span class="form-section-title mb-0" style="text-transform:none;letter-spacing:0;">
+                    Lista pracowników
+                </span>
+                <div class="small text-muted">
+                    Pracownicy posiadający dostęp do systemu hotelowego (bez kierowników).
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="input-group input-group-sm" style="min-width: 220px;">
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input id="employeeSearch"
+                           type="text"
+                           class="form-control"
+                           placeholder="Szukaj po imieniu, nazwisku, loginie, e-mailu..." />
+                </div>
+
+                <div>
+                    <select id="departmentFilter" class="form-select form-select-sm">
+                        <option value="">Wszystkie działy</option>
+                        <option value="Recepcja">Recepcja</option>
+                        <option value="Housekeeping">Housekeeping</option>
+                        @foreach (var d in departments)
+                        {
+                            if (d != "Recepcja" && d != "Housekeeping")
+                            {
+                                <option value="@d">@d</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle table-employees">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Pracownik</th>
+                        <th style="width: 140px;">Dział</th>
+                        <th style="width: 160px;">Login</th>
+                        <th>E-mail</th>
+                        <th class="text-end" style="width: 200px;">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var i = 1;
+                        foreach (var u in employees)
+                        {
+                            var initials = $"{(string.IsNullOrWhiteSpace(u?.FirstName) ? "" : u.FirstName[0].ToString().ToUpper())}{(string.IsNullOrWhiteSpace(u?.LastName) ? "" : u.LastName[0].ToString().ToUpper())}";
+                            var fullName = $"{u?.FirstName} {u?.LastName}".Trim();
+                            <tr data-employee-row
+                                data-id="@u?.Id"
+                                data-firstname="@u?.FirstName"
+                                data-lastname="@u?.LastName"
+                                data-name="@fullName"
+                                data-email="@u?.Email"
+                                data-login="@u?.UserName"
+                                data-department="@u?.Department">
+                                <td>@i</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="employee-avatar">
+                                            @initials
+                                        </div>
+                                        <div>
+                                            <div class="employee-name">
+                                                @(string.IsNullOrWhiteSpace(fullName) ? "(brak danych)" : fullName)
+                                            </div>
+                                            <div class="employee-username">
+                                                <i class="bi bi-person-badge me-1"></i>@u?.UserName
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(u?.Department))
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border">
+                                            @u.Department
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-muted border">
+                                            Brak
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-muted border">
+                                        @u?.UserName
+                                    </span>
+                                </td>
+                                <td>@u?.Email</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary me-1 btn-edit-employee"
+                                            data-id="@u?.Id"
+                                            data-firstname="@u?.FirstName"
+                                            data-lastname="@u?.LastName"
+                                            data-department="@u?.Department">
+                                        <i class="bi bi-pencil"></i>
+                                        Edytuj
+                                    </button>
+
+                                    <form asp-action="DeleteEmployee"
+                                          method="post"
+                                          onsubmit="return confirm('Czy na pewno usunąć tego pracownika i jego dostęp do systemu?');"
+                                          class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@u?.Id" />
+                                        <button type="submit"
+                                                class="btn btn-sm btn-outline-danger btn-chip-danger">
+                                            <i class="bi bi-trash3"></i>
+                                            Usuń
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            i++;
+                        }
+
+                        if (!employees.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Brak zarejestrowanych pracowników.
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@* Modal do edycji pracownika *@
+<div class="modal fade" id="editEmployeeModal" tabindex="-1" aria-labelledby="editEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form asp-action="EditEmployee" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editEmployeeModalLabel">
+                        Edytuj pracownika
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editEmployeeId" name="id" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Imię</label>
+                        <input type="text" class="form-control" id="editFirstName" name="firstName" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nazwisko</label>
+                        <input type="text" class="form-control" id="editLastName" name="lastName" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dział / klasa</label>
+                        <select id="editDepartment" name="department" class="form-select">
+                            <option value="">(brak)</option>
+                            <option value="Recepcja">Recepcja</option>
+                            <option value="Housekeeping">Housekeeping</option>
+                        </select>
+                    </div>
+                    <div class="small text-muted">
+                        Login i e-mail pracownika pozostają bez zmian.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>
+                        Zapisz zmiany
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('employeeSearch');
+        const deptSelect = document.getElementById('departmentFilter');
+        const rows = document.querySelectorAll('[data-employee-row]');
+        const editButtons = document.querySelectorAll('.btn-edit-employee');
+
+        function applyFilter() {
+            const search = (searchInput?.value || '').toLowerCase();
+            const dept = deptSelect?.value || '';
+
+            rows.forEach(row => {
+                const name = (row.getAttribute('data-name') || '').toLowerCase();
+                const email = (row.getAttribute('data-email') || '').toLowerCase();
+                const login = (row.getAttribute('data-login') || '').toLowerCase();
+                const rowDept = row.getAttribute('data-department') || '';
+
+                const matchesSearch =
+                    !search ||
+                    name.includes(search) ||
+                    email.includes(search) ||
+                    login.includes(search);
+
+                const matchesDept =
+                    !dept || rowDept === dept;
+
+                row.style.display = (matchesSearch && matchesDept) ? '' : 'none';
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', applyFilter);
+        }
+        if (deptSelect) {
+            deptSelect.addEventListener('change', applyFilter);
+        }
+
+        // Obsługa modala edycji
+        const editModalEl = document.getElementById('editEmployeeModal');
+        let editModal = null;
+        if (editModalEl && window.bootstrap) {
+            editModal = new bootstrap.Modal(editModalEl);
+        }
+
+        const idInput = document.getElementById('editEmployeeId');
+        const firstNameInput = document.getElementById('editFirstName');
+        const lastNameInput = document.getElementById('editLastName');
+        const departmentSelect = document.getElementById('editDepartment');
+
+        editButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const firstName = btn.getAttribute('data-firstname') || '';
+                const lastName = btn.getAttribute('data-lastname') || '';
+                const dept = btn.getAttribute('data-department') || '';
+
+                if (idInput) idInput.value = id;
+                if (firstNameInput) firstNameInput.value = firstName;
+                if (lastNameInput) lastNameInput.value = lastName;
+                if (departmentSelect) {
+                    departmentSelect.value = dept || '';
+                }
+
+                if (editModal) {
+                    editModal.show();
+                }
+            });
+        });
+    });
+</script>

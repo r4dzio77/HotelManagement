@@ -20,6 +20,52 @@ namespace HotelManagement.Controllers
             _userManager = userManager;
         }
 
+        // ===== INDEX — z obsługą filtrów dat =====
+        [HttpGet]
+        [Authorize(Roles = "Kierownik,Admin,Klient")]
+        public async Task<IActionResult> Index(DateTime? checkIn, DateTime? checkOut)
+        {
+            var roomTypes = await _context.RoomTypes
+                .Include(rt => rt.Rooms)
+                .ToListAsync();
+
+            DateTime from = checkIn ?? DateTime.Today;
+            DateTime to = checkOut ?? DateTime.Today.AddDays(1);
+
+            // pobierz wszystkie rezerwacje w okresie
+            var reservations = await _context.Reservations
+                .Where(r => r.CheckOut > from && r.CheckIn < to)
+                .ToListAsync();
+
+            // oblicz dostępność
+            var availability = new Dictionary<int, int>();
+
+            foreach (var rt in roomTypes)
+            {
+                int totalRooms = rt.Rooms.Count;
+
+                int reservedRooms = reservations
+                    .Where(r => r.RoomTypeId == rt.Id)
+                    .GroupBy(r => r.RoomId)
+                    .Count(); // liczba zajętych pokoi fizycznych
+
+                int availableRooms = totalRooms - reservedRooms;
+                if (availableRooms < 0) availableRooms = 0;
+
+                availability[rt.Id] = availableRooms;
+            }
+
+            ViewBag.Availability = availability;
+            ViewBag.CheckIn = from.ToString("yyyy-MM-dd");
+            ViewBag.CheckOut = to.ToString("yyyy-MM-dd");
+
+            bool isAdminOrManager = User.IsInRole("Kierownik") || User.IsInRole("Admin");
+            ViewBag.IsAdminOrManager = isAdminOrManager;
+
+            return View(roomTypes);
+        }
+
+        // ==================== CREATE ========================
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin")]
         public IActionResult Create()
@@ -59,6 +105,7 @@ namespace HotelManagement.Controllers
             return View(roomType);
         }
 
+        // ==================== EDIT ========================
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin")]
         public async Task<IActionResult> Edit(int id)
@@ -124,13 +171,9 @@ namespace HotelManagement.Controllers
                     throw;
                 }
             }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("", $"Błąd podczas zapisywania: {ex.Message}");
-                return View(roomType);
-            }
         }
 
+        // ==================== REZERWACJA ========================
         [Authorize]
         [HttpGet]
         public async Task<IActionResult> Reserve(int roomTypeId)
@@ -195,7 +238,6 @@ namespace HotelManagement.Controllers
 
             if (user != null && user.GuestId.HasValue)
             {
-                // ✅ użyj istniejącego gościa i zaktualizuj dane
                 guest = await _context.Guests.FindAsync(user.GuestId.Value);
                 if (guest != null)
                 {
@@ -210,7 +252,6 @@ namespace HotelManagement.Controllers
             }
             else
             {
-                // ✅ brak powiązanego gościa → utwórz nowego
                 guest = new Guest
                 {
                     FirstName = model.FirstName,
@@ -261,17 +302,6 @@ namespace HotelManagement.Controllers
         public IActionResult Confirmation()
         {
             return View();
-        }
-
-        [HttpGet]
-        [Authorize(Roles = "Kierownik,Admin,Klient")]
-        public async Task<IActionResult> Index()
-        {
-            var roomTypes = await _context.RoomTypes.ToListAsync();
-            var isAdminOrManager = User.IsInRole("Kierownik") || User.IsInRole("Admin");
-            ViewBag.IsAdminOrManager = isAdminOrManager;
-
-            return View(roomTypes);
         }
     }
 }

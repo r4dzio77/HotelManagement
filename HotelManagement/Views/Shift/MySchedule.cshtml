@@ -7,141 +7,396 @@
     var isPublished = (bool)ViewBag.IsPublished;
     var showAll = ViewBag.ShowAll as bool? ?? false;
     var isManager = User.IsInRole("Kierownik");
+
+    var daysInMonth = Enumerable.Range(1, DateTime.DaysInMonth(month.Year, month.Month))
+                                .Select(day => new DateTime(month.Year, month.Month, day))
+                                .ToList();
+
+    var groupedAll = Model.GroupBy(s => s.User).ToList();
+    var grouped = showAll ? groupedAll : groupedAll.Take(1).ToList();
+
+    var scheduleId = ViewBag.ScheduleId as int?;
+    var scheduleName = ViewBag.ScheduleName as string ?? "";
+    var schedules = ViewBag.Schedules as List<WorkSchedule> ?? new List<WorkSchedule>();
 }
 
-<h2>@ViewData["Title"] – @month.ToString("MMMM yyyy", new CultureInfo("pl-PL"))</h2>
+<style>
+    .myschedule-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+    }
 
-<!-- ✅ Komunikaty -->
+        .myschedule-header h1 {
+            margin-bottom: 0;
+        }
+
+    .myschedule-subtitle {
+        font-size: 0.9rem;
+        color: #6b7280;
+    }
+
+    .month-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .2rem .7rem;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: .8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+    }
+
+    .card-elevated {
+        border-radius: 1rem;
+        border: 0;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    .myschedule-filter-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-bottom: 0.15rem;
+    }
+
+    .myschedule-toggle-label {
+        font-size: 0.85rem;
+    }
+
+    .myschedule-muted {
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+
+    .myschedule-table thead th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+        border-bottom-width: 1px;
+        position: sticky;
+        top: 0;
+        background: #f9fafb;
+        z-index: 2;
+    }
+
+    .myschedule-table tbody td {
+        font-size: 0.85rem;
+        vertical-align: middle;
+        padding: 0.25rem 0.4rem;
+    }
+
+    .myschedule-employee-cell {
+        white-space: nowrap;
+    }
+
+    .myschedule-day-header {
+        font-size: 0.75rem;
+        color: #9ca3af;
+    }
+
+    .myschedule-day-weekend {
+        background-color: #fef2f2;
+    }
+
+    .myschedule-shift-times {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+    }
+
+    .myschedule-shift-chip {
+        border-radius: 999px;
+        padding: 1px 6px;
+        font-size: 0.75rem;
+        background: #e0f2fe;
+        color: #0369a1;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .myschedule-shift-none {
+        color: #d1d5db;
+        font-size: 0.8rem;
+    }
+
+    .myschedule-summary-cell {
+        font-weight: 600;
+        background: #f9fafb;
+    }
+
+    .myschedule-google-btn i {
+        margin-right: .3rem;
+    }
+
+    .myschedule-google-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+    }
+
+    @@media (max-width: 768px) {
+        .myschedule-header {
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<div class="myschedule-header mb-3">
+    <div>
+        <h1 class="h4 mb-1">@ViewData["Title"]</h1>
+        <div class="myschedule-subtitle">
+            Twój harmonogram pracy w wybranym miesiącu.
+        </div>
+        <div class="mt-1">
+            <span class="badge bg-light text-muted border">
+                @month.ToString("MMMM yyyy", new CultureInfo("pl-PL"))
+                @if (!string.IsNullOrWhiteSpace(scheduleName))
+                {
+                    <span> – <strong>@scheduleName</strong></span>
+                }
+            </span>
+        </div>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-1">
+        <span class="month-pill">
+            <i class="bi bi-calendar-event"></i>
+            @month.ToString("MMMM yyyy", new CultureInfo("pl-PL"))
+        </span>
+        @if (isPublished)
+        {
+            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle mt-1">
+                <i class="bi bi-check-circle me-1"></i> Grafik opublikowany
+            </span>
+        }
+        else
+        {
+            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mt-1">
+                <i class="bi bi-clock-history me-1"></i> Brak opublikowanego grafiku
+            </span>
+        }
+    </div>
+</div>
+
 @if (TempData["Message"] is string msg)
 {
-    <div class="alert alert-success">@msg</div>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@msg
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 }
 @if (TempData["Error"] is string err)
 {
-    <div class="alert alert-danger">@err</div>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>@err
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 }
 
-<form method="get" asp-action="MySchedule" class="mb-3 d-flex align-items-center gap-3">
-    <div>
-        <label for="monthInput">Wybierz miesiąc:</label>
-        <input type="month" id="monthInput" name="month" value="@month.ToString("yyyy-MM")" class="form-control d-inline-block w-auto" />
+<div class="card card-elevated mb-3">
+    <div class="card-body">
+        <form method="get"
+              asp-action="MySchedule"
+              class="row g-3 align-items-end">
+            <div class="col-md-3 col-sm-6">
+                <label for="monthInput" class="myschedule-filter-label">Miesiąc</label>
+                <input type="month"
+                       id="monthInput"
+                       name="month"
+                       value="@month.ToString("yyyy-MM")"
+                       class="form-control" />
+            </div>
+
+            @if (schedules.Count > 1)
+            {
+                <div class="col-md-4 col-sm-6">
+                    <label class="myschedule-filter-label">Grafik</label>
+                    <select name="scheduleId" class="form-select">
+                        @foreach (var s in schedules)
+                        {
+                            var selected = scheduleId.HasValue && scheduleId.Value == s.Id;
+                            if (selected)
+                            {
+                                <option value="@s.Id" selected="selected">
+                                    @s.Name
+                                </option>
+                            }
+                            else
+                            {
+                                <option value="@s.Id">
+                                    @s.Name
+                                </option>
+                            }
+                        }
+                    </select>
+                </div>
+            }
+
+            @if (!isManager)
+            {
+                <div class="col-md-3 col-sm-6 d-flex align-items-center mt-3 mt-md-0">
+                    <div class="form-check form-switch">
+                        <input type="checkbox"
+                               class="form-check-input"
+                               id="showAllToggle"
+                               @(showAll ? "checked" : "") />
+                        <label class="form-check-label myschedule-toggle-label" for="showAllToggle">
+                            Pokaż cały grafik
+                        </label>
+                    </div>
+                </div>
+            }
+
+            <div class="col-md-3 col-sm-12 d-flex justify-content-md-end justify-content-start mt-2 mt-md-0">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search me-1"></i>
+                    Pokaż
+                </button>
+            </div>
+        </form>
+
+        @if (!isManager)
+        {
+            <div class="myschedule-muted mt-2">
+                Domyślnie widzisz tylko swoje zmiany. Przełącz „Pokaż cały grafik”, aby podejrzeć harmonogram innych.
+            </div>
+        }
     </div>
+</div>
 
-    @if (!isManager)
-    {
-        <div class="form-check form-switch">
-            <input type="checkbox" class="form-check-input" id="showAllToggle" @(showAll ? "checked" : "") />
-            <label class="form-check-label" for="showAllToggle">Pokaż cały grafik</label>
-        </div>
-    }
-
-    <button type="submit" class="btn btn-sm btn-primary ms-2">Pokaż</button>
-</form>
-
-<!-- ☁️ Eksport do Google -->
 @if (isPublished && Model.Any())
 {
-    <form id="exportForm" method="post" asp-action="ExportMyShiftsToGoogle" asp-route-month="@month.ToString("yyyy-MM-01")" class="mb-3">
+    <form id="exportForm"
+          method="post"
+          asp-action="ExportMyShiftsToGoogle"
+          asp-route-month="@month.ToString("yyyy-MM-01")"
+          asp-route-scheduleId="@scheduleId"
+          class="mb-3">
         @Html.AntiForgeryToken()
-        <button id="exportBtn" type="submit" class="btn btn-outline-success">
-            <i class="bi bi-google"></i> ☁️ Eksportuj grafik do Google Calendar
+        <button id="exportBtn" type="submit" class="btn btn-outline-success myschedule-google-btn">
+            <i class="bi bi-google"></i>
+            Eksportuj grafik do Google Calendar
         </button>
     </form>
 
-    <!-- 🔄 komunikat o synchronizacji -->
     <div id="loadingMessage" class="alert alert-info d-none">
-        <i class="bi bi-hourglass-split"></i> Trwa synchronizacja z Google Calendar… proszę czekać.
+        <i class="bi bi-hourglass-split me-1"></i>
+        Trwa synchronizacja z Google Calendar… proszę czekać.
     </div>
 }
 
 @if (!isPublished)
 {
     <div class="alert alert-warning">
+        <i class="bi bi-info-circle me-1"></i>
         Grafik na wybrany miesiąc nie został jeszcze udostępniony przez kierownika.
     </div>
 }
 else if (!Model.Any())
 {
     <div class="alert alert-info">
+        <i class="bi bi-info-circle me-1"></i>
         Brak przypisanych zmian na ten miesiąc.
     </div>
 }
 else
 {
-    var daysInMonth = Enumerable.Range(1, DateTime.DaysInMonth(month.Year, month.Month))
-                                .Select(day => new DateTime(month.Year, month.Month, day))
-                                .ToList();
-
-    var grouped = Model.GroupBy(s => s.User).ToList();
-    if (!showAll)
-    {
-        grouped = new List<IGrouping<ApplicationUser, WorkShift>> {
-            Model.GroupBy(s => s.User).FirstOrDefault()
-        };
-    }
-
-    <div class="table-responsive">
-        <table class="table table-bordered table-sm text-center align-middle">
-            <thead class="table-light sticky-top">
-                <tr>
-                    <th class="text-start">Pracownik</th>
-                    @foreach (var day in daysInMonth)
-                    {
-                        <th title="@day.ToString("dddd", new CultureInfo("pl-PL"))">@day.Day</th>
-                    }
-                    <th>Zmien</th>
-                    <th>Godzin</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var group in grouped.Where(g => g != null))
-                {
-                    var userId = group.Key.Id;
-                    var totalShifts = 0;
-                    var totalHours = 0.0;
-
-                    <tr>
-                        <td class="text-start">@group.Key.FullName</td>
-
-                        @foreach (var day in daysInMonth)
-                        {
-                            var shift = Model.FirstOrDefault(s => s.UserId == userId && s.Date.Date == day.Date);
-                            if (shift != null)
+    <div class="card card-elevated">
+        <div class="card-body p-2 p-sm-3">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle text-center myschedule-table">
+                    <thead>
+                        <tr>
+                            <th class="text-start">Pracownik</th>
+                            @foreach (var day in daysInMonth)
                             {
-                                totalShifts++;
-                                totalHours += 12; // każda zmiana = 12h
+                                var isWeekend = day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday;
+                                <th class="@(isWeekend ? "myschedule-day-weekend" : "")"
+                                    title="@day.ToString("dddd", new CultureInfo("pl-PL"))">
+                                    <div class="fw-semibold">@day.Day</div>
+                                    <div class="myschedule-day-header">
+                                        @day.ToString("ddd", new CultureInfo("pl-PL"))
+                                    </div>
+                                </th>
                             }
+                            <th>ZMIAN</th>
+                            <th>GODZIN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var group in grouped.Where(g => g != null))
+                        {
+                            var userId = group.Key.Id;
+                            var userShifts = Model
+                            .Where(s => s.UserId == userId)
+                            .ToList();
 
-                            <td>
-                                <span class="fw-bold">
-                                    @(shift?.ShiftType == "Day" ? "D" : shift?.ShiftType == "Night" ? "N" : "—")
-                                </span>
-                            </td>
+                            var totalShifts = userShifts.Count;
+                            var totalHours = userShifts.Sum(s => (s.EndTime - s.StartTime).TotalHours);
+
+                            <tr>
+                                <td class="text-start myschedule-employee-cell">
+                                    <strong>@group.Key.FullName</strong>
+                                </td>
+
+                                @foreach (var day in daysInMonth)
+                                {
+                                    var isWeekend = day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday;
+                                    var dayShifts = userShifts
+                                    .Where(s => s.Date.Date == day.Date)
+                                    .OrderBy(s => s.StartTime)
+                                    .ToList();
+
+                                    <td class="@(isWeekend ? "myschedule-day-weekend" : "")">
+                                        @if (dayShifts.Any())
+                                        {
+                                            <div class="myschedule-shift-times">
+                                                @foreach (var s in dayShifts)
+                                                {
+                                                    <span class="myschedule-shift-chip">
+                                                        @s.StartTime.ToString(@"hh\:mm") – @s.EndTime.ToString(@"hh\:mm")
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="myschedule-shift-none">—</span>
+                                        }
+                                    </td>
+                                }
+
+                                <td class="myschedule-summary-cell">@totalShifts</td>
+                                <td class="myschedule-summary-cell">@totalHours.ToString("0.0") h</td>
+                            </tr>
                         }
-
-                        <td class="fw-bold">@totalShifts</td>
-                        <td class="fw-bold">@totalHours.ToString("0.0") h</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 }
 
 @section Scripts {
     <script>
-        // ✅ Pokazanie komunikatu o synchronizacji
+        // eksport do Google – spinner
         const exportForm = document.getElementById("exportForm");
         const exportBtn = document.getElementById("exportBtn");
         const loadingMsg = document.getElementById("loadingMessage");
 
         exportForm?.addEventListener("submit", function () {
             exportBtn.disabled = true;
-            exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Synchronizuję…';
+            exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Synchronizuję…';
             loadingMsg?.classList.remove("d-none");
         });
 
-        // ✅ Przełącznik "Pokaż cały grafik"
+        // przełącznik "Pokaż cały grafik"
         document.getElementById("showAllToggle")?.addEventListener("change", function () {
             const isChecked = this.checked;
             const month = document.getElementById("monthInput").value;
@@ -151,6 +406,11 @@ else
                 url.searchParams.set("all", "true");
             } else {
                 url.searchParams.delete("all");
+            }
+            @* zachowaj wybrany grafik *@
+            @if (scheduleId.HasValue)
+            {
+                    @:url.searchParams.set("scheduleId", "@scheduleId");
             }
             window.location.href = url.toString();
         });

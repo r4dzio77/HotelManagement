@@ -1,72 +1,480 @@
 ﻿@model HotelManagement.Models.Guest
 
 @{
-    ViewData["Title"] = "Dodaj nowego gościa";
+    ViewData["Title"] = "Wybierz lub dodaj gościa";
+    Layout = "_Layout";
 }
 
-<h2>Dodaj nowego gościa</h2>
-
-<form asp-action="CreateGuest" method="post">
-    @Html.AntiForgeryToken()
-
-    <!-- Dane osobowe gościa -->
-    <div class="form-group">
-        <label asp-for="FirstName"></label>
-        <input asp-for="FirstName" class="form-control" />
+<div class="container py-4">
+    <div class="page-header mb-4 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <h1 class="h3 mb-1">Wybierz lub dodaj gościa</h1>
+            <div class="page-subtitle">
+                Najpierw wybierz istniejącego gościa z bazy lub dodaj nowego, a następnie przejdź do tworzenia rezerwacji.
+            </div>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label asp-for="LastName"></label>
-        <input asp-for="LastName" class="form-control" />
-    </div>
-
-    <div class="form-group">
-        <label asp-for="Email"></label>
-        <input asp-for="Email" class="form-control" />
-    </div>
-
-    <div class="form-group">
-        <label asp-for="PhoneNumber"></label>
-        <input asp-for="PhoneNumber" class="form-control" />
-    </div>
-
-    <!-- Opcjonalnie: Preferencje -->
-    <div class="form-group">
-        <label asp-for="Preferences"></label>
-        <input asp-for="Preferences" class="form-control" />
-    </div>
-
-    <!-- Ukryte pola na dane firmy -->
-    <input type="hidden" id="companyName" name="companyName" />
-    <input type="hidden" id="address" name="address" />
-    <input type="hidden" id="postalCode" name="postalCode" />
-    <input type="hidden" id="city" name="city" />
-    <input type="hidden" id="country" name="country" />
-
-    <button type="submit" class="btn btn-primary mt-3">Zapisz</button>
-</form>
-
-<script>
-    async function getCompanyData() {
-        const nip = document.getElementById("nip").value;
-        if (!nip) {
-            alert("Podaj NIP");
-            return;
-        }
-
-        const response = await fetch(`/api/CompanyApi/GetCompanyByNip?nip=${nip}`);
-        if (!response.ok) {
-            alert("Nie znaleziono firmy.");
-            return;
-        }
-
-        const data = await response.json();
-
-        // zapisujemy dane firmy w hidden inputs
-        document.getElementById("companyName").value = data.name;
-        document.getElementById("address").value = data.address;
-        document.getElementById("postalCode").value = data.postalCode;
-        document.getElementById("city").value = data.city;
-        document.getElementById("country").value = data.country;
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zamknij"></button>
+        </div>
     }
-</script>
+
+    <div class="row g-4">
+        <!-- LEWA KOLUMNA: wyszukiwanie gościa -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">Znajdź istniejącego gościa</h5>
+                        <small class="text-muted">
+                            Wyszukaj po imieniu, nazwisku, e-mailu lub numerze telefonu.
+                        </small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="guestSearchForm" class="row gy-2 gx-2 align-items-end" onsubmit="return false;">
+                        <div class="col-md-8">
+                            <label for="guestSearchTerm" class="form-label fw-semibold">Szukaj gościa</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="guestSearchTerm"
+                                   placeholder="np. Jan, Kowalski, jan@firma.pl, 500123123" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label d-none d-md-block">&nbsp;</label>
+                            <button type="button"
+                                    class="btn btn-primary w-100"
+                                    id="guestSearchBtn">
+                                <i class="bi bi-search me-1"></i> Wyszukaj
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="guestSearchEmpty" class="text-muted small mt-3">
+                        Wpisz dane gościa i kliknij <strong>Wyszukaj</strong>, aby sprawdzić, czy istnieje już w bazie.
+                    </div>
+
+                    <div id="guestSearchResults" class="mt-3" style="display:none;">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Gość</th>
+                                        <th>Kontakt</th>
+                                        <th>Lojalność</th>
+                                        <th class="text-end">Akcje</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Wiersze wypełniane dynamicznie przez JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            Po wybraniu gościa zostaniesz przeniesiony bezpośrednio do tworzenia rezerwacji.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRAWA KOLUMNA: formularz nowego gościa + firma -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="mb-0">Dodaj nowego gościa</h5>
+                    <small class="text-muted">
+                        Uzupełnij dane, jeśli to pierwszy pobyt tej osoby w hotelu.
+                    </small>
+                </div>
+                <div class="card-body">
+                    <form asp-action="CreateGuest" method="post" novalidate>
+                        @Html.AntiForgeryToken()
+
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="FirstName" class="form-label fw-semibold"></label>
+                                <input asp-for="FirstName" class="form-control" />
+                                <span asp-validation-for="FirstName" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="LastName" class="form-label fw-semibold"></label>
+                                <input asp-for="LastName" class="form-control" />
+                                <span asp-validation-for="LastName" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="Email" class="form-label fw-semibold"></label>
+                                <input asp-for="Email" class="form-control" />
+                                <span asp-validation-for="Email" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="PhoneNumber" class="form-label fw-semibold"></label>
+                                <input asp-for="PhoneNumber" class="form-control" />
+                                <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-12">
+                                <label asp-for="Preferences" class="form-label fw-semibold"></label>
+                                <textarea asp-for="Preferences" class="form-control" rows="2" placeholder="Np. wysoki pokój, łóżko małżeńskie, bez pierza"></textarea>
+                                <span asp-validation-for="Preferences" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <!-- ====== DANE FIRMY DO FAKTURY (opcjonalne) ====== -->
+                        <div class="border-top pt-3 mt-4">
+                            <button class="btn btn-link px-0 text-decoration-none d-flex align-items-center"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#companySection"
+                                    aria-expanded="false"
+                                    aria-controls="companySection">
+                                <span class="me-1">Dane firmy do faktury (opcjonalnie)</span>
+                                <i class="bi bi-chevron-down small"></i>
+                            </button>
+
+                            <div class="collapse mt-2" id="companySection">
+                                <!-- Ukryte powiązanie z firmą z bazy -->
+                                <input asp-for="CompanyId" type="hidden" id="companyId" />
+
+                                <!-- Wyszukiwarka firmy w bazie -->
+                                <div class="card border-0 mb-3">
+                                    <div class="card-body p-2">
+                                        <label class="form-label fw-semibold">Wyszukaj firmę w bazie</label>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-8">
+                                                <input type="text"
+                                                       id="companySearchTerm"
+                                                       class="form-control"
+                                                       placeholder="Nazwa firmy lub NIP" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary w-100"
+                                                        id="companySearchBtn">
+                                                    <i class="bi bi-search me-1"></i> Szukaj w bazie
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div id="companySearchEmpty" class="text-muted small mt-2">
+                                            Wpisz nazwę firmy lub NIP, aby sprawdzić, czy jest już w bazie.
+                                        </div>
+
+                                        <div id="companySearchResults" class="mt-2" style="display:none;">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm align-middle mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Firma</th>
+                                                            <th>Adres</th>
+                                                            <th class="text-end">Akcje</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- Wiersze firm z bazy wypełni JS -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="small text-muted mt-1">
+                                                Po wybraniu firma zostanie automatycznie przypisana do gościa.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3" />
+
+                                <div class="small text-muted mb-2">
+                                    Jeśli firmy nie ma jeszcze w bazie – uzupełnij dane ręcznie. Zostanie zapisana przy tworzeniu gościa.
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold" for="CompanyName">Nazwa firmy</label>
+                                        <input type="text" class="form-control" id="CompanyName" name="CompanyName" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold" for="CompanyVatNumber">NIP</label>
+                                        <input type="text" class="form-control" id="CompanyVatNumber" name="CompanyVatNumber" />
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold" for="CompanyCountry">Kraj</label>
+                                        <input type="text" class="form-control" id="CompanyCountry" name="CompanyCountry" value="Polska" />
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold" for="CompanyAddress">Adres</label>
+                                        <input type="text" class="form-control" id="CompanyAddress" name="CompanyAddress" placeholder="Ulica i nr, lokal" />
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold" for="CompanyPostalCode">Kod pocztowy</label>
+                                        <input type="text" class="form-control" id="CompanyPostalCode" name="CompanyPostalCode" />
+                                    </div>
+
+                                    <div class="col-md-8">
+                                        <label class="form-label fw-semibold" for="CompanyCity">Miasto</label>
+                                        <input type="text" class="form-control" id="CompanyCity" name="CompanyCity" />
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearCompanyBtn">
+                                        Wyczyść dane firmy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                Zapisz i przejdź do rezerwacji
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // ==================== WYSZUKIWANIE GOŚCIA ====================
+        (function () {
+            const searchBtn = document.getElementById("guestSearchBtn");
+            const searchInput = document.getElementById("guestSearchTerm");
+            const resultsContainer = document.getElementById("guestSearchResults");
+            const emptyInfo = document.getElementById("guestSearchEmpty");
+            const resultsBody = resultsContainer?.querySelector("tbody");
+
+            const searchUrl = '@Url.Action("SearchGuests", "Reservation")';
+            const selectGuestUrl = '@Url.Action("SelectGuest", "Reservation")';
+
+            async function performSearch() {
+                const term = (searchInput?.value || "").trim();
+
+                if (!term) {
+                    emptyInfo.style.display = "block";
+                    emptyInfo.textContent = "Wpisz dane gościa, aby rozpocząć wyszukiwanie.";
+                    resultsContainer.style.display = "none";
+                    if (resultsBody) resultsBody.innerHTML = "";
+                    return;
+                }
+
+                emptyInfo.style.display = "none";
+
+                try {
+                    const response = await fetch(`${searchUrl}?term=${encodeURIComponent(term)}`);
+                    if (!response.ok) {
+                        throw new Error("Błąd odpowiedzi serwera");
+                    }
+
+                    const data = await response.json();
+                    const guests = data.results || [];
+
+                    if (!resultsBody) return;
+                    resultsBody.innerHTML = "";
+
+                    if (guests.length === 0) {
+                        resultsContainer.style.display = "none";
+                        emptyInfo.style.display = "block";
+                        emptyInfo.textContent = "Nie znaleziono żadnych gości dla podanych danych.";
+                        return;
+                    }
+
+                    guests.forEach(g => {
+                        const row = document.createElement("tr");
+
+                        row.innerHTML = `
+                            <td>
+                                <div class="fw-semibold">${g.name}</div>
+                                <div class="text-muted small">${g.email || "-"}</div>
+                            </td>
+                            <td>
+                                <div class="small">${g.phone || "-"}</div>
+                            </td>
+                            <td>
+                                <div class="small">
+                                    ${g.loyaltyStatus || "Brak karty"}
+                                    ${g.loyaltyCardNumber ? `<br/><span class="text-muted">Karta: ${g.loyaltyCardNumber}</span>` : ""}
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <form method="post" action="${selectGuestUrl}">
+                                    <input type="hidden" name="id" value="${g.id}" />
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                                        Wybierz
+                                    </button>
+                                </form>
+                            </td>
+                        `;
+
+                        resultsBody.appendChild(row);
+                    });
+
+                    resultsContainer.style.display = "block";
+                } catch (e) {
+                    console.error(e);
+                    emptyInfo.style.display = "block";
+                    emptyInfo.textContent = "Wystąpił błąd podczas wyszukiwania gości.";
+                    resultsContainer.style.display = "none";
+                }
+            }
+
+            if (searchBtn) {
+                searchBtn.addEventListener("click", performSearch);
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener("keyup", function (e) {
+                    if (e.key === "Enter") {
+                        performSearch();
+                    }
+                });
+            }
+        })();
+
+        // ==================== WYSZUKIWANIE FIRMY W BAZIE ====================
+        (function () {
+            const searchBtn = document.getElementById("companySearchBtn");
+            const searchInput = document.getElementById("companySearchTerm");
+            const resultsContainer = document.getElementById("companySearchResults");
+            const resultsBody = resultsContainer?.querySelector("tbody");
+            const emptyInfo = document.getElementById("companySearchEmpty");
+
+            const companyIdInput = document.getElementById("companyId");
+            const nameInput = document.getElementById("CompanyName");
+            const vatInput = document.getElementById("CompanyVatNumber");
+            const addressInput = document.getElementById("CompanyAddress");
+            const postalInput = document.getElementById("CompanyPostalCode");
+            const cityInput = document.getElementById("CompanyCity");
+            const countryInput = document.getElementById("CompanyCountry");
+            const clearBtn = document.getElementById("clearCompanyBtn");
+
+            const searchUrl = '@Url.Content("~/api/CompanyApi/Search")';
+
+            function fillCompanyForm(c) {
+                if (companyIdInput) companyIdInput.value = c.id || "";
+                if (nameInput) nameInput.value = c.name || "";
+                if (vatInput) vatInput.value = c.vatNumber || "";
+                if (addressInput) addressInput.value = c.address || "";
+                if (postalInput) postalInput.value = c.postalCode || "";
+                if (cityInput) cityInput.value = c.city || "";
+                if (countryInput) countryInput.value = c.country || "";
+            }
+
+            function clearCompanyForm() {
+                if (companyIdInput) companyIdInput.value = "";
+                if (nameInput) nameInput.value = "";
+                if (vatInput) vatInput.value = "";
+                if (addressInput) addressInput.value = "";
+                if (postalInput) postalInput.value = "";
+                if (cityInput) cityInput.value = "";
+                if (countryInput && !countryInput.defaultValue) countryInput.value = "";
+                if (countryInput && countryInput.defaultValue) countryInput.value = countryInput.defaultValue;
+            }
+
+            async function performCompanySearch() {
+                const term = (searchInput?.value || "").trim();
+
+                if (!term) {
+                    emptyInfo.style.display = "block";
+                    emptyInfo.textContent = "Wpisz nazwę firmy lub NIP, aby rozpocząć wyszukiwanie.";
+                    resultsContainer.style.display = "none";
+                    if (resultsBody) resultsBody.innerHTML = "";
+                    return;
+                }
+
+                emptyInfo.style.display = "none";
+
+                try {
+                    const response = await fetch(`${searchUrl}?term=${encodeURIComponent(term)}`);
+                    if (!response.ok) {
+                        throw new Error("Błąd odpowiedzi serwera");
+                    }
+
+                    const data = await response.json();
+                    const companies = data.results || [];
+
+                    if (!resultsBody) return;
+                    resultsBody.innerHTML = "";
+
+                    if (companies.length === 0) {
+                        resultsContainer.style.display = "none";
+                        emptyInfo.style.display = "block";
+                        emptyInfo.textContent = "Nie znaleziono firm dla podanych danych.";
+                        return;
+                    }
+
+                    companies.forEach(c => {
+                        const row = document.createElement("tr");
+
+                        row.innerHTML = `
+                            <td>
+                                <div class="fw-semibold">${c.name}</div>
+                                <div class="text-muted small">${c.vatNumber || ""}</div>
+                            </td>
+                            <td>
+                                <div class="small">${c.address || ""}</div>
+                                <div class="text-muted small">${(c.postalCode || "") + " " + (c.city || "")}</div>
+                            </td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-outline-primary btn-sm">
+                                    Wybierz
+                                </button>
+                            </td>
+                        `;
+
+                        const btn = row.querySelector("button");
+                        if (btn) {
+                            btn.addEventListener("click", function () {
+                                fillCompanyForm(c);
+                            });
+                        }
+
+                        resultsBody.appendChild(row);
+                    });
+
+                    resultsContainer.style.display = "block";
+                } catch (e) {
+                    console.error(e);
+                    resultsContainer.style.display = "none";
+                    emptyInfo.style.display = "block";
+                    emptyInfo.textContent = "Wystąpił błąd podczas wyszukiwania firm.";
+                }
+            }
+
+            if (searchBtn) {
+                searchBtn.addEventListener("click", performCompanySearch);
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener("keyup", function (e) {
+                    if (e.key === "Enter") {
+                        performCompanySearch();
+                    }
+                });
+            }
+
+            if (clearBtn) {
+                clearBtn.addEventListener("click", function () {
+                    clearCompanyForm();
+                });
+            }
+        })();
+    </script>
+}

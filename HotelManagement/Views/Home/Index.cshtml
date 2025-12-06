@@ -3,138 +3,585 @@
 }
 
 <style>
-    .hero {
+    :root {
+        --hm-accent: #2563eb;
+        --hm-accent-soft: rgba(37, 99, 235, 0.12);
+        --hm-text-main: #0f172a;
+        --hm-text-muted: #6b7280;
+    }
+
+    .landing-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    /* HERO */
+
+    .hero-card {
         position: relative;
-        background: url('/images/hotel-hero.jpg') center center/cover no-repeat;
-        height: 100vh;
+        border-radius: 1.2rem;
+        overflow: hidden;
+        border: 1px solid rgba(209, 213, 219, 0.7);
+        background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.35), transparent 55%), radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.18), transparent 60%), #0b1120;
+        color: #f9fafb;
+        min-height: 260px;
+        display: flex;
+        align-items: stretch;
+        box-shadow: 0 22px 55px rgba(15, 23, 42, 0.45);
+    }
+
+    .hero-card-inner {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr);
+        gap: 1.5rem;
+        padding: 1.8rem 2rem;
+        width: 100%;
+    }
+
+    .hero-left {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1rem;
+        z-index: 1;
+    }
+
+    .hero-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .25rem .65rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        color: #e5e7eb;
+    }
+
+    .hero-title {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+
+        .hero-title span {
+            color: #facc15;
+        }
+
+    .hero-subtitle {
+        font-size: .96rem;
+        color: rgba(229, 231, 235, 0.9);
+        max-width: 32rem;
+    }
+
+    .hero-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .6rem;
+        margin-top: .25rem;
+        font-size: .78rem;
+        color: rgba(209, 213, 219, 0.9);
+    }
+
+    .hero-meta-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(55,65,81,0.9);
+    }
+
+    .hero-cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-top: .75rem;
+        align-items: center;
+    }
+
+    .btn-hero-primary {
+        padding: 0.78rem 1.9rem;
+        border-radius: 999px;
+        border: none;
+        background: linear-gradient(135deg, #facc15, #eab308);
+        color: #1f2933;
+        font-weight: 600;
+        font-size: .95rem;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        text-decoration: none;
+    }
+
+        .btn-hero-primary:hover {
+            filter: brightness(1.02);
+            transform: translateY(-1px);
+        }
+
+    .btn-hero-ghost {
+        border-radius: 999px;
+        padding: .65rem 1.3rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: rgba(15, 23, 42, 0.75);
+        color: #e5e7eb;
+        font-size: .85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        text-decoration: none;
+    }
+
+        .btn-hero-ghost:hover {
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+    .hero-note {
+        font-size: .78rem;
+        color: rgba(209, 213, 219, 0.8);
+    }
+
+    .hero-right {
+        position: relative;
         display: flex;
         align-items: center;
-        justify-content: center;
-        color: #fff;
+        justify-content: flex-end;
+        z-index: 1;
     }
 
-    .hero::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.55);
-    }
-
-    .hero-content {
+    .hero-photo-card {
         position: relative;
-        z-index: 2;
-        text-align: center;
+        width: 100%;
+        max-width: 360px;
+        border-radius: 1rem;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        background: #020617;
     }
 
-    /* 🔥 Animacje */
-    @@keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+        .hero-photo-card img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            display: block;
+            filter: saturate(1.05);
+        }
+
+    .hero-photo-footer {
+        padding: .7rem .9rem .8rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        font-size: .78rem;
+        color: #e5e7eb;
+        background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.45), transparent 55%), rgba(15, 23, 42, 0.95);
     }
 
-    @@keyframes slideInLeft {
-        from { transform: translateX(-100px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+    .hero-photo-footer-left {
+        display: flex;
+        flex-direction: column;
+        gap: .1rem;
     }
 
-    @@keyframes bounce {
-        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-        40% { transform: translateY(-20px); }
-        60% { transform: translateY(-10px); }
+    .hero-stars {
+        color: #facc15;
+        font-size: .8rem;
     }
 
-    @@keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
+    .hero-photo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding: .25rem .5rem;
+        border-radius: .5rem;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        font-size: .74rem;
+        white-space: nowrap;
     }
 
-    /* Klasy pomocnicze */
-    .animate-fade { animation: fadeIn 1.2s ease forwards; }
-    .animate-slide-left { animation: slideInLeft 1.2s ease forwards; }
-    .animate-bounce { animation: bounce 2s infinite; }
-    .animate-pulse { animation: pulse 1.5s infinite; }
+    /* FEATURES */
 
-    .btn-cta {
-        padding: 1rem 2.5rem;
-        font-size: 1.3rem;
-        border-radius: 50px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        transition: all 0.3s ease;
+    .features-section {
+        display: grid;
+        grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.7fr);
+        gap: 1.5rem;
     }
 
-    .btn-cta:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.45);
-    }
-
-    .features {
-        margin-top: -5rem;
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
     }
 
     .feature-card {
-        border-radius: 1rem;
-        transition: transform 0.3s ease;
+        border-radius: 0.9rem;
+        border: 1px solid rgba(209, 213, 219, 0.8);
+        background: #f9fafb;
+        padding: 1rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: .45rem;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+        .feature-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+            border-color: rgba(37, 99, 235, 0.6);
+            background: #ffffff;
+        }
+
+    .feature-icon {
+        font-size: 1.6rem;
+        margin-bottom: .25rem;
+    }
+
+    .feature-title {
+        font-size: .95rem;
+        font-weight: 600;
+    }
+
+    .feature-text {
+        font-size: .82rem;
+        color: var(--hm-text-muted);
+    }
+
+    .secondary-panel {
+        border-radius: 0.9rem;
+        border: 1px solid rgba(209, 213, 219, 0.8);
+        padding: 1rem;
+        background: #f9fafb;
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+    }
+
+    .secondary-title {
+        font-size: .9rem;
+        font-weight: 600;
+        margin-bottom: .15rem;
+    }
+
+    .badge-soft {
+        border-radius: 999px;
+        padding: .18rem .55rem;
+        font-size: .7rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        background: rgba(37, 99, 235, 0.08);
+        color: #1d4ed8;
+        border: 1px solid rgba(191, 219, 254, 0.9);
+    }
+
+    .check-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        font-size: .82rem;
+        color: var(--hm-text-muted);
+    }
+
+        .check-list li {
+            display: flex;
+            gap: .4rem;
+            align-items: flex-start;
+            margin-bottom: .2rem;
+        }
+
+            .check-list li i {
+                color: #22c55e;
+                margin-top: .15rem;
+            }
+
+    .mini-stat-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        font-size: .78rem;
+    }
+
+    .mini-stat {
+        padding: .35rem .6rem;
+        border-radius: .6rem;
+        border: 1px dashed rgba(148, 163, 184, 0.9);
+        background: #ffffff;
+    }
+
+        .mini-stat strong {
+            margin-right: .25rem;
+        }
+
+    .secondary-cta {
+        margin-top: .3rem;
+        font-size: .78rem;
+        color: var(--hm-text-muted);
+    }
+
+        .secondary-cta a {
+            text-decoration: none;
+        }
+
+            .secondary-cta a:hover {
+                text-decoration: underline;
+            }
+
+    /* Animacje (lekko, bez przesady) */
+
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .fade-in-up {
+        animation: fadeInUp .7s ease forwards;
         opacity: 0;
     }
 
-    .feature-card.visible {
-        opacity: 1;
-        animation: fadeIn 1.2s ease forwards;
+    .fade-delay-1 {
+        animation-delay: .1s;
+    }
+
+    .fade-delay-2 {
+        animation-delay: .2s;
+    }
+
+    .fade-delay-3 {
+        animation-delay: .3s;
+    }
+
+    .fade-delay-4 {
+        animation-delay: .4s;
+    }
+
+    /* RESPONSYWNOŚĆ */
+
+    @@media (max-width: 992px) {
+        .hero-card-inner {
+            grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr);
+            padding: 1.5rem 1.6rem;
+        }
+
+        .hero-title {
+            font-size: 1.7rem;
+        }
+
+        .features-section {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .secondary-panel {
+            order: -1;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .hero-card-inner {
+            grid-template-columns: minmax(0, 1fr);
+            padding: 1.4rem 1.2rem 1.6rem;
+        }
+
+        .hero-card {
+            min-height: 0;
+        }
+
+        .hero-right {
+            margin-top: .5rem;
+            justify-content: center;
+        }
+
+        .features-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
     }
 </style>
 
-<!-- Sekcja hero -->
-<section class="hero">
-    <div class="hero-content">
-        <h1 class="display-3 fw-bold animate-fade">Witaj w <span class="text-warning">HotelManagement</span></h1>
-        <p class="lead mt-3 animate-slide-left">Twój komfort i wygoda w najlepszym wydaniu ✨</p>
-        <a href="@Url.Action("Index", "RoomType")" class="btn btn-warning btn-cta mt-4 animate-bounce">
-            <i class="bi bi-door-open me-2"></i> Zobacz dostępne pokoje
-        </a>
-    </div>
-</section>
+<div class="landing-wrapper">
+    <!-- HERO -->
+    <section class="hero-card fade-in-up">
+        <div class="hero-card-inner">
+            <div class="hero-left">
+                <div class="hero-chip">
+                    <i class="bi bi-stars"></i>
+                    Witaj w HotelManagement
+                </div>
 
-<!-- Sekcja cech hotelu -->
-<div class="container features">
-    <div class="row text-center g-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 feature-card p-4">
-                <i class="bi bi-cup-hot display-5 text-primary mb-3"></i>
-                <h5 class="fw-bold">Śniadanie w cenie</h5>
-                <p class="text-muted">Rozpocznij dzień pysznym bufetem serwowanym w naszej restauracji.</p>
+                <h1 class="hero-title">
+                    Twój <span>komfort</span> zaczyna się już przy rezerwacji.
+                </h1>
+
+                <p class="hero-subtitle">
+                    Intuicyjny system rezerwacji, wygodne pokoje i obsługa, która wyprzedza oczekiwania.
+                    Zarezerwuj pobyt w kilka kliknięć i skup się na tym, co naprawdę ważne.
+                </p>
+
+                <div class="hero-meta-row">
+                    <span class="hero-meta-pill">
+                        <i class="bi bi-wifi"></i>
+                        Szybkie Wi-Fi
+                    </span>
+                    <span class="hero-meta-pill">
+                        <i class="bi bi-cup-hot"></i>
+                        Śniadanie w cenie
+                    </span>
+                    <span class="hero-meta-pill">
+                        <i class="bi bi-door-open"></i>
+                        Nowoczesne pokoje
+                    </span>
+                </div>
+
+                <div class="hero-cta-row">
+                    <a href="@Url.Action("Index", "RoomType")" class="btn-hero-primary">
+                        <i class="bi bi-door-open"></i>
+                        Zobacz dostępne pokoje
+                    </a>
+
+                    <a href="@Url.Action("Create", "Reservation")" class="btn-hero-ghost">
+                        <i class="bi bi-calendar-check"></i>
+                        Zarezerwuj pobyt
+                    </a>
+                </div>
+
+                <div class="hero-note">
+                    <i class="bi bi-shield-check me-1"></i>
+                    Rezerwacja zajmuje mniej niż 2 minuty · Bezpieczne płatności · Elastyczne warunki anulacji
+                </div>
+            </div>
+
+            <div class="hero-right fade-in-up fade-delay-2">
+                <div class="hero-photo-card">
+                    <img src="/images/hotel-hero.jpg" alt="Widok nowoczesnego hotelu" />
+                    <div class="hero-photo-footer">
+                        <div class="hero-photo-footer-left">
+                            <div class="hero-stars">
+                                ★★★★☆ <span class="ms-1">Ocena gości 4.8/5</span>
+                            </div>
+                            <div style="font-size:.78rem; opacity:.9;">
+                                „Cicho, czysto i bardzo wygodnie. Idealne miejsce na delegację i weekendowy wypad.”
+                            </div>
+                        </div>
+                        <div class="hero-photo-badge">
+                            <i class="bi bi-clock-history"></i>
+                            Zameldowanie od 14:00
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 feature-card p-4">
-                <i class="bi bi-wifi display-5 text-success mb-3"></i>
-                <h5 class="fw-bold">Szybkie Wi-Fi</h5>
-                <p class="text-muted">Pozostań w kontakcie z bliskimi lub pracuj zdalnie bez przeszkód.</p>
+    </section>
+
+    <!-- FEATURES / CECHY + PANEL INFO -->
+    <section class="features-section">
+        <!-- 3 główne cechy -->
+        <div class="features-grid">
+            <div class="feature-card fade-in-up fade-delay-1">
+                <div class="feature-icon text-primary">
+                    <i class="bi bi-sunrise"></i>
+                </div>
+                <div class="feature-title">Śniadanie w cenie</div>
+                <div class="feature-text">
+                    Rozpocznij dzień pysznym bufetem w hotelowej restauracji – kawy, herbaty, świeże pieczywo
+                    i lokalne produkty.
+                </div>
+            </div>
+
+            <div class="feature-card fade-in-up fade-delay-2">
+                <div class="feature-icon text-success">
+                    <i class="bi bi-wifi"></i>
+                </div>
+                <div class="feature-title">Szybkie Wi-Fi</div>
+                <div class="feature-text">
+                    Idealne do wideokonferencji, pracy zdalnej i streamingu. Stabilne łącze dostępne w całym obiekcie.
+                </div>
+            </div>
+
+            <div class="feature-card fade-in-up fade-delay-3">
+                <div class="feature-icon text-danger">
+                    <i class="bi bi-car-front"></i>
+                </div>
+                <div class="feature-title">Parking dla gości</div>
+                <div class="feature-text">
+                    Monitorowany parking 24/7, dostępny na miejscu – bez krążenia po mieście i stresu o miejsce.
+                </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 feature-card p-4">
-                <i class="bi bi-car-front display-5 text-danger mb-3"></i>
-                <h5 class="fw-bold">Parking dla gości</h5>
-                <p class="text-muted">Bezpieczny parking dostępny 24/7 dla wszystkich naszych gości.</p>
+
+        <!-- Panel dodatkowy: dla kogo / info -->
+        <aside class="secondary-panel fade-in-up fade-delay-4">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <div>
+                    <div class="secondary-title">
+                        Dla gości i dla zespołu
+                    </div>
+                    <div class="text-muted" style="font-size:.8rem;">
+                        System, który wspiera gości, recepcję i housekeeping.
+                    </div>
+                </div>
+                <span class="badge-soft">
+                    <i class="bi bi-layers me-1"></i>
+                    Hotel PMS
+                </span>
             </div>
-        </div>
-    </div>
+
+            <ul class="check-list">
+                <li>
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Goście rezerwują pokoje online w kilka kliknięć.</span>
+                </li>
+                <li>
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Recepcja ma podgląd obłożenia, dostępności i rezerwacji w czasie rzeczywistym.</span>
+                </li>
+                <li>
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Housekeeping widzi status pokoi i priorytety sprzątania.</span>
+                </li>
+            </ul>
+
+            <div class="mini-stat-row">
+                <div class="mini-stat">
+                    <strong><i class="bi bi-people me-1"></i>Goście:</strong>
+                    komfortowy pobyt i szybkie zameldowanie.
+                </div>
+                <div class="mini-stat">
+                    <strong><i class="bi bi-person-workspace me-1"></i>Personel:</strong>
+                    mniej chaosu, więcej porządku.
+                </div>
+            </div>
+
+            <div class="secondary-cta">
+                Jesteś członkiem zespołu?
+                <a asp-controller="Account" asp-action="Login">
+                    Zaloguj się, aby przejść do panelu recepcji →
+                </a>
+            </div>
+        </aside>
+    </section>
 </div>
 
 <script>
-    // Animacja kart przy scrollu
+    // Delikatne odpalenie animacji po załadowaniu
     document.addEventListener("DOMContentLoaded", () => {
-        const cards = document.querySelectorAll(".feature-card");
-        const observer = new IntersectionObserver(entries => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add("visible");
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.2 });
-
-        cards.forEach(card => observer.observe(card));
+        const animated = document.querySelectorAll(".fade-in-up");
+        animated.forEach(el => {
+            // wymuszenie reflow, żeby animacja odpaliła poprawnie
+            void el.offsetWidth;
+            el.style.opacity = "1";
+        });
     });
 </script>

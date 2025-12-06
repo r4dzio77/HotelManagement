@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using QuestPDF.Infrastructure; // ← QuestPDF
+using Microsoft.AspNetCore.Authentication.Google;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,32 +30,23 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<HotelManagementContext>();
 
-// 🔐 Integracja tylko z Google Calendar (bez logowania przez Google)
+// 🔐 Integracja z Google Calendar (przez OAuth Google)
 if (!string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientId"]))
 {
     builder.Services
-        .AddAuthentication(options =>
-        {
-            options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
-            options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-            options.DefaultChallengeScheme = IdentityConstants.ExternalScheme;
-        })
-        .AddCookie()
-        .AddGoogle(options =>
+        .AddAuthentication()
+        .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
         {
             options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
             options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 
-            // 📅 Uprawnienia tylko do Google Calendar
-            options.Scope.Clear();
+            // ❗ NIE czyścimy domyślnych scope (openid, profile, email),
+            // tylko dodajemy kalendarzowe:
             options.Scope.Add("https://www.googleapis.com/auth/calendar");
             options.Scope.Add("https://www.googleapis.com/auth/calendar.events");
 
-            // 💾 Zapis tokenów (access + refresh)
+            // 💾 Zapis tokenów (access_token itp.)
             options.SaveTokens = true;
-
-            // 🔄 wymuszenie zapytania o refresh_token
-            options.AuthorizationEndpoint += "?prompt=consent&access_type=offline";
         });
 }
 

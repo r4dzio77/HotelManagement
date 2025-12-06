@@ -14,13 +14,13 @@ namespace HotelManagement.Controllers
         private readonly HotelManagementContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly GoogleCalendarHelper _googleCalendarHelper; // ✅ helper
+        private readonly GoogleCalendarHelper _googleCalendarHelper;
 
         public ShiftController(
             HotelManagementContext context,
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            GoogleCalendarHelper googleCalendarHelper) // ✅ DI
+            GoogleCalendarHelper googleCalendarHelper)
         {
             _context = context;
             _userManager = userManager;
@@ -98,29 +98,73 @@ namespace HotelManagement.Controllers
             return RedirectToAction("Employees");
         }
 
-        // ==================== GRAFIK ====================
+        // ==================== GRAFIKI (WIELE NA MIESIĄC) ====================
 
         [Authorize(Roles = "Kierownik")]
-        public async Task<IActionResult> ManageSchedule(DateTime? month)
+        public async Task<IActionResult> ManageSchedule(DateTime? month, int? scheduleId)
         {
+            var currentUser = await _userManager.GetUserAsync(User);
+
             var firstDay = month.HasValue
                 ? new DateTime(month.Value.Year, month.Value.Month, 1)
                 : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
 
-            var lastDay = firstDay.AddMonths(1);
+            int year = firstDay.Year;
+            int m = firstDay.Month;
+
+            // wszystkie grafiki dla miesiąca
+            var schedulesForMonth = await _context.WorkSchedules
+                .Include(s => s.CreatedBy)
+                .Where(s => s.Year == year && s.Month == m)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+
+            WorkSchedule? activeSchedule = null;
+
+            if (scheduleId.HasValue)
+            {
+                activeSchedule = schedulesForMonth.FirstOrDefault(s => s.Id == scheduleId.Value);
+            }
+
+            if (activeSchedule == null)
+            {
+                activeSchedule = schedulesForMonth.FirstOrDefault();
+            }
+
+            // jeśli nie ma jeszcze żadnego grafiku dla tego miesiąca → tworzymy domyślny
+            if (activeSchedule == null)
+            {
+                activeSchedule = new WorkSchedule
+                {
+                    Year = year,
+                    Month = m,
+                    Name = $"Grafik {firstDay:MMMM yyyy}",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedById = currentUser?.Id
+                };
+
+                _context.WorkSchedules.Add(activeSchedule);
+                await _context.SaveChangesAsync();
+
+                schedulesForMonth.Insert(0, activeSchedule);
+            }
+
+            int activeScheduleId = activeSchedule.Id;
 
             var shifts = await _context.WorkShifts
                 .Include(ws => ws.User)
-                .Where(ws => ws.Date >= firstDay && ws.Date < lastDay)
+                .Where(ws => ws.WorkScheduleId == activeScheduleId)
+                .OrderBy(ws => ws.Date)
+                .ThenBy(ws => ws.StartTime)
                 .ToListAsync();
 
             var employees = await _userManager.GetUsersInRoleAsync("Pracownik");
             ViewBag.Employees = employees;
             ViewBag.Month = firstDay;
-
-            var isPublished = await _context.PublishedSchedules
-                .AnyAsync(p => p.Year == firstDay.Year && p.Month == firstDay.Month && p.IsPublished);
-            ViewBag.IsPublished = isPublished;
+            ViewBag.IsPublished = activeSchedule.IsPublished;
+            ViewBag.Schedules = schedulesForMonth;
+            ViewBag.ActiveScheduleId = activeScheduleId;
+            ViewBag.ActiveScheduleName = activeSchedule.Name;
 
             return View("ManageSchedule", shifts);
         }
@@ -128,66 +172,289 @@ namespace HotelManagement.Controllers
         [Authorize(Roles = "Kierownik")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AssignShift(DateTime date, string shiftType, string userId)
+        public async Task<IActionResult> CreateSchedule(DateTime month, string name)
         {
-            if (string.IsNullOrEmpty(shiftType) || string.IsNullOrEmpty(userId))
-            {
-                ModelState.AddModelError("", "Wszystkie pola są wymagane.");
-            }
+            var user = await _userManager.GetUserAsync(User);
 
-            var exists = await _context.WorkShifts
-                .AnyAsync(ws => ws.Date.Date == date.Date && ws.ShiftType == shiftType && ws.UserId == userId);
+            if (string.IsNullOrWhiteSpace(name))
+                name = $"Grafik {month:MMMM yyyy}";
 
-            if (exists)
+            var schedule = new WorkSchedule
             {
-                ModelState.AddModelError("", "Ten pracownik jest już przypisany do tej zmiany.");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01") });
-            }
-
-            var shift = new WorkShift
-            {
-                Date = DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified),
-                ShiftType = shiftType,
-                UserId = userId
+                Year = month.Year,
+                Month = month.Month,
+                Name = name.Trim(),
+                CreatedAt = DateTime.UtcNow,
+                CreatedById = user?.Id
             };
 
-            _context.WorkShifts.Add(shift);
+            _context.WorkSchedules.Add(schedule);
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01") });
-        }
+            var firstDay = new DateTime(month.Year, month.Month, 1);
 
-        [Authorize(Roles = "Kierownik")]
-        public async Task<IActionResult> EditShift(int id)
-        {
-            var shift = await _context.WorkShifts.FindAsync(id);
-            if (shift == null) return NotFound();
-
-            var employees = await _userManager.GetUsersInRoleAsync("Pracownik");
-            ViewBag.Employees = employees;
-            ViewBag.ShiftToEdit = shift;
-            return RedirectToAction("ManageSchedule", new { month = shift.Date.ToString("yyyy-MM-01") });
+            return RedirectToAction("ManageSchedule", new
+            {
+                month = firstDay.ToString("yyyy-MM-01"),
+                scheduleId = schedule.Id
+            });
         }
 
         [Authorize(Roles = "Kierownik")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditShift(int id, string shiftType, string userId)
+        public async Task<IActionResult> DuplicateSchedule(int scheduleId, string? name)
         {
-            var shift = await _context.WorkShifts.FindAsync(id);
+            var original = await _context.WorkSchedules
+                .Include(s => s.Shifts)
+                .FirstOrDefaultAsync(s => s.Id == scheduleId);
+
+            if (original == null) return NotFound();
+
+            var user = await _userManager.GetUserAsync(User);
+
+            if (string.IsNullOrWhiteSpace(name))
+                name = original.Name + " – kopia";
+
+            var newSchedule = new WorkSchedule
+            {
+                Year = original.Year,
+                Month = original.Month,
+                Name = name.Trim(),
+                CreatedAt = DateTime.UtcNow,
+                CreatedById = user?.Id
+            };
+
+            _context.WorkSchedules.Add(newSchedule);
+            await _context.SaveChangesAsync(); // potrzebujemy Id
+
+            // kopiowanie zmian
+            foreach (var s in original.Shifts)
+            {
+                var copy = new WorkShift
+                {
+                    UserId = s.UserId,
+                    Date = s.Date,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
+                    WorkScheduleId = newSchedule.Id,
+                    GoogleEventId = null
+                };
+                _context.WorkShifts.Add(copy);
+            }
+
+            await _context.SaveChangesAsync();
+
+            var firstDay = new DateTime(original.Year, original.Month, 1);
+
+            return RedirectToAction("ManageSchedule", new
+            {
+                month = firstDay.ToString("yyyy-MM-01"),
+                scheduleId = newSchedule.Id
+            });
+        }
+
+        // ZMIANA NAZWY GRAFIKU
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RenameSchedule(int scheduleId, string name)
+        {
+            var schedule = await _context.WorkSchedules.FindAsync(scheduleId);
+            if (schedule == null)
+            {
+                TempData["Error"] = "Nie znaleziono grafiku.";
+                return RedirectToAction("ManageSchedule");
+            }
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                TempData["Error"] = "Nazwa nie może być pusta.";
+                return RedirectToAction("ManageSchedule", new
+                {
+                    month = $"{schedule.Year}-{schedule.Month:00}-01",
+                    scheduleId
+                });
+            }
+
+            schedule.Name = name.Trim();
+            await _context.SaveChangesAsync();
+
+            TempData["Message"] = "Nazwa grafiku została zmieniona.";
+            return RedirectToAction("ManageSchedule", new
+            {
+                month = $"{schedule.Year}-{schedule.Month:00}-01",
+                scheduleId
+            });
+        }
+
+        // USUWANIE GRAFIKU
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteSchedule(int scheduleId)
+        {
+            var schedule = await _context.WorkSchedules
+                .Include(s => s.Shifts)
+                .FirstOrDefaultAsync(s => s.Id == scheduleId);
+
+            if (schedule == null)
+            {
+                TempData["Error"] = "Grafik nie istnieje.";
+                return RedirectToAction("ManageSchedule");
+            }
+
+            if (schedule.IsPublished)
+            {
+                TempData["Error"] = "Nie można usunąć opublikowanego grafiku.";
+                return RedirectToAction("ManageSchedule", new
+                {
+                    month = $"{schedule.Year}-{schedule.Month:00}-01",
+                    scheduleId
+                });
+            }
+
+            int year = schedule.Year;
+            int month = schedule.Month;
+
+            // usuwamy wszystkie zmiany tego grafiku
+            _context.WorkShifts.RemoveRange(schedule.Shifts);
+
+            // usuwamy sam grafik
+            _context.WorkSchedules.Remove(schedule);
+            await _context.SaveChangesAsync();
+
+            // znajdź inny grafik dla tego miesiąca
+            var replacement = await _context.WorkSchedules
+                .Where(s => s.Year == year && s.Month == month)
+                .OrderByDescending(s => s.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            TempData["Message"] = "Grafik został usunięty.";
+
+            return RedirectToAction("ManageSchedule", new
+            {
+                month = $"{year}-{month:00}-01",
+                scheduleId = replacement?.Id
+            });
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignShift(DateTime date, string userId, string startTime, string endTime, int scheduleId)
+        {
+            if (string.IsNullOrWhiteSpace(userId) ||
+                string.IsNullOrWhiteSpace(startTime) ||
+                string.IsNullOrWhiteSpace(endTime))
+            {
+                TempData["Error"] = "Wszystkie pola są wymagane.";
+                return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01"), scheduleId });
+            }
+
+            if (!TimeSpan.TryParse(startTime, out var start) ||
+                !TimeSpan.TryParse(endTime, out var end))
+            {
+                TempData["Error"] = "Nieprawidłowy format godzin.";
+                return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01"), scheduleId });
+            }
+
+            if (start >= end)
+            {
+                TempData["Error"] = "Godzina zakończenia musi być późniejsza niż rozpoczęcia.";
+                return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01"), scheduleId });
+            }
+
+            // sprawdź nakładanie się zmian danego pracownika w tym grafiku i dniu
+            var overlaps = await _context.WorkShifts
+                .AnyAsync(ws =>
+                    ws.WorkScheduleId == scheduleId &&
+                    ws.Date.Date == date.Date &&
+                    ws.UserId == userId &&
+                    ws.StartTime < end &&
+                    start < ws.EndTime);
+
+            if (overlaps)
+            {
+                TempData["Error"] = "Ta zmiana nachodzi na inną zmianę tego pracownika w tym dniu.";
+                return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01"), scheduleId });
+            }
+
+            var shift = new WorkShift
+            {
+                Date = DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified),
+                UserId = userId,
+                StartTime = start,
+                EndTime = end,
+                WorkScheduleId = scheduleId
+            };
+
+            _context.WorkShifts.Add(shift);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("ManageSchedule", new { month = date.ToString("yyyy-MM-01"), scheduleId });
+        }
+
+        [Authorize(Roles = "Kierownik")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditShift(int id, string userId, string startTime, string endTime)
+        {
+            var shift = await _context.WorkShifts
+                .Include(ws => ws.WorkSchedule)
+                .FirstOrDefaultAsync(ws => ws.Id == id);
+
             if (shift == null) return NotFound();
 
-            shift.ShiftType = shiftType;
+            var scheduleId = shift.WorkScheduleId;
+            var monthStr = new DateTime(shift.WorkSchedule.Year, shift.WorkSchedule.Month, 1).ToString("yyyy-MM-01");
+
+            if (string.IsNullOrWhiteSpace(userId) ||
+                string.IsNullOrWhiteSpace(startTime) ||
+                string.IsNullOrWhiteSpace(endTime))
+            {
+                TempData["Error"] = "Wszystkie pola są wymagane.";
+                return RedirectToAction("ManageSchedule", new { month = monthStr, scheduleId });
+            }
+
+            if (!TimeSpan.TryParse(startTime, out var start) ||
+                !TimeSpan.TryParse(endTime, out var end))
+            {
+                TempData["Error"] = "Nieprawidłowy format godzin.";
+                return RedirectToAction("ManageSchedule", new { month = monthStr, scheduleId });
+            }
+
+            if (start >= end)
+            {
+                TempData["Error"] = "Godzina zakończenia musi być późniejsza niż rozpoczęcia.";
+                return RedirectToAction("ManageSchedule", new { month = monthStr, scheduleId });
+            }
+
+            // sprawdź nakładanie się (z pominięciem tej zmiany)
+            var overlaps = await _context.WorkShifts
+                .AnyAsync(ws =>
+                    ws.Id != shift.Id &&
+                    ws.WorkScheduleId == scheduleId &&
+                    ws.Date.Date == shift.Date.Date &&
+                    ws.UserId == userId &&
+                    ws.StartTime < end &&
+                    start < ws.EndTime);
+
+            if (overlaps)
+            {
+                TempData["Error"] = "Ta zmiana nachodzi na inną zmianę tego pracownika w tym dniu.";
+                return RedirectToAction("ManageSchedule", new { month = monthStr, scheduleId });
+            }
+
             shift.UserId = userId;
+            shift.StartTime = start;
+            shift.EndTime = end;
 
             _context.WorkShifts.Update(shift);
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("ManageSchedule", new { month = shift.Date.ToString("yyyy-MM-01") });
+            TempData["Message"] = "Zmieniono zmianę.";
+            return RedirectToAction("ManageSchedule", new { month = monthStr, scheduleId });
         }
 
         [Authorize(Roles = "Kierownik")]
@@ -195,117 +462,180 @@ namespace HotelManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteShift(int id)
         {
-            var shift = await _context.WorkShifts.FindAsync(id);
+            var shift = await _context.WorkShifts
+                .Include(ws => ws.WorkSchedule)
+                .FirstOrDefaultAsync(ws => ws.Id == id);
+
             if (shift != null)
             {
+                var scheduleId = shift.WorkScheduleId;
+                var monthStr = new DateTime(shift.WorkSchedule.Year, shift.WorkSchedule.Month, 1).ToString("yyyy-MM-01");
+
                 _context.WorkShifts.Remove(shift);
                 await _context.SaveChangesAsync();
+
+                return RedirectToAction("ManageSchedule", new { month = monthStr, scheduleId });
             }
-            return RedirectToAction("ManageSchedule", new { month = shift?.Date.ToString("yyyy-MM-01") });
+
+            return RedirectToAction("ManageSchedule");
         }
 
         [Authorize(Roles = "Kierownik")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> PublishSchedule(int year, int month)
+        public async Task<IActionResult> PublishSchedule(int scheduleId)
         {
-            var record = await _context.PublishedSchedules
-                .FirstOrDefaultAsync(p => p.Year == year && p.Month == month);
+            var schedule = await _context.WorkSchedules.FirstOrDefaultAsync(s => s.Id == scheduleId);
+            if (schedule == null) return NotFound();
 
-            if (record == null)
+            // tylko jeden opublikowany grafik na miesiąc
+            var others = await _context.WorkSchedules
+                .Where(s => s.Year == schedule.Year && s.Month == schedule.Month && s.Id != schedule.Id)
+                .ToListAsync();
+
+            foreach (var s in others)
             {
-                _context.PublishedSchedules.Add(new PublishedSchedule
-                {
-                    Year = year,
-                    Month = month,
-                    IsPublished = true,
-                    PublishedAt = DateTime.UtcNow
-                });
+                s.IsPublished = false;
             }
-            else
-            {
-                record.IsPublished = true;
-                record.PublishedAt = DateTime.UtcNow;
-                _context.PublishedSchedules.Update(record);
-            }
+
+            schedule.IsPublished = true;
 
             await _context.SaveChangesAsync();
-            return RedirectToAction("ManageSchedule", new { month = new DateTime(year, month, 1).ToString("yyyy-MM-01") });
+
+            var monthDate = new DateTime(schedule.Year, schedule.Month, 1);
+            return RedirectToAction("ManageSchedule", new
+            {
+                month = monthDate.ToString("yyyy-MM-01"),
+                scheduleId = schedule.Id
+            });
         }
 
+        // ==================== MÓJ GRAFIK ====================
+
         [Authorize(Roles = "Pracownik,Kierownik")]
-        public async Task<IActionResult> MySchedule(DateTime? month, bool all = false)
+        public async Task<IActionResult> MySchedule(DateTime? month, bool all = false, int? scheduleId = null)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
 
             var target = month ?? DateTime.Today;
             var firstDay = new DateTime(target.Year, target.Month, 1);
-            var lastDay = firstDay.AddMonths(1);
+            int year = firstDay.Year;
+            int m = firstDay.Month;
 
-            var isPublished = await _context.PublishedSchedules
-                .AnyAsync(p => p.Year == firstDay.Year && p.Month == firstDay.Month && p.IsPublished);
+            var publishedSchedules = await _context.WorkSchedules
+                .Where(s => s.Year == year && s.Month == m && s.IsPublished)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+
+            WorkSchedule? activeSchedule = null;
+
+            if (scheduleId.HasValue)
+            {
+                activeSchedule = publishedSchedules.FirstOrDefault(s => s.Id == scheduleId.Value);
+            }
+
+            if (activeSchedule == null)
+            {
+                activeSchedule = publishedSchedules.FirstOrDefault();
+            }
+
+            bool isPublished = activeSchedule != null;
 
             ViewBag.Month = firstDay;
             ViewBag.IsPublished = isPublished;
             ViewBag.ShowAll = all;
+            ViewBag.ScheduleId = activeSchedule?.Id;
+            ViewBag.ScheduleName = activeSchedule?.Name;
+            ViewBag.Schedules = publishedSchedules;
 
             if (!isPublished)
             {
                 return View("MySchedule", new List<WorkShift>());
             }
 
+            int activeScheduleId = activeSchedule.Id;
+
             IQueryable<WorkShift> query = _context.WorkShifts
                 .Include(ws => ws.User)
-                .Where(ws => ws.Date >= firstDay && ws.Date < lastDay);
+                .Where(ws => ws.WorkScheduleId == activeScheduleId);
 
             if (!all)
             {
                 query = query.Where(ws => ws.UserId == user.Id);
             }
 
-            var shifts = await query.OrderBy(ws => ws.Date).ThenBy(ws => ws.ShiftType).ToListAsync();
+            var shifts = await query
+                .OrderBy(ws => ws.Date)
+                .ThenBy(ws => ws.StartTime)
+                .ToListAsync();
+
             return View("MySchedule", shifts);
         }
 
         // ==================== EKSPORT DO GOOGLE CALENDAR ====================
 
         [Authorize(Roles = "Pracownik,Kierownik")]
-        public async Task<IActionResult> ExportMyShiftsToGoogle(DateTime? month)
+        public async Task<IActionResult> ExportMyShiftsToGoogle(DateTime? month, int? scheduleId = null)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
 
-            // 1. Brak podpiętego konta Google → przekieruj do Account/LinkGoogle
             if (string.IsNullOrEmpty(user.GoogleId) || string.IsNullOrEmpty(user.GoogleAccessToken))
             {
                 TempData["Error"] = "Musisz połączyć swoje konto Google, aby eksportować grafik.";
-                return RedirectToAction("LinkGoogle", "Account", new { returnUrl = Url.Action("ExportMyShiftsToGoogle", new { month }) });
+                return RedirectToAction("LinkGoogle", "Account", new { returnUrl = Url.Action("ExportMyShiftsToGoogle", new { month, scheduleId }) });
             }
 
-            // 2. Obsługa wygaśnięcia tokena
             if (user.GoogleTokenExpiry.HasValue && user.GoogleTokenExpiry.Value <= DateTime.UtcNow)
             {
                 var refreshed = await _googleCalendarHelper.RefreshAccessTokenAsync(user);
                 if (!refreshed)
                 {
                     TempData["Error"] = "Sesja Google wygasła, połącz konto ponownie.";
-                    return RedirectToAction("LinkGoogle", "Account", new { returnUrl = Url.Action("ExportMyShiftsToGoogle", new { month }) });
+                    return RedirectToAction("LinkGoogle", "Account", new { returnUrl = Url.Action("ExportMyShiftsToGoogle", new { month, scheduleId }) });
                 }
                 await _userManager.UpdateAsync(user);
             }
 
-            // 3. Pobierz grafik i wyślij do Google Calendar
             var target = month ?? DateTime.Today;
             var firstDay = new DateTime(target.Year, target.Month, 1);
-            var lastDay = firstDay.AddMonths(1);
+            int year = firstDay.Year;
+            int m = firstDay.Month;
+
+            var publishedSchedules = await _context.WorkSchedules
+                .Where(s => s.Year == year && s.Month == m && s.IsPublished)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+
+            WorkSchedule? activeSchedule = null;
+
+            if (scheduleId.HasValue)
+            {
+                activeSchedule = publishedSchedules.FirstOrDefault(s => s.Id == scheduleId.Value);
+            }
+
+            if (activeSchedule == null)
+            {
+                activeSchedule = publishedSchedules.FirstOrDefault();
+            }
+
+            if (activeSchedule == null)
+            {
+                TempData["Error"] = "Brak opublikowanego grafiku dla wybranego miesiąca.";
+                return RedirectToAction("MySchedule", new { month });
+            }
+
+            int activeScheduleId = activeSchedule.Id;
 
             var shifts = await _context.WorkShifts
                 .Include(ws => ws.User)
-                .Where(ws => ws.UserId == user.Id && ws.Date >= firstDay && ws.Date < lastDay)
+                .Where(ws => ws.UserId == user.Id && ws.WorkScheduleId == activeScheduleId)
+                .OrderBy(ws => ws.Date)
+                .ThenBy(ws => ws.StartTime)
                 .ToListAsync();
 
-            var success = await _googleCalendarHelper.SyncShiftsAsync(user, shifts, user.GoogleAccessToken);
+            var success = await _googleCalendarHelper.SyncShiftsAsync(user, shifts, user.GoogleAccessToken!);
 
             if (!success)
             {
@@ -317,7 +647,7 @@ namespace HotelManagement.Controllers
             }
 
             await _context.SaveChangesAsync();
-            return RedirectToAction("MySchedule", new { month });
+            return RedirectToAction("MySchedule", new { month, scheduleId });
         }
     }
 }

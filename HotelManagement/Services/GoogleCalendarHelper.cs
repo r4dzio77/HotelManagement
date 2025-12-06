@@ -1,171 +1,173 @@
-﻿using Google.Apis.Auth.OAuth2;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Services;
 using HotelManagement.Models;
 using Microsoft.Extensions.Configuration;
-using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace HotelManagement.Services
 {
     public class GoogleCalendarHelper
     {
         private readonly IConfiguration _config;
+        private readonly ILogger<GoogleCalendarHelper> _logger;
 
-        public GoogleCalendarHelper(IConfiguration config)
+        public GoogleCalendarHelper(
+            IConfiguration config,
+            ILogger<GoogleCalendarHelper> logger)
         {
             _config = config;
+            _logger = logger;
         }
 
-        private CalendarService GetCalendarService(string accessToken)
-        {
-            var initializer = new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = GoogleCredential.FromAccessToken(accessToken),
-                ApplicationName = "HotelManagement"
-            };
-
-            return new CalendarService(initializer);
-        }
-
-        /// <summary>
-        /// Synchronizuje wszystkie zmiany do Google Calendar.
-        /// </summary>
-        public async Task<bool> SyncShiftsAsync(ApplicationUser user, IEnumerable<WorkShift> shifts, string accessToken)
-        {
-            var service = GetCalendarService(accessToken);
-            string calendarId = "primary";
-
-            bool allOk = true;
-
-            foreach (var shift in shifts)
-            {
-                var success = await AddOrUpdateShiftAsync(service, calendarId, shift);
-                if (!success) allOk = false;
-            }
-
-            await RemoveDeletedShiftsAsync(service, calendarId, shifts);
-            return allOk;
-        }
-
-        private async Task<bool> AddOrUpdateShiftAsync(CalendarService service, string calendarId, WorkShift shift)
-        {
-            var start = shift.ShiftType == "Day"
-                ? shift.Date.AddHours(7)
-                : shift.Date.AddHours(19);
-
-            var end = shift.ShiftType == "Day"
-                ? shift.Date.AddHours(19)
-                : shift.Date.AddDays(1).AddHours(7);
-
-            var newEvent = new Event
-            {
-                Summary = $"Zmiana {shift.ShiftType} - {shift.User.FullName}",
-                Description = $"Zmiana pracownika {shift.User.FullName}",
-                Start = new EventDateTime
-                {
-                    DateTime = start,
-                    TimeZone = "Europe/Warsaw"
-                },
-                End = new EventDateTime
-                {
-                    DateTime = end,
-                    TimeZone = "Europe/Warsaw"
-                }
-            };
-
-            try
-            {
-                if (!string.IsNullOrEmpty(shift.GoogleEventId))
-                {
-                    await service.Events.Update(newEvent, calendarId, shift.GoogleEventId).ExecuteAsync();
-                }
-                else
-                {
-                    var created = await service.Events.Insert(newEvent, calendarId).ExecuteAsync();
-                    shift.GoogleEventId = created.Id; // zapisz ID z Google
-                }
-                return true;
-            }
-            catch (Google.GoogleApiException ex)
-            {
-                // 🔎 logowanie szczegółów błędu
-                Console.WriteLine($"[Google API Error] {ex.Error?.Code} - {ex.Error?.Message}");
-                if (ex.Error?.Errors != null)
-                {
-                    foreach (var err in ex.Error.Errors)
-                    {
-                        Console.WriteLine($"Reason: {err.Reason}, Message: {err.Message}");
-                    }
-                }
-                return false;
-            }
-        }
-
-        private async Task RemoveDeletedShiftsAsync(CalendarService service, string calendarId, IEnumerable<WorkShift> currentShifts)
-        {
-            var validIds = currentShifts
-                .Where(s => !string.IsNullOrEmpty(s.GoogleEventId))
-                .Select(s => s.GoogleEventId)
-                .ToHashSet();
-
-            var request = service.Events.List(calendarId);
-            request.TimeMin = DateTime.UtcNow.AddMonths(-2);
-            request.TimeMax = DateTime.UtcNow.AddMonths(2);
-            request.ShowDeleted = false;
-
-            var events = await request.ExecuteAsync();
-
-            if (events.Items != null)
-            {
-                foreach (var ev in events.Items.Where(e => e.Id != null && e.Summary?.StartsWith("Zmiana ") == true))
-                {
-                    if (!validIds.Contains(ev.Id))
-                    {
-                        await service.Events.Delete(calendarId, ev.Id).ExecuteAsync();
-                    }
-                }
-            }
-        }
-
-        // ==================== REFRESH TOKEN ====================
+        // ================== REFRESH TOKEN ==================
 
         public async Task<bool> RefreshAccessTokenAsync(ApplicationUser user)
         {
-            if (string.IsNullOrEmpty(user.GoogleRefreshToken))
-                return false;
-
-            var clientId = _config["Authentication:Google:ClientId"];
-            var clientSecret = _config["Authentication:Google:ClientSecret"];
-
-            using var client = new HttpClient();
-
-            var body = new Dictionary<string, string>
+            try
             {
-                { "client_id", clientId },
-                { "client_secret", clientSecret },
-                { "refresh_token", user.GoogleRefreshToken },
-                { "grant_type", "refresh_token" }
-            };
+                if (string.IsNullOrEmpty(user.GoogleRefreshToken))
+                {
+                    _logger.LogWarning("Brak refresh tokena Google dla użytkownika {UserId}", user.Id);
+                    return false;
+                }
 
-            var response = await client.PostAsync("https://oauth2.googleapis.com/token", new FormUrlEncodedContent(body));
-            if (!response.IsSuccessStatusCode)
+                var clientId = _config["Authentication:Google:ClientId"];
+                var clientSecret = _config["Authentication:Google:ClientSecret"];
+
+                if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+                {
+                    _logger.LogError("Brak konfiguracji Google ClientId/ClientSecret.");
+                    return false;
+                }
+
+                var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+                {
+                    ClientSecrets = new ClientSecrets
+                    {
+                        ClientId = clientId,
+                        ClientSecret = clientSecret
+                    }
+                });
+
+                var token = new TokenResponse
+                {
+                    RefreshToken = user.GoogleRefreshToken
+                };
+
+                var newToken = await flow.RefreshTokenAsync(user.Id, token.RefreshToken, System.Threading.CancellationToken.None);
+
+                if (newToken == null || string.IsNullOrEmpty(newToken.AccessToken))
+                {
+                    _logger.LogWarning("Nie udało się odświeżyć tokena Google dla użytkownika {UserId}", user.Id);
+                    return false;
+                }
+
+                user.GoogleAccessToken = newToken.AccessToken;
+                user.GoogleTokenExpiry = newToken.ExpiresInSeconds.HasValue
+                    ? DateTime.UtcNow.AddSeconds(newToken.ExpiresInSeconds.Value)
+                    : (DateTime?)null;
+
+                _logger.LogInformation("Odświeżono token Google dla użytkownika {UserId}", user.Id);
+                return true;
+            }
+            catch (Exception ex)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"[Google Token Refresh Error] {error}");
+                _logger.LogError(ex, "Błąd podczas odświeżania tokena Google dla użytkownika {UserId}", user.Id);
                 return false;
             }
+        }
 
-            var content = await response.Content.ReadAsStringAsync();
-            var json = JsonDocument.Parse(content);
+        // ================== SYNC ZMIAN ==================
 
-            var accessToken = json.RootElement.GetProperty("access_token").GetString();
-            var expiresIn = json.RootElement.GetProperty("expires_in").GetInt32();
+        public async Task<bool> SyncShiftsAsync(ApplicationUser user, IEnumerable<WorkShift> shifts, string accessToken)
+        {
+            try
+            {
+                var service = CreateCalendarService(accessToken);
+                var calendarId = "primary";
 
-            user.GoogleAccessToken = accessToken;
-            user.GoogleTokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn);
+                // sortujemy po dacie i godzinie
+                var shiftList = shifts
+                    .OrderBy(s => s.Date)
+                    .ThenBy(s => s.StartTime)
+                    .ToList();
 
-            return true;
+                foreach (var shift in shiftList)
+                {
+                    // Lokalna data/godzina – zakładam, że Date jest w czasie lokalnym hotelu
+                    var startLocal = shift.Date.Date + shift.StartTime;
+                    var endLocal = shift.Date.Date + shift.EndTime;
+
+                    var summary = $"{user.FullName} ({startLocal:HH\\:mm}-{endLocal:HH\\:mm})";
+                    var description = $"Zmiana w hotelu dla {user.FullName}";
+
+                    var ev = new Event
+                    {
+                        Summary = summary,
+                        Description = description,
+                        Start = new EventDateTime
+                        {
+                            DateTimeDateTimeOffset = new DateTimeOffset(startLocal, TimeSpan.Zero)
+                        },
+                        End = new EventDateTime
+                        {
+                            DateTimeDateTimeOffset = new DateTimeOffset(endLocal, TimeSpan.Zero)
+                        }
+                    };
+
+                    try
+                    {
+                        Event result;
+
+                        if (!string.IsNullOrEmpty(shift.GoogleEventId))
+                        {
+                            // aktualizacja istniejącego eventu
+                            result = await service.Events.Update(ev, calendarId, shift.GoogleEventId).ExecuteAsync();
+                        }
+                        else
+                        {
+                            // tworzenie nowego eventu
+                            result = await service.Events.Insert(ev, calendarId).ExecuteAsync();
+                            shift.GoogleEventId = result.Id;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Błąd synchronizacji zmiany {ShiftId} do Google Calendar", shift.Id);
+                        // lecimy dalej, ale na końcu zwrócimy false
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Błąd podczas synchronizacji zmian do Google Calendar");
+                return false;
+            }
+        }
+
+        // ================== POMOCNICZE ==================
+
+        private CalendarService CreateCalendarService(string accessToken)
+        {
+            var credential = GoogleCredential.FromAccessToken(accessToken);
+
+            var service = new CalendarService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "HotelManagement"
+            });
+
+            return service;
         }
     }
 }

@@ -11,6 +11,9 @@ namespace HotelManagement.Models
         [NotMapped]
         public string FullName => $"{FirstName} {LastName}";
 
+        // 🔹 Dział / klasa pracownika (Recepcja, Housekeeping, itp.)
+        public string? Department { get; set; }
+
         public string? Preferences { get; set; }
         public int? GuestId { get; set; }
 

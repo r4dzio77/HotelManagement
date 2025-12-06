@@ -4,6 +4,7 @@ using HotelManagement.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HotelManagement.Migrations
 {
     [DbContext(typeof(HotelManagementContext))]
-    partial class HotelManagementContextModelSnapshot : ModelSnapshot
+    [Migration("20251130081656_Shift_ZmianyGodzinowe")]
+    partial class Shift_ZmianyGodzinowe
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -32,9 +35,6 @@ namespace HotelManagement.Migrations
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Department")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Email")
@@ -627,40 +627,6 @@ namespace HotelManagement.Migrations
                     b.ToTable("ShiftPreferences");
                 });
 
-            modelBuilder.Entity("HotelManagement.Models.WorkSchedule", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CreatedById")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("Month")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("Year")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedById");
-
-                    b.ToTable("WorkSchedules");
-                });
-
             modelBuilder.Entity("HotelManagement.Models.WorkShift", b =>
                 {
                     b.Property<int>("Id")
@@ -685,14 +651,9 @@ namespace HotelManagement.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(255)");
 
-                    b.Property<int>("WorkScheduleId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("WorkScheduleId");
 
                     b.ToTable("WorkShifts");
                 });
@@ -990,16 +951,6 @@ namespace HotelManagement.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("HotelManagement.Models.WorkSchedule", b =>
-                {
-                    b.HasOne("HotelManagement.Models.ApplicationUser", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("CreatedBy");
-                });
-
             modelBuilder.Entity("HotelManagement.Models.WorkShift", b =>
                 {
                     b.HasOne("HotelManagement.Models.ApplicationUser", "User")
@@ -1008,15 +959,7 @@ namespace HotelManagement.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("HotelManagement.Models.WorkSchedule", "WorkSchedule")
-                        .WithMany("Shifts")
-                        .HasForeignKey("WorkScheduleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("User");
-
-                    b.Navigation("WorkSchedule");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -1117,11 +1060,6 @@ namespace HotelManagement.Migrations
             modelBuilder.Entity("HotelManagement.Models.Service", b =>
                 {
                     b.Navigation("Usages");
-                });
-
-            modelBuilder.Entity("HotelManagement.Models.WorkSchedule", b =>
-                {
-                    b.Navigation("Shifts");
                 });
 
             modelBuilder.Entity("HotelManagement.Models.WorkShift", b =>

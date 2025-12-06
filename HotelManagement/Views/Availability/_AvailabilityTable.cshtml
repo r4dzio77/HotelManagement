@@ -1,44 +1,161 @@
 ﻿@model List<HotelManagement.Models.ViewModels.RoomAvailabilityViewModel>
+
 @{
     var dates = (List<DateTime>)ViewBag.Dates;
     var startDate = (DateTime)ViewBag.StartDate;
     var days = (int)ViewBag.Days;
+
+    ViewData["Title"] = "Dostępność pokoi";
 }
 
-<form id="availabilityForm" class="mb-3">
-    <label>Data operacyjna:</label>
-    <input type="date" name="startDate" value="@startDate.ToString("yyyy-MM-dd")" />
-    <input type="number" name="days" value="@days" min="1" max="30" />
-    <button type="submit" class="btn btn-sm btn-primary">Pokaż</button>
-</form>
+<style>
+    .room-availability-wrapper {
+        max-height: 70vh;
+        overflow: auto;
+    }
 
-<p class="text-muted">
-    <strong>Bieżąca data operacyjna:</strong> @startDate.ToString("dd.MM.yyyy")
-</p>
+    .room-availability-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background-color: #f8f9fa;
+    }
 
-<table class="table table-bordered table-striped">
-    <thead>
-        <tr>
-            <th>Typ pokoju</th>
-            @foreach (var date in dates)
-            {
-                <th>@date.ToString("dd.MM")</th>
-            }
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var room in Model)
-        {
-            <tr>
-                <td>@room.RoomTypeName</td>
-                @foreach (var date in dates)
-                {
-                    var available = room.Availability.ContainsKey(date) ? room.Availability[date] : 0;
-                    <td class="@(available == 0 ? "table-danger" : "table-success")">
-                        @available
-                    </td>
-                }
-            </tr>
+        .room-availability-table thead th:first-child,
+        .room-availability-table tbody td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 6;
+            background-color: #ffffff;
         }
-    </tbody>
-</table>
+
+        .room-availability-table thead th:first-child {
+            z-index: 7;
+        }
+
+    .availability-legend span.badge {
+        min-width: 130px;
+    }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h2 class="h4 mb-1">Dostępność pokoi</h2>
+        <p class="text-muted mb-0">
+            Przegląd obłożenia hotelu według typu pokoju i dni.
+        </p>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form id="availabilityForm" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Data operacyjna</label>
+                <input type="date"
+                       class="form-control"
+                       name="startDate"
+                       value="@startDate.ToString("yyyy-MM-dd")" />
+            </div>
+
+            <div class="col-md-3 col-sm-6">
+                <label class="form-label fw-semibold">Liczba dni</label>
+                <input type="number"
+                       class="form-control"
+                       name="days"
+                       value="@days"
+                       min="1"
+                       max="30" />
+            </div>
+
+            <div class="col-md-3 col-sm-6">
+                <label class="form-label d-block">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search me-1"></i>
+                    Pokaż dostępność
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-3 small text-muted">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Bieżąca data operacyjna:</strong> @startDate.ToString("dd.MM.yyyy")
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-transparent d-flex flex-wrap justify-content-between align-items-center">
+        <div class="mb-2 mb-md-0">
+            <h3 class="h5 mb-1">Tabela dostępności</h3>
+            <p class="text-muted small mb-0">
+                Wartości oznaczają liczbę dostępnych pokoi w danym dniu.
+            </p>
+        </div>
+
+        <div class="availability-legend d-flex flex-wrap gap-2">
+            <span class="badge bg-danger-subtle text-danger">
+                <i class="bi bi-x-circle me-1"></i> Brak dostępności
+            </span>
+            <span class="badge bg-warning-subtle text-warning-emphasis">
+                <i class="bi bi-exclamation-circle me-1"></i> Mała dostępność (1–2)
+            </span>
+            <span class="badge bg-success-subtle text-success">
+                <i class="bi bi-check-circle me-1"></i> Dobra dostępność (3+)
+            </span>
+        </div>
+    </div>
+
+    <div class="room-availability-wrapper">
+        <table class="table table-hover align-middle mb-0 room-availability-table">
+            <thead>
+                <tr>
+                    <th class="bg-light">
+                        Typ pokoju
+                    </th>
+                    @foreach (var date in dates)
+                    {
+                        <th class="text-center bg-light">
+                            <div class="fw-semibold">
+                                @date.ToString("dd.MM")
+                            </div>
+                            <div class="small text-muted">
+                                @date.ToString("yyyy")
+                            </div>
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var room in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold">
+                            @room.RoomTypeName
+                        </td>
+
+                        @foreach (var date in dates)
+                        {
+                            var available = room.Availability.ContainsKey(date)
+                            ? room.Availability[date]
+                            : 0;
+
+                            var cellClass = "text-center fw-semibold";
+
+                            if (available == 0)
+                                cellClass += " bg-danger-subtle text-danger";
+                            else if (available <= 2)
+                                cellClass += " bg-warning-subtle text-warning-emphasis";
+                            else
+                                cellClass += " bg-success-subtle text-success";
+
+                            <td class="@cellClass">
+                                @available
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -6,185 +6,736 @@
     var isPublished = (bool)ViewBag.IsPublished;
     var firstDay = new DateTime(month.Year, month.Month, 1);
     var daysInMonth = DateTime.DaysInMonth(month.Year, month.Month);
-    var startOffset = ((int)firstDay.DayOfWeek + 6) % 7;
-    var shifts = Model.GroupBy(s => s.Date.Date).ToDictionary(g => g.Key, g => g.ToList());
+    var startOffset = ((int)firstDay.DayOfWeek + 6) % 7; // poniedziałek = 0
+    var shiftsByDate = Model.GroupBy(s => s.Date.Date).ToDictionary(g => g.Key, g => g.ToList());
     var employees = ViewBag.Employees as List<ApplicationUser>;
+    var schedules = ViewBag.Schedules as List<WorkSchedule> ?? new List<WorkSchedule>();
+    var activeScheduleId = (int?)ViewBag.ActiveScheduleId ?? 0;
+    var activeScheduleName = ViewBag.ActiveScheduleName as string ?? "";
+    var today = DateTime.Today;
 }
 
-<h2 class="mb-4">@ViewData["Title"] – @month.ToString("MMMM yyyy")</h2>
-
-<div class="mb-4 d-flex justify-content-between align-items-center">
-    <form method="get" asp-action="ManageSchedule" class="d-flex align-items-center gap-2">
-        <label for="month">Wybierz miesiąc:</label>
-        <input type="month" name="month" id="month" class="form-control" value="@month.ToString("yyyy-MM")" />
-        <button class="btn btn-sm btn-primary">Pokaż</button>
-    </form>
-
-    @if (!isPublished)
-    {
-        <form method="post" asp-action="PublishSchedule" asp-route-year="@month.Year" asp-route-month="@month.Month">
-            <button class="btn btn-success">Zatwierdź grafik</button>
-        </form>
+<style>
+    .schedule-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        justify-content: space-between;
     }
-    else
-    {
-        <span class="text-success fw-bold">Grafik opublikowany</span>
+
+        .schedule-header h2 {
+            margin-bottom: 0;
+        }
+
+    .month-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .2rem .7rem;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: .8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .06em;
     }
+
+    .schedule-card {
+        border-radius: 1rem;
+        border: 0;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    .schedule-table th,
+    .schedule-table td {
+        min-width: 130px;
+        vertical-align: top;
+        padding: .35rem;
+    }
+
+    .schedule-table thead th {
+        font-size: .85rem;
+        text-transform: uppercase;
+        letter-spacing: .09em;
+        color: #6b7280;
+        border-bottom-width: 1px;
+    }
+
+    .schedule-day-empty {
+        background: transparent;
+        border: none;
+    }
+
+    .schedule-day-cell {
+        border-radius: .75rem;
+        padding: .25rem .35rem .4rem;
+        background: #f9fafb;
+        display: flex;
+        flex-direction: column;
+        min-height: 110px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .schedule-day-weekend {
+        background: #fef2f2;
+        border-color: #fecaca;
+    }
+
+    .schedule-day-today {
+        box-shadow: 0 0 0 2px rgba(59,130,246,.35);
+    }
+
+    .schedule-day-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .25rem;
+    }
+
+    .schedule-day-number {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: .85rem;
+        background: #e5e7eb;
+    }
+
+    .schedule-day-number-today {
+        background: #2563eb;
+        color: #ffffff;
+    }
+
+    .schedule-shifts-list {
+        margin-top: .25rem;
+        flex-grow: 1;
+        font-size: .74rem;
+        overflow-y: auto;
+        padding-right: 2px;
+    }
+
+    .schedule-shift-item {
+        margin-bottom: .25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .25rem;
+    }
+
+    .schedule-shift-main {
+        text-align: left;
+    }
+
+    .schedule-shift-time {
+        display: inline-block;
+        font-weight: 600;
+        font-size: .75rem;
+        padding: .05rem .35rem;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #0369a1;
+        margin-bottom: .05rem;
+    }
+
+    .schedule-shift-employee {
+        display: block;
+        font-size: .72rem;
+        color: #374151;
+    }
+
+    .shift-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: .15rem;
+    }
+
+        .shift-actions .btn {
+            padding: .1rem .25rem;
+            border-radius: 999px;
+            border: none;
+        }
+
+        .shift-actions .btn-edit {
+            background-color: #e0f2fe;
+            color: #0369a1;
+        }
+
+            .shift-actions .btn-edit:hover {
+                background-color: #bae6fd;
+                color: #0f172a;
+            }
+
+        .shift-actions .btn-delete {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+
+            .shift-actions .btn-delete:hover {
+                background-color: #fecaca;
+                color: #7f1d1d;
+            }
+
+        .shift-actions i {
+            font-size: .75rem;
+        }
+
+    .schedule-cell-actions {
+        margin-top: .25rem;
+    }
+
+    .btn-add-shift {
+        font-size: .75rem;
+        padding: .18rem .4rem;
+    }
+
+    .publish-badge {
+        font-size: .8rem;
+        border-radius: 999px;
+        padding: .15rem .6rem;
+    }
+
+    .modal-modern .modal-content {
+        border-radius: 1rem;
+        border: none;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .modal-modern .modal-header {
+        border: none;
+        padding-bottom: .25rem;
+    }
+
+    .modal-modern .modal-title {
+        font-weight: 600;
+    }
+
+    .modal-modern .modal-subtitle {
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .modal-modern .modal-body {
+        padding-top: .75rem;
+    }
+
+    .modal-modern .field-label {
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: #6b7280;
+        font-weight: 600;
+        margin-bottom: .25rem;
+    }
+
+    .modal-modern .form-control,
+    .modal-modern .form-select {
+        border-radius: .75rem;
+    }
+
+    .modal-modern .readonly-pill {
+        border-radius: .75rem;
+        background: #f3f4f6;
+        border: none;
+    }
+
+    .modal-modern .modal-footer {
+        border: none;
+        padding-top: 0;
+    }
+
+    @@media (max-width: 992px) {
+        .schedule-table th,
+        .schedule-table td {
+            min-width: 110px;
+            padding: .25rem;
+        }
+
+        .schedule-day-cell {
+            min-height: 105px;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .schedule-header {
+            align-items: flex-start;
+        }
+
+        .schedule-table th,
+        .schedule-table td {
+            min-width: 95px;
+            padding: .2rem;
+        }
+
+        .schedule-day-cell {
+            min-height: 100px;
+            padding: .2rem .25rem .35rem;
+        }
+
+        .schedule-shifts-list {
+            max-height: 60px;
+        }
+    }
+</style>
+
+<div class="schedule-header mb-3">
+    <div>
+        <h2 class="h4 mb-1">@ViewData["Title"]</h2>
+        <div class="text-muted" style="font-size:.9rem;">
+            Planowanie zmian godzinowych pracowników.
+        </div>
+        <div class="mt-1">
+            <span class="badge bg-light text-muted border">
+                @month.ToString("MMMM yyyy", new System.Globalization.CultureInfo("pl-PL")) – <strong>@activeScheduleName</strong>
+                @if (isPublished)
+                {
+                    <span class="text-success ms-1">(opublikowany)</span>
+                }
+                else
+                {
+                    <span class="text-warning ms-1">(szkic)</span>
+                }
+            </span>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column align-items-end gap-2">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <form method="get"
+                  asp-action="ManageSchedule"
+                  class="d-flex align-items-center gap-2">
+                <input type="hidden" name="month" value="@month.ToString("yyyy-MM-01")" />
+                <select name="scheduleId" class="form-select form-select-sm">
+                    @foreach (var s in schedules)
+                    {
+                        if (s.Id == activeScheduleId)
+                        {
+                            <option value="@s.Id" selected="selected">
+                                @s.Name @(s.IsPublished ? " (opublikowany)" : "")
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="@s.Id">
+                                @s.Name @(s.IsPublished ? " (opublikowany)" : "")
+                            </option>
+                        }
+                    }
+                </select>
+                <button class="btn btn-sm btn-outline-primary">
+                    Załaduj
+                </button>
+            </form>
+
+            <button class="btn btn-sm btn-outline-secondary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#createScheduleModal">
+                + Nowy grafik
+            </button>
+
+            @if (activeScheduleId != 0)
+            {
+                <form method="post"
+                      asp-action="DuplicateSchedule"
+                      class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="scheduleId" value="@activeScheduleId" />
+                    <input type="hidden" name="name" value="@($"{activeScheduleName} – kopia")" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                        Kopiuj grafik
+                    </button>
+                </form>
+
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-dark dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown">
+                        Zarządzaj
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <button class="dropdown-item"
+                                    type="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#renameScheduleModal">
+                                ✏️ Zmień nazwę
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li>
+                            <form asp-action="DeleteSchedule"
+                                  method="post"
+                                  class="px-3 py-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="scheduleId" value="@activeScheduleId" />
+                                <button type="submit"
+                                        class="btn btn-link p-0 text-danger"
+                                        onclick="return confirm('Czy na pewno usunąć ten grafik? Wszystkie przypisane do niego zmiany zostaną usunięte.');">
+                                    🗑️ Usuń grafik
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            }
+        </div>
+
+        <div class="d-flex justify-content-end">
+            @if (!isPublished && activeScheduleId != 0)
+            {
+                <form method="post"
+                      asp-action="PublishSchedule"
+                      asp-route-scheduleId="@activeScheduleId">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-sm btn-success">
+                        ✅ Zatwierdź i opublikuj grafik
+                    </button>
+                </form>
+            }
+            else if (isPublished)
+            {
+                <span class="publish-badge bg-success-subtle text-success-emphasis border border-success-subtle">
+                    ✔ Ten grafik jest obecnie opublikowany
+                </span>
+            }
+        </div>
+    </div>
 </div>
 
-<a asp-action="Employees" class="btn btn-outline-secondary mb-3">👥 Zarządzaj pracownikami</a>
+@if (TempData["Error"] is string err)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>@err
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Message"] is string msg)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-1"></i>@msg
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
-<div class="table-responsive">
-    <table class="table table-bordered text-center align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>Pn</th>
-                <th>Wt</th>
-                <th>Śr</th>
-                <th>Cz</th>
-                <th>Pt</th>
-                <th>Sb</th>
-                <th>Nd</th>
-            </tr>
-        </thead>
-        <tbody>
-            @{
-                int currentDay = 1;
-                int totalCells = startOffset + daysInMonth;
-                int totalRows = (int)Math.Ceiling(totalCells / 7.0);
-                for (int week = 0; week < totalRows; week++)
-                {
+<div class="card schedule-card">
+    <div class="card-body p-2 p-sm-3">
+        <div class="table-responsive">
+            <table class="table table-borderless align-middle schedule-table mb-0">
+                <thead>
                     <tr>
-                        @for (int dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++)
+                        <th>Tydz</th>
+                        @for (int i = 0; i < 7; i++)
                         {
-                            int cellIndex = week * 7 + dayOfWeek;
-                            if (cellIndex < startOffset || currentDay > daysInMonth)
-                            {
-                                <td class="bg-light"></td>
-                            }
-                            else
-                            {
-                                var date = new DateTime(month.Year, month.Month, currentDay);
-                                var dayShifts = shifts.ContainsKey(date) ? shifts[date].OrderBy(s => s.ShiftType == "Night" ? 1 : 0).ToList() : new List<WorkShift>();
-                                <td style="min-height: 120px; vertical-align: top;">
-                                    <div class="fw-bold">@currentDay</div>
-
-                                    @foreach (var s in dayShifts)
-                                    {
-                                        var badgeClass = s.ShiftType == "Night" ? "bg-dark text-white" : "bg-info text-dark";
-                                        <div class="small text-start mt-1">
-                                            <span class="badge @badgeClass" title="@s.User.Email">@s.ShiftType</span><br />
-                                            @s.User.FirstName @s.User.LastName
-                                            <form asp-action="DeleteShift" method="post" class="d-inline">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@s.Id" />
-                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0 ms-1" title="Usuń zmianę">❌</button>
-                                            </form>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-link text-primary p-0 ms-1 edit-btn"
-                                                    data-id="@s.Id"
-                                                    data-date="@s.Date.ToString("yyyy-MM-dd")"
-                                                    data-userid="@s.UserId"
-                                                    data-shifttype="@s.ShiftType"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#editModal">
-                                                ✏️
-                                            </button>
-                                        </div>
-                                    }
-
-                                    <button class="btn btn-sm btn-outline-primary mt-2 w-100"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#assignModal"
-                                            data-date="@date.ToString("yyyy-MM-dd")">
-                                        + Dodaj zmianę
-                                    </button>
-                                </td>
-                                currentDay++;
-                            }
+                            <th></th>
                         }
                     </tr>
-                }
-            }
-        </tbody>
-    </table>
+                </thead>
+                <tbody>
+                    @{
+                        int currentDay = 1;
+                        int totalCells = startOffset + daysInMonth;
+                        int totalRows = (int)Math.Ceiling(totalCells / 7.0);
+
+                        for (int week = 0; week < totalRows; week++)
+                        {
+                            <tr>
+                                <td class="text-muted fw-semibold" style="font-size:.8rem;">
+                                    Tydz @(week + 1)
+                                </td>
+                                @for (int dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++)
+                                {
+                                    int cellIndex = week * 7 + dayOfWeek;
+
+                                    if (cellIndex < startOffset || currentDay > daysInMonth)
+                                    {
+                                        <td class="schedule-day-empty"></td>
+                                    }
+                                    else
+                                    {
+                                        var date = new DateTime(month.Year, month.Month, currentDay);
+                                        var isWeekend = date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday;
+                                        var isToday = date.Date == today.Date;
+
+                                        shiftsByDate.TryGetValue(date.Date, out var dayShifts);
+                                        dayShifts = dayShifts?
+                                        .OrderBy(s => s.StartTime)
+                                        .ToList() ?? new List<WorkShift>();
+
+                                        <td>
+                                            <div class="schedule-day-cell @(isWeekend ? "schedule-day-weekend" : "") @(isToday ? "schedule-day-today" : "")">
+                                                <div class="schedule-day-header">
+                                                    <div class="schedule-day-number @(isToday ? "schedule-day-number-today" : "")">
+                                                        @currentDay
+                                                    </div>
+                                                </div>
+
+                                                <div class="schedule-shifts-list">
+                                                    @foreach (var s in dayShifts)
+                                                    {
+                                                        <div class="schedule-shift-item">
+                                                            <div class="schedule-shift-main">
+                                                                <span class="schedule-shift-time">
+                                                                    @s.StartTime.ToString(@"hh\:mm") – @s.EndTime.ToString(@"hh\:mm")
+                                                                </span>
+                                                                <span class="schedule-shift-employee">
+                                                                    @s.User.FirstName @s.User.LastName
+                                                                </span>
+                                                            </div>
+                                                            <div class="shift-actions">
+                                                                <button type="button"
+                                                                        class="btn btn-edit edit-btn"
+                                                                        data-id="@s.Id"
+                                                                        data-date="@s.Date.ToString("yyyy-MM-dd")"
+                                                                        data-userid="@s.UserId"
+                                                                        data-starttime="@s.StartTime.ToString(@"hh\:mm")"
+                                                                        data-endtime="@s.EndTime.ToString(@"hh\:mm")"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#editModal"
+                                                                        title="Edytuj zmianę">
+                                                                    <i class="bi bi-pencil-square"></i>
+                                                                </button>
+
+                                                                <form asp-action="DeleteShift"
+                                                                      method="post"
+                                                                      class="m-0">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="id" value="@s.Id" />
+                                                                    <button type="submit"
+                                                                            class="btn btn-delete"
+                                                                            title="Usuń zmianę">
+                                                                        <i class="bi bi-trash3"></i>
+                                                                    </button>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+
+                                                <div class="schedule-cell-actions">
+                                                    <button class="btn btn-outline-primary btn-add-shift w-100"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#assignModal"
+                                                            data-date="@date.ToString("yyyy-MM-dd")">
+                                                        + Dodaj zmianę
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        currentDay++;
+                                    }
+                                }
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
-<!-- Modal dodawania -->
-<div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
+<!-- Modal: nowy grafik -->
+<div class="modal fade modal-modern" id="createScheduleModal" tabindex="-1" aria-labelledby="createScheduleLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" asp-action="AssignShift">
+            <form method="post" asp-action="CreateSchedule">
                 @Html.AntiForgeryToken()
                 <div class="modal-header">
-                    <h5 class="modal-title" id="assignModalLabel">Przypisz zmianę</h5>
+                    <div>
+                        <h5 class="modal-title" id="createScheduleLabel">Nowy grafik</h5>
+                        <p class="modal-subtitle mb-0">Utwórz dodatkowy grafik dla tego samego miesiąca.</p>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="date" id="modal-date" />
+                    <input type="hidden" name="month" value="@month.ToString("yyyy-MM-01")" />
+
                     <div class="mb-3">
-                        <label>Zmiana</label>
-                        <select name="shiftType" class="form-select" required>
-                            <option value="">-- wybierz --</option>
-                            <option value="Day">Dzień (07–19)</option>
-                            <option value="Night">Noc (19–07)</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label>Pracownik</label>
-                        <select name="userId" class="form-select" required>
-                            @foreach (var emp in employees)
-                            {
-                                <option value="@emp.Id">@emp.FirstName @emp.LastName</option>
-                            }
-                        </select>
+                        <div class="field-label">Nazwa grafiku</div>
+                        <input type="text"
+                               name="name"
+                               class="form-control"
+                               placeholder="np. Grafik główny, Wersja A, Święta"
+                               required />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Zapisz</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Anuluj
+                    </button>
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Utwórz grafik
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Modal edycji -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+<!-- Modal: zmiana nazwy grafiku -->
+<div class="modal fade modal-modern" id="renameScheduleModal" tabindex="-1" aria-labelledby="renameScheduleLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" asp-action="EditShift">
+            <form method="post" asp-action="RenameSchedule">
                 @Html.AntiForgeryToken()
+                <input type="hidden" name="scheduleId" value="@activeScheduleId" />
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editModalLabel">Edytuj zmianę</h5>
+                    <div>
+                        <h5 class="modal-title" id="renameScheduleLabel">Zmień nazwę grafiku</h5>
+                        <p class="modal-subtitle mb-0">Nadaj bardziej czytelną nazwę, np. „Święta”, „Wersja A”.</p>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="id" id="edit-id" />
                     <div class="mb-3">
-                        <label>Data</label>
-                        <input type="text" id="edit-date" class="form-control" readonly />
+                        <div class="field-label">Nazwa grafiku</div>
+                        <input type="text"
+                               name="name"
+                               class="form-control"
+                               value="@activeScheduleName"
+                               required />
                     </div>
-                    <div class="mb-3">
-                        <label>Zmiana</label>
-                        <select name="shiftType" id="edit-shiftType" class="form-select" required>
-                            <option value="Day">Dzień (07–19)</option>
-                            <option value="Night">Noc (19–07)</option>
-                        </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Anuluj
+                    </button>
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Zapisz nazwę
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal dodawania zmiany -->
+<div class="modal fade modal-modern" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-action="AssignShift">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="assignModalLabel">Przypisz zmianę</h5>
+                        <p class="modal-subtitle mb-0">Ustaw pracownika oraz godziny pracy w danym dniu.</p>
                     </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="date" id="modal-date" />
+                    <input type="hidden" name="scheduleId" value="@activeScheduleId" />
+
                     <div class="mb-3">
-                        <label>Pracownik</label>
-                        <select name="userId" id="edit-userId" class="form-select" required>
-                            @foreach (var emp in employees)
+                        <div class="field-label">Pracownik</div>
+                        <select name="userId" class="form-select" required>
+                            @foreach (var emp in employees ?? Enumerable.Empty<ApplicationUser>())
                             {
                                 <option value="@emp.Id">@emp.FirstName @emp.LastName</option>
                             }
                         </select>
                     </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="field-label">Od</div>
+                            <input type="time" name="startTime" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <div class="field-label">Do</div>
+                            <input type="time" name="endTime" class="form-control" required />
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Zapisz</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zapisz zmianę</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edycji zmiany -->
+<div class="modal fade modal-modern" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-action="EditShift">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="editModalLabel">Edytuj zmianę</h5>
+                        <p class="modal-subtitle mb-0">Zmień pracownika lub godziny pracy.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="edit-id" />
+
+                    <div class="mb-3">
+                        <div class="field-label">Data</div>
+                        <input type="text"
+                               id="edit-date"
+                               class="form-control readonly-pill"
+                               readonly />
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="field-label">Od</div>
+                            <input type="time"
+                                   name="startTime"
+                                   id="edit-startTime"
+                                   class="form-control"
+                                   required />
+                        </div>
+                        <div class="col-md-6">
+                            <div class="field-label">Do</div>
+                            <input type="time"
+                                   name="endTime"
+                                   id="edit-endTime"
+                                   class="form-control"
+                                   required />
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="field-label">Pracownik</div>
+                        <select name="userId"
+                                id="edit-userId"
+                                class="form-select"
+                                required>
+                            @foreach (var emp in employees ?? Enumerable.Empty<ApplicationUser>())
+                            {
+                                <option value="@emp.Id">@emp.FirstName @emp.LastName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mt-3 small text-muted">
+                        Zmiany zostaną zapisane natychmiast po kliknięciu
+                        <span class="fw-semibold">„Zapisz zmiany”</span>.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Anuluj
+                    </button>
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Zapisz zmiany
+                    </button>
                 </div>
             </form>
         </div>
@@ -195,11 +746,13 @@
     <script>
         // ustawianie daty w modalu dodawania
         const assignModal = document.getElementById('assignModal');
-        assignModal.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            const date = button.getAttribute('data-date');
-            document.getElementById('modal-date').value = date;
-        });
+        if (assignModal) {
+            assignModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const date = button.getAttribute('data-date');
+                document.getElementById('modal-date').value = date;
+            });
+        }
 
         // ustawianie wartości w modalu edycji
         const editButtons = document.querySelectorAll('.edit-btn');
@@ -208,9 +761,9 @@
                 document.getElementById('edit-id').value = btn.dataset.id;
                 document.getElementById('edit-date').value = btn.dataset.date;
                 document.getElementById('edit-userId').value = btn.dataset.userid;
-                document.getElementById('edit-shiftType').value = btn.dataset.shifttype;
+                document.getElementById('edit-startTime').value = btn.dataset.starttime;
+                document.getElementById('edit-endTime').value = btn.dataset.endtime;
             });
         });
     </script>
 }
-

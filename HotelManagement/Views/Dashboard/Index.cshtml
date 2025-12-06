@@ -1,0 +1,373 @@
+﻿@using System.Globalization
+@model HotelManagement.ViewModels.DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+    var pl = new CultureInfo("pl-PL");
+    var bizDate = Model.BusinessDate; // DATA OPERACYJNA
+}
+
+@section Styles {
+    <style>
+        .dashboard-wrapper {
+            min-height: 100vh;
+            padding: 2rem 1.5rem 3rem;
+            background: radial-gradient(circle at top left, #0d6efd15, transparent 55%), radial-gradient(circle at bottom right, #20c99710, transparent 55%), #f5f7fb;
+        }
+
+        .dashboard-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .dashboard-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1f2933;
+        }
+
+        .dashboard-subtitle {
+            color: #6b7280;
+            margin-top: .25rem;
+            font-size: .9rem;
+        }
+
+        .dashboard-date-pill {
+            padding: .6rem 1.25rem;
+            border-radius: 999px;
+            background: #ffffff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+            font-size: .9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            color: #4b5563;
+        }
+
+            .dashboard-date-pill span:first-child {
+                display: inline-flex;
+                width: 26px;
+                height: 26px;
+                border-radius: 999px;
+                align-items: center;
+                justify-content: center;
+                font-size: .85rem;
+                font-weight: 600;
+                background: #0d6efd;
+                color: #fff;
+            }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .dashboard-card-link {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .dashboard-card {
+            position: relative;
+            height: 100%;
+            border-radius: 1.25rem;
+            padding: 1.2rem 1.25rem;
+            background: #ffffff;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: .65rem;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+            overflow: hidden;
+        }
+
+            .dashboard-card::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: radial-gradient(circle at top right, rgba(13, 110, 253, 0.09), transparent 65%);
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                pointer-events: none;
+            }
+
+            .dashboard-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+                border-color: rgba(59, 130, 246, 0.55);
+            }
+
+                .dashboard-card:hover::after {
+                    opacity: 1;
+                }
+
+        .dashboard-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+        }
+
+        .dashboard-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .dashboard-card-icon-primary {
+            background: linear-gradient(135deg, #0d6efd, #2563eb);
+            color: #fff;
+        }
+
+        .dashboard-card-icon-success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #fff;
+        }
+
+        .dashboard-card-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #111827;
+            margin: 0;
+        }
+
+        .dashboard-card-badge {
+            font-size: .72rem;
+            padding: .18rem .6rem;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.03);
+            color: #6b7280;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            white-space: nowrap;
+        }
+
+        .dashboard-card-desc {
+            font-size: .85rem;
+            color: #6b7280;
+            margin-bottom: .2rem;
+        }
+
+        .dashboard-card-footer {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: .8rem;
+            color: #4b5563;
+        }
+
+            .dashboard-card-footer span {
+                display: inline-flex;
+                align-items: center;
+                gap: .35rem;
+            }
+
+        .dashboard-stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: .6rem;
+            margin-top: .5rem;
+        }
+
+        .dashboard-stat {
+            padding: .5rem .6rem;
+            border-radius: .85rem;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.02), rgba(148, 163, 184, 0.05));
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: .1rem;
+        }
+
+        .dashboard-stat-label {
+            font-size: .72rem;
+            color: #6b7280;
+        }
+
+        .dashboard-stat-value {
+            font-weight: 700;
+            font-size: .98rem;
+            color: #111827;
+        }
+
+        .dashboard-mini-list {
+            list-style: none;
+            padding-left: 0;
+            margin: .5rem 0 .25rem;
+        }
+
+            .dashboard-mini-list li {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: .8rem;
+                color: #4b5563;
+                padding: .3rem .25rem;
+                border-radius: .6rem;
+            }
+
+                .dashboard-mini-list li:nth-child(odd) {
+                    background: rgba(15, 23, 42, 0.02);
+                }
+
+                .dashboard-mini-list li span:first-child {
+                    font-weight: 500;
+                }
+
+                .dashboard-mini-list li span:last-child {
+                    font-weight: 700;
+                }
+
+        @@media (max-width: 576px) {
+            .dashboard-wrapper {
+                padding: 1.5rem 1rem 2.5rem;
+            }
+
+            .dashboard-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+}
+
+<div class="dashboard-wrapper">
+    <div class="container-fluid px-0">
+        <div class="dashboard-header">
+            <div>
+                <div class="dashboard-title">
+                    Panel główny hotelu
+                </div>
+                <div class="dashboard-subtitle">
+                    Podsumowanie dnia operacyjnego: przyjazdy, pobyty, wyjazdy oraz plan śniadań.
+                </div>
+            </div>
+            <div>
+                <div class="dashboard-date-pill">
+                    <span>@bizDate.ToString("dd")</span>
+                    <div>
+                        <div style="font-weight:600; font-size:.8rem;">
+                            @bizDate.ToString("dddd", pl)
+                        </div>
+                        <div style="font-size:.8rem;">
+                            @bizDate.ToString("dd.MM.yyyy")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DWA KAFELKI: przyjazdy/pobyty/wyjazdy + śniadania -->
+        <div class="dashboard-grid">
+            <!-- Przyjazdy / pobyty / wyjazdy -->
+            <a asp-controller="Reports" asp-action="ArrivalsDepartures" class="dashboard-card-link">
+                <div class="dashboard-card">
+                    <div class="dashboard-card-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="dashboard-card-icon dashboard-card-icon-primary">
+                                📅
+                            </div>
+                            <div>
+                                <p class="dashboard-card-title mb-0">
+                                    Przyjazdy, pobyty, wyjazdy (dzień operacyjny)
+                                </p>
+                                <p class="mb-0 dashboard-card-desc">
+                                    Szybki podgląd obłożenia – kliknij, aby przejść do raportu przyjazdów/wyjazdów.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="dashboard-card-badge">
+                            Raport dzienny
+                        </span>
+                    </div>
+
+                    <div class="dashboard-stats-row">
+                        <div class="dashboard-stat">
+                            <span class="dashboard-stat-label">Przyjazdy</span>
+                            <span class="dashboard-stat-value">
+                                @Model.TodayArrivals
+                            </span>
+                        </div>
+                        <div class="dashboard-stat">
+                            <span class="dashboard-stat-label">Pobyty</span>
+                            <span class="dashboard-stat-value">
+                                @Model.TodayStays
+                            </span>
+                        </div>
+                        <div class="dashboard-stat">
+                            <span class="dashboard-stat-label">Wyjazdy</span>
+                            <span class="dashboard-stat-value">
+                                @Model.TodayDepartures
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card-footer mt-2">
+                        <span>Przejdź do raportu przyjazdów / wyjazdów</span>
+                        <span>→</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- Śniadania (7 dni do przodu) -->
+            <a asp-controller="Reports" asp-action="Breakfast" class="dashboard-card-link">
+                <div class="dashboard-card">
+                    <div class="dashboard-card-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="dashboard-card-icon dashboard-card-icon-success">
+                                🥐
+                            </div>
+                            <div>
+                                <p class="dashboard-card-title mb-0">
+                                    Śniadania (7 dni do przodu)
+                                </p>
+                                <p class="mb-0 dashboard-card-desc">
+                                    Ilość śniadań na dzień operacyjny i kolejne dni – kliknij, aby otworzyć raport.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="dashboard-card-badge">
+                            F&amp;B • Planowanie
+                        </span>
+                    </div>
+
+                    <ul class="dashboard-mini-list">
+                        @if (Model.BreakfastsNext7Days != null && Model.BreakfastsNext7Days.Any())
+                        {
+                            foreach (var item in Model.BreakfastsNext7Days)
+                            {
+                                <li>
+                                    <span>
+                                        @item.Date.ToString("ddd dd.MM", pl)
+                                    </span>
+                                    <span>@item.BreakfastCount</span>
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li>
+                                <span>Brak danych</span>
+                                <span>–</span>
+                            </li>
+                        }
+                    </ul>
+
+                    <div class="dashboard-card-footer">
+                        <span>Przejdź do raportu śniadań</span>
+                        <span>→</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>

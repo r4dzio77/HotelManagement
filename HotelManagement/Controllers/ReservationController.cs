@@ -1,4 +1,5 @@
-﻿using HotelManagement.Data;
+﻿using System.Linq;
+using HotelManagement.Data;
 using HotelManagement.Enums;
 using HotelManagement.Models;
 using HotelManagement.Services;
@@ -41,11 +42,76 @@ namespace HotelManagement.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateGuest(Guest guest)
+        public async Task<IActionResult> CreateGuest(
+            Guest guest,
+            string? CompanyName,
+            string? CompanyVatNumber,
+            string? CompanyAddress,
+            string? CompanyPostalCode,
+            string? CompanyCity,
+            string? CompanyCountry)
         {
             if (!ModelState.IsValid)
                 return View(guest);
 
+            // ====== OBSŁUGA FIRMY ======
+            Company? company = null;
+
+            // 1. Jeśli wybrano firmę z wyszukiwarki (CompanyId w modelu)
+            if (guest.CompanyId.HasValue)
+            {
+                company = await _context.Companies.FindAsync(guest.CompanyId.Value);
+            }
+
+            // 2. Jeśli nie ma firmy, ale wpisano dane – szukamy / tworzymy
+            bool hasAnyCompanyData =
+                !string.IsNullOrWhiteSpace(CompanyName) ||
+                !string.IsNullOrWhiteSpace(CompanyVatNumber) ||
+                !string.IsNullOrWhiteSpace(CompanyAddress) ||
+                !string.IsNullOrWhiteSpace(CompanyCity);
+
+            if (company == null && hasAnyCompanyData)
+            {
+                string? normalizedVat = null;
+
+                if (!string.IsNullOrWhiteSpace(CompanyVatNumber))
+                    normalizedVat = new string(CompanyVatNumber.Where(char.IsDigit).ToArray());
+
+                if (!string.IsNullOrWhiteSpace(normalizedVat))
+                {
+                    company = await _context.Companies
+                        .FirstOrDefaultAsync(c =>
+                            c.VatNumber != null &&
+                            new string(c.VatNumber.Where(char.IsDigit).ToArray()) == normalizedVat);
+                }
+
+                if (company == null && !string.IsNullOrWhiteSpace(CompanyName))
+                {
+                    var lowerName = CompanyName.Trim().ToLower();
+                    company = await _context.Companies
+                        .FirstOrDefaultAsync(c => c.Name.ToLower() == lowerName);
+                }
+
+                if (company == null)
+                {
+                    company = new Company
+                    {
+                        Name = CompanyName ?? string.Empty,
+                        VatNumber = CompanyVatNumber,
+                        Address = CompanyAddress,
+                        PostalCode = CompanyPostalCode,
+                        City = CompanyCity,
+                        Country = string.IsNullOrWhiteSpace(CompanyCountry) ? "Polska" : CompanyCountry
+                    };
+
+                    _context.Companies.Add(company);
+                    await _context.SaveChangesAsync();
+                }
+
+                guest.CompanyId = company.Id;
+            }
+
+            // ====== DANE GOŚCIA / LOJALNOŚĆ ======
             guest.LoyaltyCardNumber = null;
             guest.LoyaltyStatus = LoyaltyStatus.Classic;
             guest.TotalNights = 0;
@@ -133,7 +199,6 @@ namespace HotelManagement.Controllers
                 vm.SelectedServiceIds
             );
 
-            // ⬇⬇⬇ KLUCZOWE: zapisuj już zaokrąglone do 2 miejsc
             totalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
 
             var reservation = new Reservation
@@ -279,7 +344,6 @@ namespace HotelManagement.Controllers
                 vm.SelectedServiceIds
             );
 
-            // ⬇⬇⬇ KLUCZOWE: również przy edycji
             reservation.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
 
             reservation.ServicesUsed.Clear();
@@ -493,6 +557,57 @@ namespace HotelManagement.Controllers
             ViewBag.TodayDate = today.ToString("yyyy-MM-dd");
 
             return View();
+        }
+
+        // ====== WYSZUKIWANIE GOŚCI DLA WIDOKU CreateGuest ======
+
+        [HttpGet]
+        public async Task<IActionResult> SearchGuests(string term)
+        {
+            if (string.IsNullOrWhiteSpace(term))
+            {
+                return Json(new { results = new object[0] });
+            }
+
+            term = term.Trim();
+            var lower = term.ToLower();
+
+            var guests = await _context.Guests
+                .Where(g =>
+                    g.FirstName.ToLower().Contains(lower) ||
+                    g.LastName.ToLower().Contains(lower) ||
+                    g.Email.ToLower().Contains(lower) ||
+                    g.PhoneNumber.ToLower().Contains(lower))
+                .OrderBy(g => g.LastName)
+                .ThenBy(g => g.FirstName)
+                .Take(20)
+                .ToListAsync();
+
+            var results = guests.Select(g => new
+            {
+                id = g.Id,
+                name = $"{g.FirstName} {g.LastName}",
+                email = g.Email,
+                phone = g.PhoneNumber,
+                loyaltyStatus = g.LoyaltyStatus.ToString(),
+                loyaltyCardNumber = g.LoyaltyCardNumber
+            });
+
+            return Json(new { results });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SelectGuest(int id)
+        {
+            var guest = await _context.Guests.FindAsync(id);
+            if (guest == null)
+            {
+                TempData["Error"] = "Wybrany gość nie istnieje.";
+                return RedirectToAction(nameof(CreateGuest));
+            }
+
+            HttpContext.Session.SetInt32("GuestId", guest.Id);
+            return RedirectToAction(nameof(CreateReservation));
         }
 
         private async Task<Guest?> GetCurrentGuestAsync()

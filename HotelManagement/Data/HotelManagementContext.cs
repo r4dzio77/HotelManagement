@@ -26,7 +26,10 @@ namespace HotelManagement.Data
         public DbSet<Guest> Guests { get; set; }
         public DbSet<Company> Companies { get; set; }
 
-        // grafiki zmian
+        // nowe: grafiki pracy (wiele grafików na miesiąc)
+        public DbSet<WorkSchedule> WorkSchedules { get; set; }
+
+        // stary mechanizm publikacji (jeśli nadal gdzieś używasz)
         public DbSet<PublishedSchedule> PublishedSchedules { get; set; }
 
         // data operacyjna sterowana przez nocny audyt
@@ -99,6 +102,20 @@ namespace HotelManagement.Data
                 .HasForeignKey(ws => ws.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // WorkSchedule ↔ WorkShift (jeden grafik ma wiele zmian)
+            modelBuilder.Entity<WorkShift>()
+                .HasOne(ws => ws.WorkSchedule)
+                .WithMany(s => s.Shifts)
+                .HasForeignKey(ws => ws.WorkScheduleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // WorkSchedule ↔ ApplicationUser (CreatedBy – bez kolekcji po stronie usera)
+            modelBuilder.Entity<WorkSchedule>()
+                .HasOne(ws => ws.CreatedBy)
+                .WithMany()
+                .HasForeignKey(ws => ws.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // ApplicationUser ↔ ShiftPreference
             modelBuilder.Entity<ShiftPreference>()
                 .HasOne(sp => sp.User)
@@ -106,7 +123,7 @@ namespace HotelManagement.Data
                 .HasForeignKey(sp => sp.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // ApplicationUser ↔ LoyaltyPoint (zgodnie z modelem: tylko User)
+            // ApplicationUser ↔ LoyaltyPoint
             modelBuilder.Entity<LoyaltyPoint>()
                 .HasOne(lp => lp.User)
                 .WithMany(u => u.LoyaltyPoints)
@@ -117,8 +134,6 @@ namespace HotelManagement.Data
             // Opis stanu daty operacyjnej (BusinessDateState)
             modelBuilder.Entity<BusinessDateState>()
                 .HasKey(b => b.Id);
-
-           
         }
     }
 }

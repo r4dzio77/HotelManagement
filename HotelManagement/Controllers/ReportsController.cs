@@ -209,7 +209,7 @@ namespace HotelManagement.Controllers
             var report = rooms.Select(room =>
             {
                 var res = room.Reservations.FirstOrDefault(r =>
-                    r.Status == ReservationStatus.Confirmed &&
+                    (r.Status == ReservationStatus.Confirmed || r.Status == ReservationStatus.CheckedIn) &&
                     r.CheckIn.Date <= targetDate && r.CheckOut.Date >= targetDate);
 
                 string guest = res != null ? $"{res.Guest.FirstName} {res.Guest.LastName}" : "—";
@@ -256,7 +256,7 @@ namespace HotelManagement.Controllers
             var report = rooms.Select(room =>
             {
                 var res = room.Reservations.FirstOrDefault(r =>
-                    r.Status == ReservationStatus.Confirmed &&
+                    (r.Status == ReservationStatus.Confirmed || r.Status == ReservationStatus.CheckedIn) &&
                     r.CheckIn.Date <= targetDate && r.CheckOut.Date >= targetDate);
 
                 string guest = res != null ? $"{res.Guest.FirstName} {res.Guest.LastName}" : "—";
