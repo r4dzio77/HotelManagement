@@ -1,99 +1,429 @@
 ﻿@model IEnumerable<HotelManagement.Models.Reservation>
 @using HotelManagement.Enums
+@using HotelManagement.Models
+
+@{
+    var allRoomTypes = ViewBag.AllRoomTypes as List<RoomType> ?? new List<RoomType>();
+}
 
 @if (Model == null || !Model.Any())
 {
-    <p class="text-center my-4">Brak rezerwacji do wyświetlenia.</p>
+    <div class="text-center my-4 text-muted">
+        Brak rezerwacji do wyświetlenia.
+    </div>
 }
 else
 {
-    <table class="table table-hover table-bordered sortable mt-3">
-        <thead class="table-light">
-            <tr>
-                <th onclick="sortTable(this)">Gość</th>
-                <th onclick="sortTable(this)">Numer rezerwacji</th>
-                <th onclick="sortTable(this)">Pokój</th>
-                <th onclick="sortTable(this)">Typ pokoju</th>
-                <th onclick="sortTable(this)">Zameldowanie</th>
-                <th onclick="sortTable(this)">Wymeldowanie</th>
-                <th>Akcje</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var reservation in Model)
-            {
+    <div class="table-responsive mt-3">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
                 <tr>
-                    <td>@reservation.Guest.FirstName @reservation.Guest.LastName</td>
-                    <td>@reservation.Id</td>
-                    <td>@(reservation.Room != null ? reservation.Room.Number : "Brak")</td>
-                    <td>@(reservation.Room?.RoomType != null ? reservation.Room.RoomType.Name : "Brak")</td>
-                    <td>@reservation.CheckIn.ToShortDateString()</td>
-                    <td>@reservation.CheckOut.ToShortDateString()</td>
-                    <td>
-                        <div class="btn-group">
+                    <th scope="col" onclick="sortTable(this)" style="cursor:pointer;">Gość</th>
+                    <th scope="col" onclick="sortTable(this)" style="cursor:pointer;">Nr rezerwacji</th>
+                    <th scope="col" onclick="sortTable(this)" style="cursor:pointer;">Pokój</th>
+                    <th scope="col" onclick="sortTable(this)" style="cursor:pointer;">Typ pokoju</th>
+                    <th scope="col" onclick="sortTable(this)" style="cursor:pointer;">Zameldowanie</th>
+                    <th scope="col" onclick="sortTable(this)" style="cursor:pointer;">Wymeldowanie</th>
+                    <th scope="col" class="text-center">Akcje</th>
+                </tr>
+            </thead>
 
-                            <!-- Szczegóły -->
-                            <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#detailsModal-@reservation.Id">
-                                <i class="bi bi-info-circle"></i>
-                            </button>
+            <tbody>
+                @foreach (var reservation in Model)
+                {
+                    <tr>
+                        <!-- Gość -->
+                        <td>
+                            <div class="fw-semibold">
+                                @reservation.Guest.FirstName @reservation.Guest.LastName
+                            </div>
+                            <div class="small text-muted">
+                                @reservation.Guest.Email
+                            </div>
+                        </td>
 
-                            <!-- Edycja -->
-                            <a asp-action="Edit" asp-route-id="@reservation.Id" class="btn btn-sm btn-warning">Edytuj</a>
+                        <!-- Nr rezerwacji -->
+                        <td class="text-nowrap">
+                            <span class="badge bg-light text-body border">
+                                #@reservation.Id
+                            </span>
+                        </td>
 
-                            <!-- Check In -->
-                            @if (reservation.Status == ReservationStatus.Confirmed)
+                        <!-- Pokój -->
+                        <td>
+                            @if (reservation.Room != null)
                             {
-                                <form asp-action="CheckIn" method="post" asp-route-id="@reservation.Id" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-success">Check In</button>
-                                </form>
-                            }
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-semibold">@reservation.Room.Number</span>
 
-                            <!-- Check Out -->
-                            @if (reservation.Status == ReservationStatus.CheckedIn && reservation.CheckOut.Date == DateTime.Today)
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#assignRoomModal-@reservation.Id"
+                                            data-reservation-id="@reservation.Id"
+                                            data-current-room-id="@(reservation.RoomId?.ToString() ?? "")">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Zmień
+                                    </button>
+                                </div>
+                            }
+                            else
                             {
-                                <form asp-action="CheckOut" method="post" asp-route-id="@reservation.Id" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-danger">Check Out</button>
-                                </form>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-secondary-subtle text-secondary">Nieprzydzielony</span>
+
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#assignRoomModal-@reservation.Id"
+                                            data-reservation-id="@reservation.Id"
+                                            data-current-room-id="">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
                             }
+                        </td>
 
-                            <!-- Rozliczanie -->
-                            @if (reservation.Status == ReservationStatus.CheckedIn || reservation.Status == ReservationStatus.CheckedOut)
-                            {
-                                <a asp-controller="Settlement" asp-action="Settle" asp-route-reservationId="@reservation.Id" class="btn btn-sm btn-primary">Rozlicz</a>
-                            }
+                        <!-- Typ pokoju -->
+                        <td>@(reservation.RoomType?.Code?.ToUpper() ?? "Brak")</td>
 
-                        </div>
+                        <!-- Daty -->
+                        <td class="text-nowrap">@reservation.CheckIn.ToString("dd.MM.yyyy")</td>
+                        <td class="text-nowrap">@reservation.CheckOut.ToString("dd.MM.yyyy")</td>
 
+                        <!-- Akcje -->
+                        <td class="text-end">
+                            <div class="d-flex flex-wrap gap-1 justify-content-end">
 
-                        <!-- Modal szczegółów -->
-                        <div class="modal fade" id="detailsModal-@reservation.Id" tabindex="-1" aria-labelledby="detailsModalLabel-@reservation.Id" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-scrollable">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="detailsModalLabel-@reservation.Id">Szczegóły rezerwacji</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p><strong>Gość:</strong> @reservation.Guest.FirstName @reservation.Guest.LastName</p>
-                                        <p><strong>Pokój:</strong> @(reservation.Room != null ? reservation.Room.Number : "Nieprzydzielony")</p>
-                                        <p><strong>Typ pokoju:</strong> @(reservation.Room?.RoomType != null ? reservation.Room.RoomType.Name : "Nieznany")</p>
-                                        <p><strong>Daty:</strong> @reservation.CheckIn.ToShortDateString() – @reservation.CheckOut.ToShortDateString()</p>
-                                        <p><strong>Status:</strong> @reservation.Status</p>
-                                        <p><strong>Śniadanie:</strong> @(reservation.Breakfast ? "Tak" : "Nie")</p>
-                                        <p><strong>Parking:</strong> @(reservation.Parking ? "Tak" : "Nie")</p>
-                                        <p><strong>Dodatkowe łóżko:</strong> @(reservation.ExtraBed ? "Tak" : "Nie")</p>
-                                        <p><strong>Cena łączna:</strong> @reservation.TotalPrice zł</p>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+                                <!-- Szczegóły -->
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#detailsModal-@reservation.Id">
+                                    <i class="bi bi-info-circle me-1"></i>Szczegóły
+                                </button>
+
+                                <!-- Edycja -->
+                                <a asp-action="Edit"
+                                   asp-route-id="@reservation.Id"
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-pencil-square me-1"></i>Edytuj
+                                </a>
+
+                                <!-- Check In -->
+                                @if (reservation.Status == ReservationStatus.Confirmed)
+                                {
+                                    <form asp-action="CheckIn" method="post" asp-route-id="@reservation.Id" class="d-inline">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="bi bi-box-arrow-in-right me-1"></i>Check In
+                                        </button>
+                                    </form>
+                                }
+
+                                <!-- Check Out -->
+                                @if (reservation.Status == ReservationStatus.CheckedIn
+                                     && reservation.CheckOut.Date == DateTime.Today)
+                                {
+                                    <form asp-action="CheckOut" method="post" asp-route-id="@reservation.Id" class="d-inline">
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            <i class="bi bi-box-arrow-right me-1"></i>Check Out
+                                        </button>
+                                    </form>
+                                }
+
+                                <!-- Rozlicz -->
+                                @if (reservation.Status == ReservationStatus.CheckedIn
+                                     || reservation.Status == ReservationStatus.CheckedOut)
+                                {
+                                    <a asp-controller="Settlement"
+                                       asp-action="Settle"
+                                       asp-route-reservationId="@reservation.Id"
+                                       class="btn btn-outline-dark btn-sm">
+                                        <i class="bi bi-receipt me-1"></i>Rozlicz
+                                    </a>
+                                }
+                            </div>
+
+                            <!-- ============================ -->
+                            <!--     MODAL SZCZEGÓŁÓW         -->
+                            <!-- ============================ -->
+
+                            <div class="modal fade"
+                                 id="detailsModal-@reservation.Id"
+                                 tabindex="-1"
+                                 aria-hidden="true">
+
+                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                    <div class="modal-content shadow-sm border-0">
+
+                                        <div class="modal-header bg-light">
+                                            <h5 class="modal-title fw-semibold">
+                                                <i class="bi bi-receipt me-2"></i> Szczegóły rezerwacji #@reservation.Id
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+
+                                        <div class="modal-body">
+
+                                            <style>
+                                                .info-row {
+                                                    display: flex;
+                                                    justify-content: space-between;
+                                                    padding: .35rem 0;
+                                                    border-bottom: 1px dashed #e5e7eb;
+                                                }
+                                                .info-row:last-child { border-bottom: none; }
+                                                .info-label { font-weight: 600; color: #6b7280; }
+                                                .info-value { font-weight: 500; color: #111827; }
+                                                .section-title {
+                                                    font-weight: 700;
+                                                    margin-bottom: .5rem;
+                                                    color: #0d6efd;
+                                                    display: flex;
+                                                    align-items: center;
+                                                    gap: .5rem;
+                                                }
+                                            </style>
+
+                                            <!-- Dane gościa -->
+                                            <h6 class="section-title">
+                                                <i class="bi bi-person-circle"></i> Dane gościa
+                                            </h6>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Imię i nazwisko:</span>
+                                                <span class="info-value">@reservation.Guest.FirstName @reservation.Guest.LastName</span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Email:</span>
+                                                <span class="info-value">@reservation.Guest.Email</span>
+                                            </div>
+
+                                            <hr />
+
+                                            <!-- Informacje o pobycie -->
+                                            <h6 class="section-title">
+                                                <i class="bi bi-door-open"></i> Informacje o pobycie
+                                            </h6>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Pokój:</span>
+                                                <span class="info-value">@(reservation.Room?.Number ?? "Nieprzydzielony")</span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Typ pokoju:</span>
+                                                <span class="info-value">@reservation.RoomType?.Code?.ToUpper()</span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Status:</span>
+                                                <span class="info-value">@reservation.Status</span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Zameldowanie:</span>
+                                                <span class="info-value">@reservation.CheckIn.ToString("dd.MM.yyyy")</span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Wymeldowanie:</span>
+                                                <span class="info-value">@reservation.CheckOut.ToString("dd.MM.yyyy")</span>
+                                            </div>
+
+                                            <hr />
+
+                                            <!-- Usługi -->
+                                            <h6 class="section-title">
+                                                <i class="bi bi-bag-check"></i> Usługi dodatkowe
+                                            </h6>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Śniadanie:</span>
+                                                <span class="info-value">@((reservation.Breakfast ? "Tak" : "Nie"))</span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Parking:</span>
+                                                <span class="info-value">@((reservation.Parking ? "Tak" : "Nie"))</span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Dodatkowe łóżko:</span>
+                                                <span class="info-value">@((reservation.ExtraBed ? "Tak" : "Nie"))</span>
+                                            </div>
+
+                                            <hr />
+
+                                            <!-- ======================= -->
+                                            <!--        PŁATNOŚĆ         -->
+                                            <!-- ======================= -->
+
+                                            <h6 class="section-title">
+                                                <i class="bi bi-credit-card"></i> Płatność
+                                            </h6>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Opłacono online:</span>
+                                                <span class="info-value">
+                                                    @if (reservation.IsPaidOnline)
+                                                    {
+                                                        <span class="badge bg-success">Tak</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-danger">Nie</span>
+                                                    }
+                                                </span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Metoda płatności:</span>
+                                                <span class="info-value">
+                                                    @(string.IsNullOrWhiteSpace(reservation.PaymentMethod)
+                                                        ? "—"
+                                                        : reservation.PaymentMethod.ToUpper())
+                                                </span>
+                                            </div>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Status płatności:</span>
+                                                <span class="info-value">
+                                                    @(string.IsNullOrWhiteSpace(reservation.PaymentStatus)
+                                                        ? "—"
+                                                        : reservation.PaymentStatus)
+                                                </span>
+                                            </div>
+
+                                            <hr />
+
+                                            <!-- Cena -->
+                                            <h6 class="section-title">
+                                                <i class="bi bi-cash-stack"></i> Cena łączna
+                                            </h6>
+
+                                            <div class="info-row">
+                                                <span class="info-label">Kwota:</span>
+                                                <span class="info-value fw-bold">@reservation.TotalPrice.ToString("N2") zł</span>
+                                            </div>
+
+                                        </div>
+
+                                        <div class="modal-footer bg-light">
+                                            <button class="btn btn-secondary" data-bs-dismiss="modal">
+                                                <i class="bi bi-x-lg me-1"></i> Zamknij
+                                            </button>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                            <!-- ============================ -->
+                            <!--   MODAL PRZYDZIAŁU POKOJU   -->
+                            <!-- ============================ -->
+
+                            <div class="modal fade"
+                                 id="assignRoomModal-@reservation.Id"
+                                 tabindex="-1"
+                                 aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content shadow-sm border-0">
+
+                                        <div class="modal-header bg-light">
+                                            <h5 class="modal-title fw-semibold">
+                                                <i class="bi bi-door-open me-2"></i>
+                                                @(reservation.Room == null 
+                                                    ? $"Przydziel pokój do rezerwacji #{reservation.Id}"
+                                                    : $"Zmień pokój / typ pokoju dla rezerwacji #{reservation.Id}")
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+
+                                        <form asp-action="AssignRoom"
+                                              method="post"
+                                              class="assign-room-form"
+                                              data-reservation-id="@reservation.Id">
+                                            @Html.AntiForgeryToken()
+                                            <div class="modal-body">
+                                                <input type="hidden" name="id" value="@reservation.Id" />
+                                                <input type="hidden" name="updatePrice" id="updatePrice-@reservation.Id" value="false" />
+                                                <input type="hidden" name="originalRoomTypeId" value="@reservation.RoomTypeId" />
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Typ pokoju</label>
+                                                    <select class="form-select roomtype-select"
+                                                            name="roomTypeId"
+                                                            id="roomTypeSelect-@reservation.Id"
+                                                            data-reservation-id="@reservation.Id"
+                                                            data-check-in="@reservation.CheckIn.ToString("yyyy-MM-dd")"
+                                                            data-check-out="@reservation.CheckOut.ToString("yyyy-MM-dd")">
+                                                        @foreach (var rt in allRoomTypes)
+                                                        {
+                                                            <option value="@rt.Id" selected="@(rt.Id == reservation.RoomTypeId)">
+                                                                @rt.Name (@rt.Code)
+                                                            </option>
+
+                                                        }
+                                                    </select>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Pokój</label>
+                                                    <select class="form-select room-select"
+                                                            id="roomSelect-@reservation.Id"
+                                                            name="roomId">
+                                                    </select>
+                                                </div>
+
+                                                <div class="alert alert-info small">
+                                                    Jeśli zmienisz typ pokoju, przy zapisie zapytamy,
+                                                    czy chcesz przeliczyć cenę według nowego typu.
+                                                </div>
+                                            </div>
+
+                                            <div class="modal-footer bg-light">
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="bi bi-save me-1"></i>Zapisz
+                                                </button>
+                                            </div>
+
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function sortTable(header) {
+            const table = header.closest("table");
+            const tbody = table.querySelector("tbody");
+            const index = [...header.parentElement.children].indexOf(header);
+            const rows = [...tbody.querySelectorAll("tr")];
+            const asc = !header.classList.contains("asc");
+
+            rows.sort((a, b) => {
+                let aText = a.children[index].innerText.trim();
+                let bText = b.children[index].innerText.trim();
+                return asc
+                    ? aText.localeCompare(bText, undefined, { numeric: true })
+                    : bText.localeCompare(aText, undefined, { numeric: true });
+            });
+
+            header.parentElement.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
+            header.classList.toggle("asc", asc);
+            header.classList.toggle("desc", !asc);
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    </script>
 }

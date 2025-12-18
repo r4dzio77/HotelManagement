@@ -1,62 +1,345 @@
 ﻿@model HotelManagement.Controllers.ReportsController.BreakfastReportViewModel
+@using System.Linq
+
 @{
     ViewData["Title"] = "Raport śniadań";
+    Layout = "_Layout";
+
+    var day = Model.Date.Date;
+    var rows = Model.Rows ?? new List<HotelManagement.Controllers.ReportsController.BreakfastRow>();
+    var total = Model.TotalBreakfasts;
 }
 
-<div class="container mt-3">
-    <h2>Raport śniadań — @Model.Date.ToString("yyyy-MM-dd")</h2>
+<style>
+    .breakfast-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
 
-    <form method="get" class="row g-2 my-3">
-        <div class="col-auto">
-            <input type="date" class="form-control" name="date" value="@Model.Date.ToString("yyyy-MM-dd")" />
+    .breakfast-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .breakfast-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .breakfast-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(254, 202, 202, 0.9);
+        color: #b91c1c;
+    }
+
+        .breakfast-pill i {
+            font-size: .9rem;
+        }
+
+    .breakfast-heading {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .breakfast-heading i {
+            font-size: 1.4rem;
+            color: #b91c1c;
+        }
+
+    .breakfast-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .breakfast-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .breakfast-meta-badge {
+        border-radius: 999px;
+        padding: .2rem .7rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #fef2f2;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .breakfast-summary-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        font-size: .8rem;
+    }
+
+    .breakfast-summary-pill {
+        border-radius: .7rem;
+        padding: .25rem .65rem;
+        background: #f9fafb;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .breakfast-filters-card {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        padding: .9rem 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
+    .breakfast-filters-left {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .6rem;
+        font-size: .8rem;
+    }
+
+    .breakfast-filters-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .breakfast-filters-form .form-control {
+        font-size: .8rem;
+        border-radius: .55rem;
+        height: 32px;
+        padding-inline: .5rem;
+    }
+
+    .breakfast-filters-form .btn {
+        font-size: .8rem;
+        border-radius: .7rem;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding-inline: .8rem;
+    }
+
+    .breakfast-table-wrapper {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .breakfast-table-caption {
+        padding: .6rem .95rem .4rem;
+        font-size: .78rem;
+        color: #6b7280;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+
+    .table-breakfast {
+        font-size: .85rem;
+        margin-bottom: 0;
+    }
+
+        .table-breakfast thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .table-breakfast tbody td {
+            vertical-align: middle;
+            padding-top: .55rem;
+            padding-bottom: .55rem;
+        }
+
+    @@media (max-width: 992px) {
+        .breakfast-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .breakfast-meta {
+            align-items: flex-start;
+        }
+
+        .breakfast-filters-card {
+            align-items: flex-start;
+        }
+
+        .breakfast-filters-left,
+        .breakfast-filters-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .breakfast-filters-left,
+        .breakfast-filters-right {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .breakfast-heading {
+            font-size: 1.05rem;
+        }
+
+        .table-breakfast {
+            font-size: .8rem;
+        }
+    }
+</style>
+
+<div class="breakfast-page">
+    <!-- HEADER -->
+    <div class="breakfast-header">
+        <div class="breakfast-title-wrap">
+            <span class="breakfast-pill">
+                <i class="bi bi-egg-fried"></i>
+                Raport gastronomii
+            </span>
+            <h2 class="breakfast-heading">
+                <i class="bi bi-cup-hot"></i>
+                <span>Raport śniadań</span>
+            </h2>
+            <p class="breakfast-subtitle">
+                Lista pokoi z wykupionymi śniadaniami na dzień
+                <strong>@day.ToString("dd.MM.yyyy")</strong>.
+            </p>
         </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-primary">Pokaż</button>
+
+        <div class="breakfast-meta">
+            <div class="breakfast-meta-badge">
+                <i class="bi bi-calendar-event"></i>
+                Dzień raportu:
+                <strong>@day.ToString("dd.MM.yyyy")</strong>
+            </div>
+            <div>
+                <i class="bi bi-clock-history me-1"></i>
+                Wygenerowano:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
         </div>
-    </form>
-
-    <form method="post" asp-action="ExportBreakfastReport" class="mb-3">
-        @Html.AntiForgeryToken()
-        <input type="hidden" name="date" value="@Model.Date.ToString("yyyy-MM-dd")" />
-        <button type="submit" class="btn btn-outline-secondary">Eksportuj do PDF</button>
-    </form>
-
-    <div class="alert alert-info">
-        <strong>Łącznie śniadań:</strong> @Model.TotalBreakfasts
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-striped align-middle">
-            <thead>
-                <tr>
-                    <th style="width:60px;">#</th>
-                    <th>Pokój</th>
-                    <th>Gość</th>
-                    <th class="text-end">Ilość</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.Rows.Count == 0)
-                {
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">Brak śniadań w tym dniu.</td>
-                    </tr>
-                }
-                else
-                {
-                    var idx = 1;
-                    foreach (var row in Model.Rows)
-                    {
+    <!-- FILTRY + PDF -->
+    <div class="breakfast-filters-card">
+        <div class="breakfast-filters-left breakfast-filters-form">
+            <form method="get"
+                  asp-action="BreakfastReport"
+                  class="d-flex flex-wrap align-items-center gap-2 mb-0">
+                <div class="d-flex align-items-center gap-1">
+                    <label for="date" class="small text-muted mb-0">Data:</label>
+                    <input type="date"
+                           id="date"
+                           name="date"
+                           value="@day.ToString("yyyy-MM-dd")"
+                           class="form-control form-control-sm" />
+                </div>
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-search"></i>
+                    Pokaż
+                </button>
+            </form>
+        </div>
+
+        <div class="breakfast-filters-right">
+            <div class="breakfast-summary-row">
+                <div class="breakfast-summary-pill">
+                    <i class="bi bi-people"></i>
+                    <span>Pokoje: <strong>@rows.Count()</strong></span>
+                </div>
+                <div class="breakfast-summary-pill">
+                    <i class="bi bi-egg-fried"></i>
+                    <span>Śniadania: <strong>@total</strong></span>
+                </div>
+            </div>
+
+            <form method="post"
+                  asp-action="ExportBreakfastReport"
+                  class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="date" value="@day.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-filetype-pdf me-1"></i>
+                    Eksportuj do PDF
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABELA -->
+    @if (!rows.Any())
+    {
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            Brak śniadań w tym dniu.
+        </div>
+    }
+    else
+    {
+        <div class="breakfast-table-wrapper">
+            <div class="breakfast-table-caption">
+                <i class="bi bi-list-ul me-1"></i>
+                Lista śniadań – @rows.Count() pokoi, @total śniadań.
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-breakfast align-middle text-center">
+                    <thead class="table-light">
                         <tr>
-                            <td>@idx</td>
-                            <td>@row.RoomNumber</td>
-                            <td>@row.GuestName</td>
-                            <td class="text-end">@row.Quantity</td>
+                            <th>#</th>
+                            <th>Pokój</th>
+                            <th>Gość</th>
+                            <th>Ilość</th>
                         </tr>
-                        idx++;
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
+                    </thead>
+                    <tbody>
+                        @{
+                            int i = 1;
+                            foreach (var r in rows)
+                            {
+                                <tr>
+                                    <td>@i++</td>
+                                    <td>@r.RoomNumber</td>
+                                    <td class="text-start">@r.GuestName</td>
+                                    <td>@r.Quantity</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 </div>

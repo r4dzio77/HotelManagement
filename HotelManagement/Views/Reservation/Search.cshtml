@@ -1,62 +1,620 @@
 ﻿@model IEnumerable<HotelManagement.Models.Reservation>
-
-<h2>Wyszukaj rezerwacje</h2>
-
-<form method="get" asp-action="Search" class="form-inline mb-3">
-    <input type="text" name="reservationNumber" placeholder="Nr rezerwacji" value="@ViewBag.ReservationNumber" class="form-control mr-2" />
-    <input type="text" name="firstName" placeholder="Imię" value="@ViewBag.FirstName" class="form-control mr-2" />
-    <input type="text" name="lastName" placeholder="Nazwisko" value="@ViewBag.LastName" class="form-control mr-2" />
-    <input type="date" name="fromDate" value="@ViewBag.FromDate" class="form-control mr-2" />
-    <input type="date" name="toDate" value="@ViewBag.ToDate" class="form-control mr-2" />
-    <button type="submit" class="btn btn-primary mr-2">Szukaj</button>
-    <a asp-action="Search" class="btn btn-secondary">Reset</a>
-</form>
+@using HotelManagement.Models
+@using System.Linq
 
 @{
-    bool hasFilter = !string.IsNullOrEmpty((string)ViewBag.ReservationNumber)
-                     || !string.IsNullOrEmpty((string)ViewBag.FirstName)
-                     || !string.IsNullOrEmpty((string)ViewBag.LastName)
-                     || !string.IsNullOrEmpty((string)ViewBag.FromDate)
-                     || !string.IsNullOrEmpty((string)ViewBag.ToDate);
+    ViewData["Title"] = "Wyszukaj rezerwacje / gości / rachunki";
+
+    var reservations = Model ?? Enumerable.Empty<Reservation>();
+
+    // Filtry rezerwacji
+    string reservationNumber = ViewBag.ReservationNumber as string ?? "";
+    string firstName = ViewBag.FirstName as string ?? "";
+    string lastName = ViewBag.LastName as string ?? "";
+    string fromDate = ViewBag.FromDate as string ?? "";
+    string toDate = ViewBag.ToDate as string ?? "";
+
+    bool hasReservationFilter =
+        !string.IsNullOrWhiteSpace(reservationNumber) ||
+        !string.IsNullOrWhiteSpace(firstName) ||
+        !string.IsNullOrWhiteSpace(lastName) ||
+        !string.IsNullOrWhiteSpace(fromDate) ||
+        !string.IsNullOrWhiteSpace(toDate);
+
+    // Wyniki gości (z ViewBag, jeśli kontroler coś tam wrzuci)
+    var guestResults = ViewBag.GuestResults as IEnumerable<Guest> ?? Enumerable.Empty<Guest>();
+    string guestQuery = ViewBag.GuestQuery as string ?? "";
+    bool hasGuestFilter = !string.IsNullOrWhiteSpace(guestQuery);
+
+    // Wyniki dokumentów / rachunków
+    var documentResults = ViewBag.DocumentResults as IEnumerable<Document> ?? Enumerable.Empty<Document>();
+    string docNumber = ViewBag.DocumentNumber as string ?? "";
+    string docFromDate = ViewBag.DocumentFromDate as string ?? "";
+    string docToDate = ViewBag.DocumentToDate as string ?? "";
+    bool hasDocumentFilter =
+        !string.IsNullOrWhiteSpace(docNumber) ||
+        !string.IsNullOrWhiteSpace(docFromDate) ||
+        !string.IsNullOrWhiteSpace(docToDate);
 }
 
-@if (!hasFilter)
-{
-    <p>Proszę podać kryteria wyszukiwania.</p>
-}
-else if (!Model.Any())
-{
-    <p>Brak wyników dla podanych kryteriów.</p>
-}
-else
-{
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Id</th>
-                <th>Gość</th>
-                <th>Pokój</th>
-                <th>Typ pokoju</th>
-                <th>Data zameldowania</th>
-                <th>Data wymeldowania</th>
-                <th>Status</th>
-                <th>Cena całkowita</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var reservation in Model)
+<style>
+    .search-page {
+        margin-top: 1.5rem;
+        margin-bottom: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.4rem;
+    }
+
+    .search-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .search-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .4rem;
+    }
+
+    .search-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(191, 219, 254, 0.9);
+        color: #1d4ed8;
+    }
+
+        .search-pill i {
+            font-size: .9rem;
+        }
+
+    .search-heading {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .search-heading i {
+            font-size: 1.5rem;
+            color: #1d4ed8;
+        }
+
+    .search-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+        max-width: 620px;
+    }
+
+    .search-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .search-meta-badge {
+        border-radius: 999px;
+        padding: .25rem .75rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .search-section {
+        border-radius: 1rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1);
+        overflow: hidden;
+    }
+
+    .search-section-header {
+        padding: .7rem .95rem;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .75rem;
+    }
+
+        .search-section-header h5 {
+            margin: 0;
+            font-size: .98rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+    .search-section-body {
+        padding: .8rem .95rem .95rem;
+    }
+
+    .search-filters-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .6rem;
+        align-items: center;
+        margin-bottom: .8rem;
+    }
+
+        .search-filters-row .form-control,
+        .search-filters-row .form-select {
+            font-size: .8rem;
+            border-radius: .55rem;
+            height: 34px;
+            padding-inline: .6rem;
+        }
+
+        .search-filters-row .btn {
+            font-size: .8rem;
+            border-radius: .7rem;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            padding-inline: .8rem;
+        }
+
+    .search-table-caption {
+        font-size: .78rem;
+        color: #6b7280;
+        margin-bottom: .45rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .search-table-wrapper {
+        border-radius: .75rem;
+        border: 1px solid rgba(229, 231, 235, 0.9);
+        overflow: hidden;
+    }
+
+    .search-table {
+        font-size: .85rem;
+        margin-bottom: 0;
+    }
+
+        .search-table thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .search-table tbody td {
+            vertical-align: middle;
+            padding-top: .5rem;
+            padding-bottom: .5rem;
+        }
+
+    .search-badge-soft {
+        border-radius: 999px;
+        padding: .15rem .55rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #f9fafb;
+        font-size: .78rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+    }
+
+    .reservation-status-badge {
+        border-radius: 999px;
+        padding: .15rem .6rem;
+        font-size: .75rem;
+    }
+
+    .reservation-status-badge-Confirmed {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .reservation-status-badge-CheckedIn {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .reservation-status-badge-CheckedOut {
+        background-color: #f3f4f6;
+        color: #4b5563;
+    }
+
+    .reservation-status-badge-NoShow {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+
+    @@media (max-width: 992px) {
+        .search-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .search-meta {
+            align-items: flex-start;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .search-heading {
+            font-size: 1.1rem;
+        }
+    }
+</style>
+
+<div class="container search-page">
+
+    <!-- HEADER -->
+    <div class="search-header">
+        <div class="search-title-wrap">
+            <span class="search-pill">
+                <i class="bi bi-search"></i>
+                Wyszukiwarka
+            </span>
+            <h2 class="search-heading">
+                <i class="bi bi-people"></i>
+                <span>Rezerwacje, goście i rachunki</span>
+            </h2>
+            <p class="search-subtitle">
+                Wyszukaj rezerwację po numerze, gościa po danych osobowych lub dokument sprzedaży.
+                Wszystko w jednym miejscu, w widoku zgodnym z modułem raportów.
+            </p>
+        </div>
+
+        <div class="search-meta">
+            <div class="search-meta-badge">
+                <i class="bi bi-info-circle"></i>
+                Wyszukiwanie w danych operacyjnych systemu.
+            </div>
+        </div>
+    </div>
+
+    <!-- SEKCJA 1: REZERWACJE -->
+    <div class="search-section">
+        <div class="search-section-header">
+            <h5>
+                <i class="bi bi-house-door"></i>
+                Wyszukiwanie rezerwacji
+            </h5>
+            <span class="text-muted small">
+                Filtruj po numerze, gościu i dacie pobytu
+            </span>
+        </div>
+        <div class="search-section-body">
+            <form method="get" asp-action="Search" class="mb-2">
+                <input type="hidden" name="searchType" value="reservation" />
+                <div class="search-filters-row">
+                    <input type="text"
+                           name="reservationNumber"
+                           placeholder="Nr rezerwacji"
+                           value="@reservationNumber"
+                           class="form-control" />
+
+                    <input type="text"
+                           name="firstName"
+                           placeholder="Imię gościa"
+                           value="@firstName"
+                           class="form-control" />
+
+                    <input type="text"
+                           name="lastName"
+                           placeholder="Nazwisko gościa"
+                           value="@lastName"
+                           class="form-control" />
+
+                    <input type="date"
+                           name="fromDate"
+                           value="@fromDate"
+                           class="form-control" />
+
+                    <input type="date"
+                           name="toDate"
+                           value="@toDate"
+                           class="form-control" />
+
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-search"></i>
+                        Szukaj
+                    </button>
+
+                    <a asp-action="Search" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i>
+                        Reset
+                    </a>
+                </div>
+            </form>
+
+            @if (!hasReservationFilter)
             {
-                <tr>
-                    <td>@reservation.Id</td>
-                    <td>@reservation.Guest.FirstName @reservation.Guest.LastName</td>
-                    <td>@(reservation.Room != null ? reservation.Room.Number : "Brak pokoju")</td>
-                    <td>@reservation.RoomType.Name</td>
-                    <td>@reservation.CheckIn.ToShortDateString()</td>
-                    <td>@reservation.CheckOut.ToShortDateString()</td>
-                    <td>@reservation.Status</td>
-                    <td>@reservation.TotalPrice.ToString("C")</td>
-                </tr>
+                <div class="text-muted small">
+                    Wprowadź kryteria i kliknij „Szukaj”, aby wyświetlić rezerwacje.
+                </div>
             }
-        </tbody>
-    </table>
-}
+            else if (!reservations.Any())
+            {
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Brak rezerwacji spełniających podane kryteria.
+                </div>
+            }
+            else
+            {
+                <div class="search-table-caption">
+                    <span>
+                        <i class="bi bi-list-ul me-1"></i>
+                        Znalezione rezerwacje: <strong>@reservations.Count()</strong>
+                    </span>
+                </div>
+                <div class="table-responsive search-table-wrapper">
+                    <table class="table table-hover align-middle text-center search-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nr</th>
+                                <th>Gość</th>
+                                <th>Pokój</th>
+                                <th>Typ pokoju</th>
+                                <th>Check-in</th>
+                                <th>Check-out</th>
+                                <th>Status</th>
+                                <th>Cena całkowita</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in reservations)
+                            {
+                                var statusClass = $"reservation-status-badge reservation-status-badge-{r.Status}";
+                                <tr>
+                                    <td>@r.Id</td>
+                                    <td class="text-start">
+                                        <strong>@r.Guest.FirstName @r.Guest.LastName</strong>
+                                        <div class="text-muted small">
+                                            @if (!string.IsNullOrWhiteSpace(r.Guest.Email))
+                                            {
+                                                <span>
+                                                    <i class="bi bi-envelope me-1"></i>@r.Guest.Email
+                                                </span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(r.Guest.Email) && !string.IsNullOrWhiteSpace(r.Guest.PhoneNumber))
+                                            {
+                                                <span class="mx-1">·</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(r.Guest.PhoneNumber))
+                                            {
+                                                <span>
+                                                    <i class="bi bi-telephone me-1"></i>@r.Guest.PhoneNumber
+                                                </span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (r.Room != null && !string.IsNullOrWhiteSpace(r.Room.Number))
+                                        {
+                                            <span class="search-badge-soft">
+                                                <i class="bi bi-door-closed"></i>
+                                                Pokój @r.Room.Number
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-muted border">
+                                                <i class="bi bi-door-closed me-1"></i>Brak przydziału
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>@(r.RoomType?.Name ?? "-")</td>
+                                    <td>@r.CheckIn.ToString("dd.MM.yyyy")</td>
+                                    <td>@r.CheckOut.ToString("dd.MM.yyyy")</td>
+                                    <td>
+                                        <span class="@statusClass">
+                                            @r.Status
+                                        </span>
+                                    </td>
+                                    <td>@r.TotalPrice.ToString("0.00") zł</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- SEKCJA 2: GOŚCIE -->
+    <div class="search-section">
+        <div class="search-section-header">
+            <h5>
+                <i class="bi bi-person-lines-fill"></i>
+                Wyszukiwanie gości
+            </h5>
+            <span class="text-muted small">
+                Imię, nazwisko, e-mail lub telefon
+            </span>
+        </div>
+        <div class="search-section-body">
+            <form method="get" asp-action="Search" class="mb-2">
+                <input type="hidden" name="searchType" value="guest" />
+                <div class="search-filters-row">
+                    <input type="text"
+                           name="guestQuery"
+                           placeholder="Imię / nazwisko / e-mail / telefon"
+                           value="@guestQuery"
+                           class="form-control" />
+
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-search"></i>
+                        Szukaj
+                    </button>
+                </div>
+            </form>
+
+            @if (!hasGuestFilter)
+            {
+                <div class="text-muted small">
+                    Podaj fragment imienia, nazwiska, adresu e-mail lub numeru telefonu gościa.
+                </div>
+            }
+            else if (!guestResults.Any())
+            {
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Nie znaleziono gości pasujących do podanego zapytania.
+                </div>
+            }
+            else
+            {
+                <div class="search-table-caption">
+                    <span>
+                        <i class="bi bi-people me-1"></i>
+                        Znalezieni goście: <strong>@guestResults.Count()</strong>
+                    </span>
+                </div>
+                <div class="table-responsive search-table-wrapper">
+                    <table class="table table-hover align-middle search-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Gość</th>
+                                <th>E-mail</th>
+                                <th>Telefon</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var g in guestResults)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@g.FirstName @g.LastName</strong>
+                                    </td>
+                                    <td>@(string.IsNullOrWhiteSpace(g.Email) ? "—" : g.Email)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(g.PhoneNumber) ? "—" : g.PhoneNumber)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- SEKCJA 3: RACHUNKI / DOKUMENTY -->
+    <div class="search-section">
+        <div class="search-section-header">
+            <h5>
+                <i class="bi bi-receipt"></i>
+                Wyszukiwanie rachunków / dokumentów
+            </h5>
+            <span class="text-muted small">
+                Numer dokumentu i/lub zakres dat
+            </span>
+        </div>
+        <div class="search-section-body">
+            <form method="get" asp-action="Search" class="mb-2">
+                <input type="hidden" name="searchType" value="document" />
+                <div class="search-filters-row">
+                    <input type="text"
+                           name="documentNumber"
+                           placeholder="Nr dokumentu (np. FV/2025/001)"
+                           value="@docNumber"
+                           class="form-control" />
+
+                    <input type="date"
+                           name="documentFromDate"
+                           value="@docFromDate"
+                           class="form-control" />
+
+                    <input type="date"
+                           name="documentToDate"
+                           value="@docToDate"
+                           class="form-control" />
+
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-search"></i>
+                        Szukaj
+                    </button>
+                </div>
+            </form>
+
+            @if (!hasDocumentFilter)
+            {
+                <div class="text-muted small">
+                    Podaj numer dokumentu lub wybierz zakres dat wystawienia.
+                </div>
+            }
+            else if (!documentResults.Any())
+            {
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Brak dokumentów spełniających podane kryteria.
+                </div>
+            }
+            else
+            {
+                <div class="search-table-caption">
+                    <span>
+                        <i class="bi bi-receipt-cutoff me-1"></i>
+                        Znalezione dokumenty: <strong>@documentResults.Count()</strong>
+                    </span>
+                </div>
+                <div class="table-responsive search-table-wrapper">
+                    <table class="table table-hover align-middle search-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nr dokumentu</th>
+                                <th>Typ</th>
+                                <th>Data</th>
+                                <th>Gość / nabywca</th>
+                                <th>Kwota</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in documentResults)
+                            {
+                                string buyer;
+                                if (!string.IsNullOrWhiteSpace(d.BuyerName))
+                                {
+                                    buyer = d.BuyerName;
+                                }
+                                else if (d.Reservation?.Guest != null)
+                                {
+                                    buyer = $"{d.Reservation.Guest.FirstName} {d.Reservation.Guest.LastName}";
+                                }
+                                else
+                                {
+                                    buyer = "—";
+                                }
+
+                                <tr>
+                                    <td>@d.Number</td>
+                                    <td>@d.Type</td>
+                                    <td>@d.IssueDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@buyer</td>
+                                    <td>@d.TotalAmount.ToString("0.00") zł</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -128,26 +128,27 @@
             background: #f9fafb;
         }
 
+        /* 🔴 Kolory statusów */
         .room-box.blocked {
-            background: linear-gradient(135deg, #0d6efd, #0b5ed7);
-            color: #ffffff;
+            background: linear-gradient(135deg, #4b5563, #1f2937); /* ciemnoszary */
+            color: #f9fafb;
             border-color: transparent;
         }
 
         .room-box.arrival {
-            background: linear-gradient(135deg, #ffe08a, #ffcd39);
-            color: #3a3a3a;
+            background: linear-gradient(135deg, #f97316, #ea580c); /* pomarańczowy */
+            color: #ffffff;
             border-color: transparent;
         }
 
         .room-box.stay {
-            background: linear-gradient(135deg, #22c55e, #16a34a);
+            background: linear-gradient(135deg, #22c55e, #16a34a); /* zielony */
             color: #ffffff;
             border-color: transparent;
         }
 
         .room-box.departure {
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            background: linear-gradient(135deg, #dc2626, #b91c1c); /* czerwony */
             color: #ffffff;
             border-color: transparent;
         }
@@ -179,12 +180,32 @@
         white-space: nowrap;
     }
 
+    /* Dopasowanie pill do tła */
+    .room-box.blocked .room-status-pill {
+        background-color: rgba(17, 24, 39, 0.85);
+        color: #f9fafb;
+    }
+
+    .room-box.stay .room-status-pill {
+        background-color: rgba(21, 128, 61, 0.85);
+        color: #f9fafb;
+    }
+
+    .room-box.arrival .room-status-pill {
+        background-color: rgba(194, 65, 12, 0.85);
+        color: #fff7ed;
+    }
+
+    .room-box.departure .room-status-pill {
+        background-color: rgba(153, 27, 27, 0.85);
+        color: #fee2e2;
+    }
+
     .room-meta {
         font-size: 0.75rem;
         opacity: 0.9;
     }
 
-    /* 🔧 Ikona sprzątania – dół po prawej, daleko od numeru i badge */
     .broom-icon {
         position: absolute;
         bottom: 8px;
@@ -241,7 +262,7 @@
         <span class="legend-badge bg-success-subtle text-success-emphasis">• Pobyt</span>
         <span class="legend-badge bg-warning-subtle text-warning-emphasis">• Przyjazd</span>
         <span class="legend-badge bg-danger-subtle text-danger-emphasis">• Wyjazd</span>
-        <span class="legend-badge bg-primary-subtle text-primary-emphasis">• Zablokowany</span>
+        <span class="legend-badge bg-dark text-light">• Zablokowany (dzisiaj)</span>
         <span class="legend-badge bg-light text-muted border">• Wolny</span>
         <span class="legend-badge bg-secondary-subtle text-secondary-emphasis">🧹 • Do sprzątania</span>
     </div>
@@ -313,7 +334,13 @@
                         <div class="floor-plan-row">
                             @foreach (var room in leftSideRooms)
                             {
-                                var cssClass = room.IsBlocked ? "blocked" :
+                                var isBlockedToday = room.IsBlocked
+                                && room.BlockFrom.HasValue
+                                && room.BlockTo.HasValue
+                                && room.BlockFrom.Value.Date <= businessDate.Date
+                                && room.BlockTo.Value.Date >= businessDate.Date;
+
+                                var cssClass = isBlockedToday ? "blocked" :
                                 room.Tag == "pobyt" ? "stay" :
                                 room.Tag == "przyjazd" ? "arrival" :
                                 room.Tag == "wyjazd" ? "departure" :
@@ -334,9 +361,9 @@
                                         </div>
 
                                         <span class="room-status-pill">
-                                            @if (room.IsBlocked)
+                                            @if (isBlockedToday)
                                             {
-                                                @:Zablokowany
+                                                @:Zablokowany (dzisiaj)
                                             }
                                             else if (room.Tag == "pobyt")
                                             {
@@ -362,6 +389,25 @@
                                             <i class="bi bi-people me-1"></i>
                                             Max @room.Capacity os.
                                         </div>
+
+                                        @* Zakres + powód blokady (jeśli istnieje) *@
+                                        @if (room.IsBlocked && room.BlockFrom.HasValue && room.BlockTo.HasValue)
+                                        {
+                                            <div>
+                                                <i class="bi bi-calendar-x me-1"></i>
+                                                Blokada:
+                                                @room.BlockFrom.Value.ToString("dd.MM.yyyy")
+                                                –
+                                                @room.BlockTo.Value.ToString("dd.MM.yyyy")
+                                                @if (!string.IsNullOrWhiteSpace(room.BlockReason))
+                                                {
+                                                    <span>
+                                                        (Powód: @room.BlockReason)
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+
                                         @if (!string.IsNullOrWhiteSpace(room.Description))
                                         {
                                             <div class="text-truncate">
@@ -381,14 +427,19 @@
 
                                         @if (!room.IsBlocked && room.Tag != "pobyt")
                                         {
-                                            <form asp-action="Block" asp-route-id="@room.Id" method="post">
-                                                <input type="submit" class="btn btn-sm btn-outline-danger" value="Zablokuj" />
-                                            </form>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#blockRoomModal"
+                                                    data-room-id="@room.Id"
+                                                    data-room-number="@room.Number">
+                                                Zablokuj
+                                            </button>
                                         }
                                         else if (room.IsBlocked)
                                         {
                                             <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
-                                                <input type="submit" class="btn btn-sm btn-outline-primary" value="Odblokuj" />
+                                                <input type="submit" class="btn btn-sm btn-outline-light border-light" value="Odblokuj" />
                                             </form>
                                         }
                                     </div>
@@ -405,7 +456,13 @@
                         <div class="floor-plan-row">
                             @foreach (var room in rightSideRooms)
                             {
-                                var cssClass = room.IsBlocked ? "blocked" :
+                                var isBlockedToday = room.IsBlocked
+                                && room.BlockFrom.HasValue
+                                && room.BlockTo.HasValue
+                                && room.BlockFrom.Value.Date <= businessDate.Date
+                                && room.BlockTo.Value.Date >= businessDate.Date;
+
+                                var cssClass = isBlockedToday ? "blocked" :
                                 room.Tag == "pobyt" ? "stay" :
                                 room.Tag == "przyjazd" ? "arrival" :
                                 room.Tag == "wyjazd" ? "departure" :
@@ -426,9 +483,9 @@
                                         </div>
 
                                         <span class="room-status-pill">
-                                            @if (room.IsBlocked)
+                                            @if (isBlockedToday)
                                             {
-                                                @:Zablokowany
+                                                @:Zablokowany (dzisiaj)
                                             }
                                             else if (room.Tag == "pobyt")
                                             {
@@ -454,6 +511,24 @@
                                             <i class="bi bi-people me-1"></i>
                                             Max @room.Capacity os.
                                         </div>
+
+                                        @if (room.IsBlocked && room.BlockFrom.HasValue && room.BlockTo.HasValue)
+                                        {
+                                            <div>
+                                                <i class="bi bi-calendar-x me-1"></i>
+                                                Blokada:
+                                                @room.BlockFrom.Value.ToString("dd.MM.yyyy")
+                                                –
+                                                @room.BlockTo.Value.ToString("dd.MM.yyyy")
+                                                @if (!string.IsNullOrWhiteSpace(room.BlockReason))
+                                                {
+                                                    <span>
+                                                        (Powód: @room.BlockReason)
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+
                                         @if (!string.IsNullOrWhiteSpace(room.Description))
                                         {
                                             <div class="text-truncate">
@@ -473,14 +548,19 @@
 
                                         @if (!room.IsBlocked && room.Tag != "pobyt")
                                         {
-                                            <form asp-action="Block" asp-route-id="@room.Id" method="post">
-                                                <input type="submit" class="btn btn-sm btn-outline-danger" value="Zablokuj" />
-                                            </form>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#blockRoomModal"
+                                                    data-room-id="@room.Id"
+                                                    data-room-number="@room.Number">
+                                                Zablokuj
+                                            </button>
                                         }
                                         else if (room.IsBlocked)
                                         {
                                             <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
-                                                <input type="submit" class="btn btn-sm btn-outline-primary" value="Odblokuj" />
+                                                <input type="submit" class="btn btn-sm btn-outline-light border-light" value="Odblokuj" />
                                             </form>
                                         }
                                     </div>
@@ -493,3 +573,74 @@
         </div>
     </div>
 </div>
+
+<!-- 🔒 WSPÓLNY MODAL DO BLOKOWANIA POKOI -->
+<div class="modal fade" id="blockRoomModal" tabindex="-1" aria-labelledby="blockRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Zablokuj pokój <span id="blockRoomNumber"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+            </div>
+            <form asp-action="Block" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="blockRoomId" />
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Data od</label>
+                        <input type="date"
+                               name="fromDate"
+                               class="form-control"
+                               value="@businessDate.ToString("yyyy-MM-dd")"
+                               required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data do</label>
+                        <input type="date"
+                               name="toDate"
+                               class="form-control"
+                               value="@businessDate.AddDays(1).ToString("yyyy-MM-dd")"
+                               required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Powód zablokowania</label>
+                        <textarea name="reason"
+                                  class="form-control"
+                                  rows="3"
+                                  placeholder="Np. awaria, remont, malowanie..."
+                                  required></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-danger">Zablokuj pokój</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var blockModal = document.getElementById("blockRoomModal");
+        if (!blockModal) return;
+
+        blockModal.addEventListener("show.bs.modal", function (event) {
+            var button = event.relatedTarget;
+            if (!button) return;
+
+            var roomId = button.getAttribute("data-room-id");
+            var roomNumber = button.getAttribute("data-room-number");
+
+            var numberSpan = blockModal.querySelector("#blockRoomNumber");
+            var hiddenId = blockModal.querySelector("#blockRoomId");
+
+            if (numberSpan) numberSpan.textContent = roomNumber || "";
+            if (hiddenId) hiddenId.value = roomId || "";
+        });
+    });
+</script>

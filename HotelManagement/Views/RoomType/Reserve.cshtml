@@ -1,57 +1,578 @@
 ﻿@model HotelManagement.Models.Reservation
+@using System.Globalization
+
 @{
     ViewData["Title"] = "Rezerwacja pokoju";
     var roomType = ViewBag.RoomType as HotelManagement.Models.RoomType;
+
+    // 1) próba odczytu z query string (z wyszukiwarki)
+    var checkInQuery = Context.Request.Query["checkIn"].ToString();
+    var checkOutQuery = Context.Request.Query["checkOut"].ToString();
+
+    DateTime checkIn;
+    DateTime checkOut;
+
+    if (!string.IsNullOrEmpty(checkInQuery) && DateTime.TryParse(checkInQuery, out var ciFromQuery))
+    {
+        checkIn = ciFromQuery;
+    }
+    else if (Model.CheckIn != DateTime.MinValue)
+    {
+        checkIn = Model.CheckIn;
+    }
+    else
+    {
+        checkIn = DateTime.Today;
+    }
+
+    if (!string.IsNullOrEmpty(checkOutQuery) && DateTime.TryParse(checkOutQuery, out var coFromQuery))
+    {
+        checkOut = coFromQuery;
+    }
+    else if (Model.CheckOut != DateTime.MinValue)
+    {
+        checkOut = Model.CheckOut;
+    }
+    else
+    {
+        checkOut = DateTime.Today.AddDays(1);
+    }
+
+    var nights = (checkOut - checkIn).TotalDays;
+    if (nights < 1) nights = 1;
+
+    var basePricePerNight = roomType?.PricePerNight ?? 0m;
+
+    // ⭐ LOJALNOŚĆ + DODATKI
+    decimal loyaltyDiscount = ViewBag.LoyaltyDiscount is decimal ld ? ld : 0m;              // np. 0.10
+    int loyaltyDiscountPercent = ViewBag.LoyaltyDiscountPercent is int lp ? lp : 0;
+    bool hasLoyaltyCard = ViewBag.HasLoyaltyCard is bool hl && hl;
+    string loyaltyStatus = ViewBag.LoyaltyStatus as string ?? "";
+
+    decimal discountFactor = 1 - loyaltyDiscount;
+    if (discountFactor < 0) discountFactor = 0;
+
+    decimal breakfastBase = ViewBag.BreakfastPrice is decimal bp ? bp : 0m;
+    decimal parkingBase = ViewBag.ParkingPrice is decimal pk ? pk : 0m;
+    decimal extraBedBase = ViewBag.ExtraBedPrice is decimal eb ? eb : 0m;
+    decimal petBase = ViewBag.PetPrice is decimal pp ? pp : 0m;
+
+    // ceny po zniżce dla usług
+    decimal breakfastDiscounted = Math.Round(breakfastBase * discountFactor, 2);
+    decimal parkingDiscounted = Math.Round(parkingBase * discountFactor, 2);
+    decimal extraBedDiscounted = Math.Round(extraBedBase * discountFactor, 2);
+    decimal petDiscounted = Math.Round(petBase * discountFactor, 2);
+
+    var initialBaseRoomTotal = basePricePerNight * (decimal)nights;
+    var initialDiscountedTotal = initialBaseRoomTotal * discountFactor;
 }
 
-<div class="container mt-5">
-    <h2 class="text-center mb-4">Rezerwacja: @roomType?.Name</h2>
+<style>
+    .hero-reservation {
+        background: radial-gradient(1200px 500px at 10% 0%, rgba(99,102,241,.15), transparent 60%), radial-gradient(900px 400px at 90% 10%, rgba(16,185,129,.15), transparent 60%);
+        border-radius: 1.5rem;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+        color: #111827;
+        position: relative;
+        overflow: hidden;
+    }
 
-    <form asp-action="Reserve" method="post">
-        <input type="hidden" asp-for="RoomTypeId" />
+    .hero-reservation-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .25rem .7rem;
+        border-radius: 999px;
+        background: rgba(255,255,255,.95);
+        font-size: .8rem;
+        color: #4b5563;
+    }
 
-        <div class="mb-3">
-            <label asp-for="CheckIn" class="form-label">Data przyjazdu</label>
-            <input asp-for="CheckIn" class="form-control" type="date" />
-            <span asp-validation-for="CheckIn" class="text-danger"></span>
+    .hero-reservation-title {
+        font-weight: 700;
+        font-size: 1.8rem;
+        margin-bottom: .5rem;
+    }
+
+    .hero-reservation-subtitle {
+        color: #4b5563;
+        max-width: 40rem;
+    }
+
+    .card-soft {
+        border-radius: 1.25rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 30px rgba(15,23,42,.06);
+    }
+
+    .summary-card {
+        border-radius: 1.25rem;
+        background: linear-gradient(135deg, #f9fafb, #eff6ff);
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 30px rgba(15,23,42,.05);
+    }
+
+    .summary-label {
+        font-size: .8rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #6b7280;
+        margin-bottom: 0;
+    }
+
+    .summary-value {
+        font-weight: 600;
+        color: #111827;
+    }
+
+    .price-line-through {
+        text-decoration: line-through;
+        color: #9ca3af;
+        font-size: .9rem;
+        margin-right: .35rem;
+    }
+</style>
+
+<div class="container py-4">
+
+    <!-- HERO -->
+    <div class="hero-reservation mb-4">
+        <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+            <div>
+                <div class="hero-reservation-badge mb-2">
+                    <i class="bi bi-door-open"></i>
+                    <span>Rezerwacja pokoju</span>
+                </div>
+                <h1 class="hero-reservation-title">
+                    @if (roomType != null)
+                    {
+                        @:Rezerwacja: @roomType.Name
+                    }
+                    else
+                    {
+                        @:Rezerwacja pokoju
+                    }
+                </h1>
+                <p class="hero-reservation-subtitle mb-0">
+                    Uzupełnij szczegóły pobytu, wybierz usługi dodatkowe i potwierdź rezerwację.
+                    @if (hasLoyaltyCard && loyaltyDiscountPercent > 0 && !string.IsNullOrEmpty(loyaltyStatus))
+                    {
+                        <span class="d-block mt-1">
+                            Twój status <strong>@loyaltyStatus</strong> daje Ci
+                            <strong>@loyaltyDiscountPercent% rabatu</strong> na pokój i wybrane usługi dodatkowe.
+                        </span>
+                    }
+                </p>
+            </div>
+            @if (roomType != null)
+            {
+                <div class="text-end small">
+                    <div class="summary-label">Typ pokoju</div>
+                    <div class="summary-value mb-2">@roomType.Name</div>
+                    <div class="summary-label">Maks. liczba osób</div>
+                    <div class="summary-value">
+                        <i class="bi bi-people me-1"></i>@roomType.Capacity
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- FORMULARZ REZERWACJI -->
+        <div class="col-12 col-lg-7">
+            <div class="card card-soft">
+                <div class="card-body p-4">
+                    <h4 class="mb-3">
+                        <i class="bi bi-pencil-square me-1"></i> Szczegóły rezerwacji
+                    </h4>
+
+                    <form asp-action="Reserve" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="RoomTypeId" />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="CheckIn" class="form-label">Data przyjazdu</label>
+                                <input asp-for="CheckIn" class="form-control" type="date"
+                                       value="@checkIn.ToString("yyyy-MM-dd")" />
+                                <span asp-validation-for="CheckIn" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="CheckOut" class="form-label">Data wyjazdu</label>
+                                <input asp-for="CheckOut" class="form-control" type="date"
+                                       value="@checkOut.ToString("yyyy-MM-dd")" />
+                                <span asp-validation-for="CheckOut" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="PersonCount" class="form-label">
+                                    Liczba osób
+                                    @if (roomType != null)
+                                    {
+                                        <span class="text-muted small">(max: @roomType.Capacity)</span>
+                                    }
+                                </label>
+                                <select class="form-select" name="PersonCount" id="PersonCount">
+                                    @if (roomType != null)
+                                    {
+                                        @for (int i = 1; i <= roomType.Capacity; i++)
+                                        {
+                                            if (Model.PersonCount == i)
+                                            {
+                                                <option value="@i" selected="selected">@i</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@i">@i</option>
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @for (int i = 1; i <= 4; i++)
+                                        {
+                                            if (Model.PersonCount == i)
+                                            {
+                                                <option value="@i" selected="selected">@i</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@i">@i</option>
+                                            }
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <h5 class="mb-3">
+                            <i class="bi bi-plus-circle me-1"></i> Usługi dodatkowe
+                        </h5>
+
+                        <div class="row g-3">
+                            <!-- Śniadanie -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" asp-for="Breakfast" id="Breakfast" />
+                                    <label class="form-check-label" asp-for="Breakfast">
+                                        Śniadanie
+                                    </label>
+                                </div>
+                                <div class="small mt-1">
+                                    <span class="price-line-through @(loyaltyDiscount > 0 ? "" : "d-none")">
+                                        @breakfastBase.ToString("0.00") zł
+                                    </span>
+                                    <span class="fw-semibold">
+                                        @breakfastDiscounted.ToString("0.00") zł
+                                    </span>
+                                    <span class="text-muted">/ osoba / noc</span>
+                                </div>
+                            </div>
+
+                            <!-- Parking -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" asp-for="Parking" id="Parking" />
+                                    <label class="form-check-label" asp-for="Parking">
+                                        Parking
+                                    </label>
+                                </div>
+                                <div class="small mt-1">
+                                    <span class="price-line-through @(loyaltyDiscount > 0 ? "" : "d-none")">
+                                        @parkingBase.ToString("0.00") zł
+                                    </span>
+                                    <span class="fw-semibold">
+                                        @parkingDiscounted.ToString("0.00") zł
+                                    </span>
+                                    <span class="text-muted">/ noc</span>
+                                </div>
+                            </div>
+
+                            <!-- Dodatkowe łóżko -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" asp-for="ExtraBed" id="ExtraBed" />
+                                    <label class="form-check-label" asp-for="ExtraBed">
+                                        Dodatkowe łóżko
+                                    </label>
+                                </div>
+                                <div class="small mt-1">
+                                    <span class="price-line-through @(loyaltyDiscount > 0 ? "" : "d-none")">
+                                        @extraBedBase.ToString("0.00") zł
+                                    </span>
+                                    <span class="fw-semibold">
+                                        @extraBedDiscounted.ToString("0.00") zł
+                                    </span>
+                                    <span class="text-muted">/ noc</span>
+                                </div>
+                            </div>
+
+                            <!-- Zwierzę -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="HasPet" name="HasPet" />
+                                    <label class="form-check-label" for="HasPet">
+                                        Zwierzę
+                                    </label>
+                                </div>
+                                <div class="small mt-1">
+                                    <span class="price-line-through @(loyaltyDiscount > 0 ? "" : "d-none")">
+                                        @petBase.ToString("0.00") zł
+                                    </span>
+                                    <span class="fw-semibold">
+                                        @petDiscounted.ToString("0.00") zł
+                                    </span>
+                                    <span class="text-muted">/ noc</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                            <div class="small text-muted">
+                                Po kliknięciu „Zarezerwuj” przejdziesz do danych gościa i finalizacji.
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a asp-action="Index" class="btn btn-outline-secondary">
+                                    Anuluj
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i> Zarezerwuj
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="CheckOut" class="form-label">Data wyjazdu</label>
-            <input asp-for="CheckOut" class="form-control" type="date" />
-            <span asp-validation-for="CheckOut" class="text-danger"></span>
-        </div>
+        <!-- PODSUMOWANIE BOKIEM -->
+        <div class="col-12 col-lg-5">
+            <div class="summary-card p-4 mb-3">
+                <h5 class="mb-3">
+                    <i class="bi bi-clipboard-check me-1"></i> Podsumowanie pobytu
+                </h5>
 
-        <div class="mb-3">
-            <label for="PersonCount" class="form-label">Liczba osób (max: @roomType?.Capacity)</label>
-            <select class="form-control" name="PersonCount" id="PersonCount">
-                @for (int i = 1; i <= roomType.Capacity; i++)
+                <div class="mb-3">
+                    <p class="summary-label mb-1">Daty pobytu</p>
+                    <div class="summary-value" id="summaryDates">
+                        @checkIn.ToString("dd.MM.yyyy") – @checkOut.ToString("dd.MM.yyyy")
+                    </div>
+                    <div class="small text-muted" id="totalNightsLabel">
+                        Łącznie: <strong>@nights</strong> @(nights == 1 ? "noc" : "noce")
+                    </div>
+                </div>
+
+                @if (roomType != null)
                 {
-                    <option value="@i">@i</option>
+                    <div class="mb-3">
+                        <p class="summary-label mb-1">Typ pokoju</p>
+                        <div class="summary-value">@roomType.Name</div>
+                        <div class="small text-muted">
+                            <i class="bi bi-people me-1"></i> Maks. @roomType.Capacity osób
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <p class="summary-label mb-1">Cena za noc</p>
+                        <div class="summary-value">
+                            <span id="baseNightlyPrice"
+                                  class="price-line-through @(hasLoyaltyCard && loyaltyDiscountPercent > 0 ? "" : "d-none")">
+                                @basePricePerNight.ToString("0.00") zł
+                            </span>
+                            <span id="discountedNightlyPrice">
+                                @( (basePricePerNight * discountFactor).ToString("0.00") ) zł
+                            </span>
+                            <span class="small text-muted">/ noc</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <p class="summary-label mb-1">Łącznie za pobyt</p>
+                        <div class="summary-value fs-5" id="totalPrice">
+                            @initialDiscountedTotal.ToString("0.00") zł
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="discountRow" style="@(hasLoyaltyCard && loyaltyDiscountPercent > 0 ? "" : "display:none;")">
+                        <p class="summary-label mb-1">Łączna zniżka</p>
+                        <div class="text-success fw-semibold" id="totalDiscount">
+                            @((initialBaseRoomTotal - initialDiscountedTotal).ToString("0.00")) zł
+                        </div>
+                    </div>
                 }
-            </select>
-        </div>
 
-        <div class="form-check mb-2">
-            <input class="form-check-input" asp-for="Breakfast" />
-            <label class="form-check-label" asp-for="Breakfast">Śniadanie</label>
-        </div>
+                @if (hasLoyaltyCard && loyaltyDiscountPercent > 0 && !string.IsNullOrEmpty(loyaltyStatus))
+                {
+                    <div class="mt-3 small text-muted">
+                        Rabat z programu lojalnościowego <strong>@loyaltyStatus</strong> jest już uwzględniony w cenach.
+                    </div>
+                }
 
-        <div class="form-check mb-2">
-            <input class="form-check-input" asp-for="Parking" />
-            <label class="form-check-label" asp-for="Parking">Parking</label>
+                <div class="mt-4">
+                    <p class="summary-label mb-2">Przypomnienie</p>
+                    <ul class="small text-muted mb-0 ps-3">
+                        <li>Godzina zameldowania i wymeldowania może się różnić w zależności od obłożenia.</li>
+                        <li>Zmian w rezerwacji możesz dokonać kontaktując się z recepcją.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <div class="form-check mb-4">
-            <input class="form-check-input" asp-for="ExtraBed" />
-            <label class="form-check-label" asp-for="ExtraBed">Dodatkowe łóżko</label>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Zarezerwuj</button>
-        <a asp-action="Index" class="btn btn-secondary ms-2">Anuluj</a>
-    </form>
+    <!-- KONFIG DLA JS -->
+    <div id="price-config"
+         data-base="@basePricePerNight.ToString(CultureInfo.InvariantCulture)"
+         data-discount="@loyaltyDiscount.ToString(CultureInfo.InvariantCulture)"
+         data-breakfast="@breakfastBase.ToString(CultureInfo.InvariantCulture)"
+         data-parking="@parkingBase.ToString(CultureInfo.InvariantCulture)"
+         data-extra="@extraBedBase.ToString(CultureInfo.InvariantCulture)"
+         data-pet="@petBase.ToString(CultureInfo.InvariantCulture)">
+    </div>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const cfgEl = document.getElementById("price-config");
+            if (!cfgEl) return;
+
+            function toNumber(x) {
+                const v = parseFloat(x);
+                return isNaN(v) ? 0 : v;
+            }
+
+            const baseNightly = toNumber(cfgEl.dataset.base);
+            const discount = toNumber(cfgEl.dataset.discount);
+            const breakfastBase = toNumber(cfgEl.dataset.breakfast);
+            const parkingBase = toNumber(cfgEl.dataset.parking);
+            const extraBase = toNumber(cfgEl.dataset.extra);
+            const petBase = toNumber(cfgEl.dataset.pet);
+
+            const factor = 1 - discount;
+
+            const checkInInput = document.getElementById("CheckIn");
+            const checkOutInput = document.getElementById("CheckOut");
+            const personSelect = document.getElementById("PersonCount");
+            const breakfastChk = document.getElementById("Breakfast");
+            const parkingChk = document.getElementById("Parking");
+            const extraChk = document.getElementById("ExtraBed");
+            const petChk = document.getElementById("HasPet");
+
+            const baseNightlySpan = document.getElementById("baseNightlyPrice");
+            const discNightlySpan = document.getElementById("discountedNightlyPrice");
+            const totalPriceSpan = document.getElementById("totalPrice");
+            const totalNightsLabel = document.getElementById("totalNightsLabel");
+            const discountRow = document.getElementById("discountRow");
+            const totalDiscountSpan = document.getElementById("totalDiscount");
+
+            function formatPLN(value) {
+                return value.toFixed(2) + " zł";
+            }
+
+            function parseDate(input) {
+                if (!input || !input.value) return null;
+                const parts = input.value.split("-");
+                if (parts.length !== 3) return null;
+                const y = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10) - 1;
+                const d = parseInt(parts[2], 10);
+                if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+                return new Date(y, m, d);
+            }
+
+            function recalc() {
+                const ci = parseDate(checkInInput);
+                const co = parseDate(checkOutInput);
+
+                let nights = 1;
+                if (ci && co) {
+                    const diffMs = co.getTime() - ci.getTime();
+                    const calcNights = diffMs / (1000 * 60 * 60 * 24);
+                    nights = calcNights > 1 ? calcNights : 1;
+                }
+
+                const personCount = parseInt(personSelect && personSelect.value ? personSelect.value : "1", 10);
+                const persons = isNaN(personCount) || personCount < 1 ? 1 : personCount;
+
+                const roomBaseTotal = baseNightly * nights;
+
+                let extrasBaseTotal = 0;
+
+                if (breakfastChk && breakfastChk.checked) {
+                    extrasBaseTotal += breakfastBase * persons * nights;
+                }
+                if (parkingChk && parkingChk.checked) {
+                    extrasBaseTotal += parkingBase * nights;
+                }
+                if (extraChk && extraChk.checked) {
+                    extrasBaseTotal += extraBase * nights;
+                }
+                if (petChk && petChk.checked) {
+                    extrasBaseTotal += petBase * nights;
+                }
+
+                const baseTotal = roomBaseTotal + extrasBaseTotal;
+                const discountedTotal = baseTotal * (factor > 0 ? factor : 1);
+
+                const discountedNightly = baseNightly * (factor > 0 ? factor : 1);
+                const discountAmount = baseTotal - discountedTotal;
+
+                if (discNightlySpan) {
+                    discNightlySpan.textContent = formatPLN(discountedNightly);
+                }
+
+                if (baseNightlySpan) {
+                    if (discount > 0) {
+                        baseNightlySpan.classList.remove("d-none");
+                        baseNightlySpan.textContent = formatPLN(baseNightly);
+                    } else {
+                        baseNightlySpan.classList.add("d-none");
+                    }
+                }
+
+                if (totalPriceSpan) {
+                    totalPriceSpan.textContent = formatPLN(discountedTotal);
+                }
+
+                if (totalNightsLabel) {
+                    const label = nights === 1 ? "noc" : "noce";
+                    totalNightsLabel.innerHTML = `Łącznie: <strong>${nights}</strong> ${label}`;
+                }
+
+                if (discountRow && totalDiscountSpan) {
+                    if (discount > 0 && discountAmount > 0.01) {
+                        discountRow.style.display = "";
+                        totalDiscountSpan.textContent = formatPLN(discountAmount);
+                    } else {
+                        discountRow.style.display = "none";
+                    }
+                }
+            }
+
+            const inputs = [
+                checkInInput,
+                checkOutInput,
+                personSelect,
+                breakfastChk,
+                parkingChk,
+                extraChk,
+                petChk
+            ].filter(el => !!el);
+
+            inputs.forEach(el => {
+                el.addEventListener("change", recalc);
+            });
+
+            recalc();
+        });
+    </script>
 }

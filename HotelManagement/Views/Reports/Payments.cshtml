@@ -1,0 +1,405 @@
+﻿@model IEnumerable<HotelManagement.Models.Payment>
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Płatności dnia";
+    Layout = "_Layout";
+
+    var date = (DateTime?)(ViewBag.SelectedDate ?? DateTime.Today);
+    var payments = Model ?? Enumerable.Empty<HotelManagement.Models.Payment>();
+    decimal total = payments.Sum(p => p.Amount);
+
+    var byMethod = payments
+        .GroupBy(p => p.Method)
+        .Select(g => new
+        {
+            Method = g.Key.ToString(),
+            Count = g.Count(),
+            Amount = g.Sum(x => x.Amount)
+        })
+        .OrderByDescending(x => x.Amount)
+        .ToList();
+}
+
+<style>
+    .payments-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .payments-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .payments-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .payments-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(16, 185, 129, 0.08);
+        border: 1px solid rgba(167, 243, 208, 0.9);
+        color: #047857;
+    }
+
+        .payments-pill i {
+            font-size: .9rem;
+        }
+
+    .payments-heading {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .payments-heading i {
+            font-size: 1.4rem;
+            color: #047857;
+        }
+
+    .payments-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .payments-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .payments-meta-badge {
+        border-radius: 999px;
+        padding: .2rem .7rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .payments-filters-card {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        padding: .9rem 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
+    .payments-filters-left {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .6rem;
+        font-size: .8rem;
+    }
+
+    .payments-filters-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .payments-filters-form .form-control {
+        font-size: .8rem;
+        border-radius: .55rem;
+        height: 32px;
+        padding-inline: .5rem;
+    }
+
+    .payments-filters-form .btn {
+        font-size: .8rem;
+        border-radius: .7rem;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding-inline: .8rem;
+    }
+
+    .payments-summary-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        font-size: .8rem;
+    }
+
+    .payments-summary-pill {
+        border-radius: .7rem;
+        padding: .25rem .65rem;
+        background: #f9fafb;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .payments-table-wrapper {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .payments-table-caption {
+        padding: .6rem .95rem .4rem;
+        font-size: .78rem;
+        color: #6b7280;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+
+    .table-payments {
+        font-size: .85rem;
+        margin-bottom: 0;
+    }
+
+        .table-payments thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .table-payments tbody td {
+            vertical-align: middle;
+            padding-top: .55rem;
+            padding-bottom: .55rem;
+        }
+
+    @@media (max-width: 992px) {
+        .payments-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .payments-meta {
+            align-items: flex-start;
+        }
+
+        .payments-filters-card {
+            align-items: flex-start;
+        }
+
+        .payments-filters-left,
+        .payments-filters-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .payments-filters-left,
+        .payments-filters-right {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .payments-heading {
+            font-size: 1.05rem;
+        }
+
+        .table-payments {
+            font-size: .8rem;
+        }
+    }
+</style>
+
+<div class="payments-page">
+    <!-- HEADER -->
+    <div class="payments-header">
+        <div class="payments-title-wrap">
+            <span class="payments-pill">
+                <i class="bi bi-credit-card-2-front"></i>
+                Raport finansowy
+            </span>
+            <h2 class="payments-heading">
+                <i class="bi bi-wallet2"></i>
+                <span>Płatności dnia</span>
+            </h2>
+            <p class="payments-subtitle">
+                Wszystkie płatności zaksięgowane w dniu
+                <strong>@date?.ToString("dd.MM.yyyy")</strong>.
+            </p>
+        </div>
+
+        <div class="payments-meta">
+            <div class="payments-meta-badge">
+                <i class="bi bi-calendar-event"></i>
+                Dzień raportu:
+                <strong>@date?.ToString("dd.MM.yyyy")</strong>
+            </div>
+            <div>
+                <i class="bi bi-clock-history me-1"></i>
+                Wygenerowano:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRY + PDF -->
+    <div class="payments-filters-card">
+        <div class="payments-filters-left payments-filters-form">
+            <form asp-action="Payments"
+                  asp-controller="Reports"
+                  method="get"
+                  class="d-flex flex-wrap align-items-center gap-2 mb-0">
+                <div class="d-flex align-items-center gap-1">
+                    <label for="date" class="small text-muted mb-0">Data:</label>
+                    <input type="date"
+                           id="date"
+                           name="date"
+                           class="form-control form-control-sm"
+                           value="@date?.ToString("yyyy-MM-dd")" />
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-search"></i> Pokaż
+                </button>
+            </form>
+        </div>
+
+        <div class="payments-filters-right">
+            <div class="payments-summary-row">
+                <div class="payments-summary-pill">
+                    <i class="bi bi-receipt"></i>
+                    <span>Płatności: <strong>@payments.Count()</strong></span>
+                </div>
+                <div class="payments-summary-pill">
+                    <i class="bi bi-cash-coin"></i>
+                    <span>Łącznie: <strong>@total.ToString("0.00") zł</strong></span>
+                </div>
+            </div>
+
+            <form asp-action="ExportPayments"
+                  asp-controller="Reports"
+                  method="post"
+                  class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="date" value="@date?.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-filetype-pdf me-1"></i>
+                    Eksportuj do PDF
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- PODZIAŁ WG METODY -->
+    <div class="payments-table-wrapper">
+        <div class="payments-table-caption">
+            <i class="bi bi-diagram-3 me-1"></i>
+            Podział według metody płatności
+        </div>
+        <div class="table-responsive">
+            @if (byMethod.Any())
+            {
+                <table class="table table-sm align-middle table-payments mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Metoda</th>
+                            <th class="text-end">Liczba</th>
+                            <th class="text-end">Kwota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in byMethod)
+                        {
+                            <tr>
+                                <td>@m.Method</td>
+                                <td class="text-end">@m.Count</td>
+                                <td class="text-end">@m.Amount.ToString("0.00") zł</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="p-3">
+                    <p class="text-muted mb-0">Brak płatności w tym dniu.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- LISTA PŁATNOŚCI -->
+    <div class="payments-table-wrapper">
+        <div class="payments-table-caption">
+            <i class="bi bi-list-ul me-1"></i>
+            Lista płatności
+        </div>
+        <div class="table-responsive">
+            @if (payments.Any())
+            {
+                <table class="table table-sm table-hover align-middle table-payments mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Godzina</th>
+                            <th>Gość</th>
+                            <th>Pokój</th>
+                            <th>Metoda</th>
+                            <th class="text-end">Kwota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in payments)
+                        {
+                            var guestName = p.Guest != null
+                            ? $"{p.Guest.FirstName} {p.Guest.LastName}"
+                            : (p.Reservation?.Guest != null
+                            ? $"{p.Reservation.Guest.FirstName} {p.Reservation.Guest.LastName}"
+                            : "—");
+
+                            var roomNumber = p.Reservation?.Room?.Number ?? "—";
+
+                            <tr>
+                                <td>@p.PaidAt.ToString("HH:mm")</td>
+                                <td>@guestName</td>
+                                <td>@roomNumber</td>
+                                <td>@p.Method.ToString()</td>
+                                <td class="text-end">@p.Amount.ToString("0.00") zł</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="p-3">
+                    <p class="text-muted mb-0">Brak płatności w tym dniu.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <a asp-action="Index" asp-controller="Reports" class="btn btn-link mt-2">
+        <i class="bi bi-arrow-left"></i> Wróć do listy raportów
+    </a>
+</div>

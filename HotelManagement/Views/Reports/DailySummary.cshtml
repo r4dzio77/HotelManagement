@@ -1,0 +1,375 @@
+﻿@model HotelManagement.Controllers.ReportsController.DailySummaryViewModel
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Raport dobowy";
+    Layout = "_Layout";
+
+    var day = Model.Date.Date;
+    var payments = Model.PaymentSummaries ?? new List<HotelManagement.Controllers.ReportsController.PaymentSummaryRow>();
+}
+
+<style>
+    .daily-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .daily-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .daily-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .daily-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(79, 70, 229, 0.08);
+        border: 1px solid rgba(199, 210, 254, 0.9);
+        color: #4f46e5;
+    }
+
+        .daily-pill i {
+            font-size: .9rem;
+        }
+
+    .daily-heading {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .daily-heading i {
+            font-size: 1.4rem;
+            color: #4f46e5;
+        }
+
+    .daily-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .daily-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .daily-meta-badge {
+        border-radius: 999px;
+        padding: .2rem .7rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .daily-filters-card {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        padding: .9rem 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
+    .daily-filters-left {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .6rem;
+        font-size: .8rem;
+    }
+
+    .daily-filters-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .daily-filters-form .form-control {
+        font-size: .8rem;
+        border-radius: .55rem;
+        height: 32px;
+        padding-inline: .5rem;
+    }
+
+    .daily-filters-form .btn {
+        font-size: .8rem;
+        border-radius: .7rem;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding-inline: .8rem;
+    }
+
+    .daily-summary-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .75rem;
+    }
+
+    .daily-summary-card {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        padding: .65rem .85rem;
+    }
+
+    .daily-summary-card-title {
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .09em;
+        color: #9ca3af;
+        margin-bottom: .15rem;
+    }
+
+    .daily-summary-card-value {
+        font-size: 1.4rem;
+        font-weight: 600;
+    }
+
+    .daily-table-wrapper {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .daily-table-caption {
+        padding: .6rem .95rem .4rem;
+        font-size: .78rem;
+        color: #6b7280;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+
+    .table-daily {
+        font-size: .85rem;
+        margin-bottom: 0;
+    }
+
+        .table-daily thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .table-daily tbody td {
+            vertical-align: middle;
+            padding-top: .55rem;
+            padding-bottom: .55rem;
+        }
+
+    @@media (max-width: 992px) {
+        .daily-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .daily-meta {
+            align-items: flex-start;
+        }
+
+        .daily-filters-card {
+            align-items: flex-start;
+        }
+
+        .daily-filters-left,
+        .daily-filters-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .daily-summary-row {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .daily-filters-left,
+        .daily-filters-right {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .daily-heading {
+            font-size: 1.05rem;
+        }
+
+        .table-daily {
+            font-size: .8rem;
+        }
+
+        .daily-summary-row {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+</style>
+
+<div class="daily-page">
+    <!-- HEADER -->
+    <div class="daily-header">
+        <div class="daily-title-wrap">
+            <span class="daily-pill">
+                <i class="bi bi-speedometer2"></i>
+                Raport operacyjny
+            </span>
+            <h2 class="daily-heading">
+                <i class="bi bi-activity"></i>
+                <span>Raport dobowy</span>
+            </h2>
+            <p class="daily-subtitle">
+                Podsumowanie dla dnia operacyjnego
+                <strong>@day.ToString("dd.MM.yyyy")</strong>.
+            </p>
+        </div>
+
+        <div class="daily-meta">
+            <div class="daily-meta-badge">
+                <i class="bi bi-calendar-event"></i>
+                Dzień raportu:
+                <strong>@day.ToString("dd.MM.yyyy")</strong>
+            </div>
+            <div>
+                <i class="bi bi-clock-history me-1"></i>
+                Wygenerowano:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRY + PDF -->
+    <div class="daily-filters-card">
+        <div class="daily-filters-left daily-filters-form">
+            <form asp-action="DailySummary"
+                  asp-controller="Reports"
+                  method="get"
+                  class="d-flex flex-wrap align-items-center gap-2 mb-0">
+                <div class="d-flex align-items-center gap-1">
+                    <label for="date" class="small text-muted mb-0">Data operacyjna:</label>
+                    <input type="date"
+                           id="date"
+                           name="date"
+                           class="form-control form-control-sm"
+                           value="@day.ToString("yyyy-MM-dd")" />
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-search"></i> Pokaż
+                </button>
+            </form>
+        </div>
+
+        <div class="daily-filters-right">
+            <form asp-action="ExportDailySummary"
+                  asp-controller="Reports"
+                  method="post"
+                  class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="date" value="@day.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-filetype-pdf me-1"></i>
+                    Eksportuj do PDF
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- KAFELKI -->
+    <div class="daily-summary-row">
+        <div class="daily-summary-card">
+            <div class="daily-summary-card-title">Liczba pokoi</div>
+            <div class="daily-summary-card-value">@Model.TotalRooms</div>
+        </div>
+        <div class="daily-summary-card">
+            <div class="daily-summary-card-title">Zajęte pokoje</div>
+            <div class="daily-summary-card-value">@Model.OccupiedRooms</div>
+        </div>
+        <div class="daily-summary-card">
+            <div class="daily-summary-card-title">Gości w hotelu</div>
+            <div class="daily-summary-card-value">@Model.GuestsInHouse</div>
+        </div>
+        <div class="daily-summary-card">
+            <div class="daily-summary-card-title">Śniadania</div>
+            <div class="daily-summary-card-value">@Model.BreakfastCount</div>
+        </div>
+    </div>
+
+    <!-- PŁATNOŚCI - PODSUMOWANIE -->
+    <div class="daily-table-wrapper">
+        <div class="daily-table-caption d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-credit-card-2-front me-1"></i>
+                Podsumowanie płatności
+            </div>
+            <div>
+                Łącznie: <strong>@Model.TotalPayments.ToString("0.00") zł</strong>
+            </div>
+        </div>
+        <div class="table-responsive">
+            @if (payments.Any())
+            {
+                <table class="table table-sm align-middle table-daily mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Metoda</th>
+                            <th class="text-end">Liczba</th>
+                            <th class="text-end">Kwota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in payments)
+                        {
+                            <tr>
+                                <td>@row.Method</td>
+                                <td class="text-end">@row.Count</td>
+                                <td class="text-end">@row.Amount.ToString("0.00") zł</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="p-3">
+                    <p class="text-muted mb-0">Brak płatności w tym dniu.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <a asp-action="Index" asp-controller="Reports" class="btn btn-link mt-2">
+        <i class="bi bi-arrow-left"></i> Wróć do listy raportów
+    </a>
+</div>

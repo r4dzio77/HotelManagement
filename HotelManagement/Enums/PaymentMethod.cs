@@ -4,7 +4,8 @@
     {
         Cash,
         Card,
-        Online
+        Online,
+        OnlineStripe
     }
 
 }

@@ -26,6 +26,7 @@ namespace HotelManagement.Controllers
                     request.CheckOut,
                     request.Breakfast,
                     request.Parking,
+                    request.Pet,
                     request.ExtraBed,
                      request.PersonCount,
                     request.SelectedServiceIds);

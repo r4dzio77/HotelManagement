@@ -2,52 +2,289 @@
     ViewData["Title"] = "Nocny audyt";
 }
 
-<div class="container my-4">
-    <h2>Nocny audyt</h2>
-    <p class="text-muted">Uruchom audyt dobowy. W trakcie zobaczysz postęp krok po kroku. Po zakończeniu powstanie Raport Dobowy (PDF).</p>
-
-    <div class="d-flex gap-2">
-        <form id="startForm" method="post" asp-action="Start">
-            @Html.AntiForgeryToken()
-            <button id="btnStart" type="submit" class="btn btn-primary">
-                <span class="spinner-border spinner-border-sm d-none" id="btnSpinner" role="status" aria-hidden="true"></span>
-                <span id="btnText">Uruchom audyt</span>
-            </button>
-        </form>
-
-        <form method="post" asp-action="SyncToToday">
-            @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-outline-secondary">Zsynchronizuj datę operacyjną z dzisiejszą</button>
-        </form>
-    </div>
-
-    @if (TempData["Notification"] is string note && !string.IsNullOrWhiteSpace(note))
-    {
-        <div class="alert alert-info mt-3">@note</div>
+<style>
+    .audit-page {
+        margin-top: 1.5rem;
+        margin-bottom: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
     }
 
-    <div class="mt-4 d-none" id="progressCard">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong>Postęp</strong>
-                    <span id="percentLabel">0%</span>
-                </div>
-                <div class="progress" role="progressbar" aria-label="Postęp audytu" aria-valuemin="0" aria-valuemax="100">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%;"></div>
+    .audit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .audit-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .4rem;
+    }
+
+    .audit-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(191, 219, 254, 0.9);
+        color: #1d4ed8;
+    }
+
+        .audit-pill i {
+            font-size: .9rem;
+        }
+
+    .audit-heading {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .audit-heading i {
+            font-size: 1.5rem;
+            color: #1d4ed8;
+        }
+
+    .audit-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+        max-width: 620px;
+    }
+
+    .audit-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .audit-meta-badge {
+        border-radius: 999px;
+        padding: .25rem .75rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .audit-actions-card {
+        border-radius: 1rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        padding: .9rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .audit-actions-text {
+        font-size: .85rem;
+        color: #6b7280;
+    }
+
+    .audit-actions-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+
+    .audit-progress-card {
+        border-radius: 1rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.09);
+        overflow: hidden;
+    }
+
+    .audit-progress-header {
+        padding: .7rem .95rem;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .75rem;
+    }
+
+        .audit-progress-header h5 {
+            margin: 0;
+            font-size: .98rem;
+            font-weight: 600;
+        }
+
+    .audit-progress-body {
+        padding: .8rem .95rem .95rem;
+    }
+
+    .audit-steps-list .list-group-item {
+        font-size: .85rem;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+    }
+
+    .audit-steps-list .step-badge {
+        width: 20px;
+        text-align: center;
+        font-size: .75rem;
+    }
+
+    .audit-messages-title {
+        font-size: .8rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        margin-bottom: .3rem;
+    }
+
+    .audit-messages {
+        max-height: 220px;
+        overflow-y: auto;
+    }
+
+        .audit-messages .list-group-item {
+            font-size: .8rem;
+        }
+
+    .audit-result-alert {
+        font-size: .85rem;
+    }
+
+    .audit-report-link a {
+        font-size: .85rem;
+    }
+
+    @@media (max-width: 992px) {
+        .audit-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .audit-meta {
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<div class="container audit-page">
+    <!-- HEADER -->
+    <div class="audit-header">
+        <div class="audit-title-wrap">
+            <span class="audit-pill">
+                <i class="bi bi-moon-stars"></i>
+                Nocny audyt
+            </span>
+            <h2 class="audit-heading">
+                <i class="bi bi-arrow-repeat"></i>
+                <span>Audyt dobowy hotelu</span>
+            </h2>
+            <p class="audit-subtitle">
+                Uruchom automatyczny audyt dobowy: zamknięcie rachunków, oznaczenie no-show, przesunięcie daty
+                operacyjnej i wygenerowanie Raportu Dobowego (PDF).
+            </p>
+        </div>
+
+        <div class="audit-meta">
+            <div class="audit-meta-badge">
+                <i class="bi bi-info-circle"></i>
+                Ostatnie odświeżenie:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION -->
+    @if (TempData["Notification"] is string note && !string.IsNullOrWhiteSpace(note))
+    {
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-0">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>@note</span>
+        </div>
+    }
+
+    <!-- ACTIONS CARD -->
+    <div class="audit-actions-card">
+        <div class="audit-actions-text">
+            <div class="fw-semibold mb-1">
+                Sterowanie audytem dobowym
+            </div>
+            <div>
+                Audyt wykonuje kilka kroków po kolei. Możesz też ręcznie zsynchronizować datę operacyjną z dzisiejszą,
+                jeśli coś się „rozjechało”.
+            </div>
+        </div>
+        <div class="audit-actions-buttons">
+            <form id="startForm" method="post" asp-action="Start">
+                @Html.AntiForgeryToken()
+                <button id="btnStart" type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm d-none" id="btnSpinner" role="status" aria-hidden="true"></span>
+                    <span id="btnText">Uruchom audyt</span>
+                </button>
+            </form>
+
+            <form method="post" asp-action="SyncToToday">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    Zsynchronizuj datę operacyjną z dzisiejszą
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- PROGRESS CARD -->
+    <div class="mt-2 d-none" id="progressCard">
+        <div class="audit-progress-card">
+            <div class="audit-progress-header">
+                <h5>Postęp nocnego audytu</h5>
+                <span class="text-muted small">
+                    Wykonano: <strong id="percentLabel">0%</strong>
+                </span>
+            </div>
+            <div class="audit-progress-body">
+                <div class="mb-3">
+                    <div class="progress" role="progressbar" aria-label="Postęp audytu" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%;"></div>
+                    </div>
                 </div>
 
-                <ul class="list-group mt-3" id="stepsList"></ul>
+                <div class="row">
+                    <div class="col-lg-5 mb-3 mb-lg-0">
+                        <div class="audit-messages-title">Kroki audytu</div>
+                        <ul class="list-group audit-steps-list" id="stepsList"></ul>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="audit-messages-title">Komunikaty</div>
+                        <ul class="list-group small audit-messages" id="msgList"></ul>
+                    </div>
+                </div>
 
                 <div class="mt-3">
-                    <h6 class="mb-2 text-muted">Komunikaty</h6>
-                    <ul class="list-group small" id="msgList"></ul>
-                </div>
+                    <div class="alert audit-result-alert mt-2 d-none" id="resultAlert"></div>
 
-                <div class="alert mt-3 d-none" id="resultAlert"></div>
-
-                <div id="reportLink" class="mt-3 d-none">
-                    <a target="_blank" class="btn btn-outline-dark">📄 Otwórz Raport Dobowy</a>
+                    <div id="reportLink" class="audit-report-link mt-3 d-none">
+                        <a target="_blank" class="btn btn-outline-dark">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>
+                            Otwórz Raport Dobowy
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -57,18 +294,30 @@
 @section Scripts {
     <script>
         const stepsTemplate = (steps) => (steps || []).map((s, i) => `
-            <li class="list-group-item d-flex align-items-center" data-step="${i+1}">
+            <li class="list-group-item d-flex align-items-center" data-step="${i + 1}">
                 <span class="badge me-2 bg-secondary step-badge">•</span>
                 <span class="step-text">${s}</span>
             </li>`).join('');
 
         function setStepState(stepEl, state) {
             const badge = stepEl.querySelector('.step-badge');
-            stepEl.classList.remove('list-group-item-success','list-group-item-warning','list-group-item-secondary');
-            badge.classList.remove('bg-success','bg-warning','bg-secondary');
-            if (state === 'pending') { stepEl.classList.add('list-group-item-secondary'); badge.classList.add('bg-secondary'); badge.textContent = '•'; }
-            if (state === 'running') { stepEl.classList.add('list-group-item-warning');  badge.classList.add('bg-warning');  badge.textContent = '↻'; }
-            if (state === 'done')    { stepEl.classList.add('list-group-item-success'); badge.classList.add('bg-success'); badge.textContent = '✔'; }
+            stepEl.classList.remove('list-group-item-success', 'list-group-item-warning', 'list-group-item-secondary');
+            badge.classList.remove('bg-success', 'bg-warning', 'bg-secondary');
+            if (state === 'pending') {
+                stepEl.classList.add('list-group-item-secondary');
+                badge.classList.add('bg-secondary');
+                badge.textContent = '•';
+            }
+            if (state === 'running') {
+                stepEl.classList.add('list-group-item-warning');
+                badge.classList.add('bg-warning');
+                badge.textContent = '↻';
+            }
+            if (state === 'done') {
+                stepEl.classList.add('list-group-item-success');
+                badge.classList.add('bg-success');
+                badge.textContent = '✔';
+            }
         }
 
         let pollTimer = null;
@@ -79,7 +328,9 @@
             const btn = document.getElementById('btnStart');
             const spn = document.getElementById('btnSpinner');
             const txt = document.getElementById('btnText');
-            spn.classList.remove('d-none'); txt.textContent = 'Uruchamiam…'; btn.disabled = true;
+            spn.classList.remove('d-none');
+            txt.textContent = 'Uruchamiam…';
+            btn.disabled = true;
 
             const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
             const resp = await fetch('@Url.Action("Start")', {
@@ -109,7 +360,7 @@
 
         function pick(obj, camel, pascal, def = null) {
             return (obj[camel] !== undefined ? obj[camel] :
-                   (obj[pascal] !== undefined ? obj[pascal] : def));
+                (obj[pascal] !== undefined ? obj[pascal] : def));
         }
 
         async function poll() {
@@ -120,14 +371,14 @@
             if (!resp.ok) return;
             const p = await resp.json();
 
-            // ⚠️ camelCase z fallbackiem na PascalCase
-            const percent     = pick(p, 'percent', 'Percent', 0);
+            // camelCase z fallbackiem na PascalCase
+            const percent = pick(p, 'percent', 'Percent', 0);
             const currentStep = pick(p, 'currentStep', 'CurrentStep', 0);
-            const steps       = pick(p, 'steps', 'Steps', []);
-            const messages    = pick(p, 'messages', 'Messages', []);
+            const steps = pick(p, 'steps', 'Steps', []);
+            const messages = pick(p, 'messages', 'Messages', []);
             const isCompleted = pick(p, 'isCompleted', 'IsCompleted', false);
-            const isSuccess   = pick(p, 'isSuccess', 'IsSuccess', false);
-            const reportPath  = pick(p, 'reportPath', 'ReportPath', null);
+            const isSuccess = pick(p, 'isSuccess', 'IsSuccess', false);
+            const reportPath = pick(p, 'reportPath', 'ReportPath', null);
 
             const ul = document.getElementById('stepsList');
             if (ul.childElementCount === 0) {
@@ -151,7 +402,6 @@
                 result.classList.remove('d-none', 'alert-danger', 'alert-success');
                 result.classList.add(isSuccess ? 'alert-success' : 'alert-danger');
                 result.textContent = isSuccess ? 'Audyt zakończony pomyślnie.' : 'Audyt zakończył się błędem.';
-
                 if (reportPath) {
                     const linkWrap = document.getElementById('reportLink');
                     linkWrap.classList.remove('d-none');
@@ -161,7 +411,9 @@
                 const btn = document.getElementById('btnStart');
                 const spn = document.getElementById('btnSpinner');
                 const txt = document.getElementById('btnText');
-                spn.classList.add('d-none'); txt.textContent = 'Uruchom audyt'; btn.disabled = false;
+                spn.classList.add('d-none');
+                txt.textContent = 'Uruchom audyt';
+                btn.disabled = false;
 
                 document.getElementById('progressBar').classList.remove('progress-bar-animated');
             }

@@ -153,6 +153,13 @@ namespace HotelManagement.Controllers
                 return View(vm);
             }
 
+            // W tym widoku dane gościa są tylko do podglądu,
+            // więc pomijamy walidację zagnieżdżonego obiektu Guest.
+            foreach (var key in ModelState.Keys.Where(k => k.StartsWith("Guest.")).ToList())
+            {
+                ModelState.Remove(key);
+            }
+
             if (!ModelState.IsValid)
             {
                 vm = await BuildReservationViewModel(vm.Reservation, guest);
@@ -195,6 +202,7 @@ namespace HotelManagement.Controllers
                 vm.Breakfast,
                 vm.Parking,
                 vm.ExtraBed,
+                vm.Pet,
                 vm.PersonCount,
                 vm.SelectedServiceIds
             );
@@ -222,12 +230,6 @@ namespace HotelManagement.Controllers
 
             _context.Reservations.Add(reservation);
 
-            guest.FirstName = vm.Guest.FirstName;
-            guest.LastName = vm.Guest.LastName;
-            guest.Email = vm.Guest.Email;
-            guest.PhoneNumber = vm.Guest.PhoneNumber;
-            guest.Preferences = vm.Guest.Preferences;
-
             await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");
@@ -246,7 +248,16 @@ namespace HotelManagement.Controllers
             if (reservation == null)
                 return NotFound();
 
-            var roomTypes = await _context.RoomTypes.ToListAsync();
+            var roomTypes = await GetAvailableRoomTypesAsync(reservation.CheckIn, reservation.CheckOut, reservation.Id);
+
+            // Dopilnuj, aby aktualny typ pokoju zawsze był na liście
+            if (!roomTypes.Any(rt => rt.Id == reservation.RoomTypeId))
+            {
+                var currentRt = await _context.RoomTypes.FindAsync(reservation.RoomTypeId);
+                if (currentRt != null)
+                    roomTypes.Add(currentRt);
+            }
+
             var services = await _context.Services.ToListAsync();
 
             var availableRooms = await GetAvailableRoomsAsync(
@@ -277,9 +288,19 @@ namespace HotelManagement.Controllers
         {
             if (!ModelState.IsValid)
             {
-                vm.RoomTypes = new SelectList(await _context.RoomTypes.ToListAsync(), "Id", "Name");
+                var roomTypesInvalid = await GetAvailableRoomTypesAsync(vm.Reservation.CheckIn, vm.Reservation.CheckOut, id);
+                if (!roomTypesInvalid.Any(rt => rt.Id == vm.Reservation.RoomTypeId))
+                {
+                    var currentRt = await _context.RoomTypes.FindAsync(vm.Reservation.RoomTypeId);
+                    if (currentRt != null)
+                        roomTypesInvalid.Add(currentRt);
+                }
+
+                vm.RoomTypes = new SelectList(roomTypesInvalid, "Id", "Name", vm.Reservation.RoomTypeId);
                 vm.Services = await _context.Services.ToListAsync();
-                vm.AvailableRooms = new SelectList(await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id), "Id", "Number");
+                vm.AvailableRooms = new SelectList(
+                    await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id),
+                    "Id", "Number");
                 return View(vm);
             }
 
@@ -301,9 +322,20 @@ namespace HotelManagement.Controllers
                 if (!isAvailable)
                 {
                     ModelState.AddModelError("", "Wybrany pokój nie jest dostępny.");
-                    vm.RoomTypes = new SelectList(await _context.RoomTypes.ToListAsync(), "Id", "Name");
+
+                    var roomTypes = await GetAvailableRoomTypesAsync(vm.Reservation.CheckIn, vm.Reservation.CheckOut, id);
+                    if (!roomTypes.Any(rt => rt.Id == vm.Reservation.RoomTypeId))
+                    {
+                        var currentRt = await _context.RoomTypes.FindAsync(vm.Reservation.RoomTypeId);
+                        if (currentRt != null)
+                            roomTypes.Add(currentRt);
+                    }
+
+                    vm.RoomTypes = new SelectList(roomTypes, "Id", "Name", vm.Reservation.RoomTypeId);
                     vm.Services = await _context.Services.ToListAsync();
-                    vm.AvailableRooms = new SelectList(await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id), "Id", "Number");
+                    vm.AvailableRooms = new SelectList(
+                        await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id),
+                        "Id", "Number");
                     return View(vm);
                 }
 
@@ -317,9 +349,20 @@ namespace HotelManagement.Controllers
                 if (allocatedRoom == null)
                 {
                     ModelState.AddModelError("", "Brak dostępnych pokoi w tym typie.");
-                    vm.RoomTypes = new SelectList(await _context.RoomTypes.ToListAsync(), "Id", "Name");
+
+                    var roomTypes = await GetAvailableRoomTypesAsync(vm.Reservation.CheckIn, vm.Reservation.CheckOut, id);
+                    if (!roomTypes.Any(rt => rt.Id == vm.Reservation.RoomTypeId))
+                    {
+                        var currentRt = await _context.RoomTypes.FindAsync(vm.Reservation.RoomTypeId);
+                        if (currentRt != null)
+                            roomTypes.Add(currentRt);
+                    }
+
+                    vm.RoomTypes = new SelectList(roomTypes, "Id", "Name", vm.Reservation.RoomTypeId);
                     vm.Services = await _context.Services.ToListAsync();
-                    vm.AvailableRooms = new SelectList(await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id), "Id", "Number");
+                    vm.AvailableRooms = new SelectList(
+                        await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id),
+                        "Id", "Number");
                     return View(vm);
                 }
             }
@@ -340,6 +383,7 @@ namespace HotelManagement.Controllers
                 vm.Breakfast,
                 vm.Parking,
                 vm.ExtraBed,
+                vm.Pet,
                 vm.PersonCount,
                 vm.SelectedServiceIds
             );
@@ -368,6 +412,121 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // ====== PRZYDZIELANIE / ZMIANA POKOJU Z LISTY REZERWACJI + ZMIANA TYPU ======
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        public async Task<IActionResult> AssignRoom(int id, int? roomId, int? roomTypeId, bool updatePrice = false, int? originalRoomTypeId = null)
+        {
+            if (!roomId.HasValue)
+            {
+                TempData["Error"] = "Nie wybrano pokoju.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var reservation = await _context.Reservations
+                .Include(r => r.RoomType)
+                .Include(r => r.ServicesUsed)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (reservation == null)
+            {
+                TempData["Error"] = "Rezerwacja nie została znaleziona.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var room = await _context.Rooms
+                .Include(r => r.RoomType)
+                .FirstOrDefaultAsync(r => r.Id == roomId.Value);
+
+            if (room == null)
+            {
+                TempData["Error"] = "Wybrany pokój nie istnieje.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Jeśli nie przyszedł roomTypeId – przyjmujemy typ pokoju z pokoju
+            if (!roomTypeId.HasValue)
+            {
+                roomTypeId = room.RoomTypeId;
+            }
+
+            // Upewniamy się, że pokój należy do wybranego typu
+            if (room.RoomTypeId != roomTypeId.Value)
+            {
+                TempData["Error"] = "Wybrany pokój nie należy do wybranego typu pokoju.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (room.IsBlocked)
+            {
+                TempData["Error"] = "Wybrany pokój jest zablokowany i nie może być przydzielony.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // UWAGA: OPCJA D – nie blokujemy pokoju, jeśli jest brudny.
+            // Może być przydzielony, ale później w notyfikacji dodamy ostrzeżenie,
+            // jeżeli room.IsClean == false.
+
+            // Sprawdzenie dostępności z uwzględnieniem tej konkretnej rezerwacji
+            bool isAvailable = await _roomAllocator.IsRoomAvailableAsync(
+                room.Id,
+                reservation.CheckIn,
+                reservation.CheckOut,
+                reservation.Id);
+
+            if (!isAvailable)
+            {
+                TempData["Error"] = "Pokój nie jest dostępny w wybranym terminie.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Czy zmienia się typ pokoju?
+            bool roomTypeChanged = reservation.RoomTypeId != roomTypeId.Value;
+
+            // Aktualizacja przydziału
+            reservation.RoomId = room.Id;
+            reservation.RoomTypeId = roomTypeId.Value;
+
+            // Jeżeli zmienił się typ i użytkownik zaakceptował przeliczenie ceny
+            if (roomTypeChanged && updatePrice)
+            {
+                var newTotalPrice = await _priceCalculator.CalculateTotalPriceAsync(
+                    roomTypeId.Value,
+                    reservation.CheckIn,
+                    reservation.CheckOut,
+                    reservation.Breakfast,
+                    reservation.Parking,
+                    reservation.Pet,
+                    reservation.ExtraBed,
+                    reservation.PersonCount,
+                    reservation.ServicesUsed.Select(su => su.ServiceId).ToList()
+                );
+
+                reservation.TotalPrice = Math.Round(newTotalPrice, 2, MidpointRounding.AwayFromZero);
+            }
+            // Jeśli roomTypeChanged == true i updatePrice == false -> zostawiamy starą cenę
+
+            await _context.SaveChangesAsync();
+
+            var notification =
+                $"Przydzielono pokój {room.Number} (typ: {room.RoomType.Code}) do rezerwacji #{reservation.Id}."
+                + (roomTypeChanged
+                    ? (updatePrice
+                        ? " Typ pokoju został zmieniony, cena została przeliczona."
+                        : " Typ pokoju został zmieniony, cena pozostała bez zmian.")
+                    : string.Empty);
+
+            if (!room.IsClean)
+            {
+                notification += " Uwaga: wybrany pokój jest oznaczony jako brudny – upewnij się, że housekeeping przygotuje go przed przyjazdem gościa.";
+            }
+
+            TempData["Notification"] = notification;
+
+            return RedirectToAction(nameof(Index));
+        }
+
         [HttpPost]
         public async Task<IActionResult> CheckIn(int id)
         {
@@ -387,7 +546,8 @@ namespace HotelManagement.Controllers
             }
             await _context.SaveChangesAsync();
 
-            TempData["Notification"] = $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {(reservation.Room != null ? reservation.Room.Number : "nieprzydzielony")}";
+            TempData["Notification"] =
+                $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {(reservation.Room != null ? reservation.Room.Number : "nieprzydzielony")}";
 
             return RedirectToAction(nameof(Index));
         }
@@ -408,20 +568,33 @@ namespace HotelManagement.Controllers
             _loyaltyService.AwardPointsForCheckout(reservation);
 
             var roomNumber = reservation.Room != null ? reservation.Room.Number : "nieprzydzielony";
-            TempData["Notification"] = $"Wymeldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {roomNumber}";
+            TempData["Notification"] =
+                $"Wymeldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {roomNumber}";
 
             return RedirectToAction(nameof(Index));
         }
 
         private async Task<ReservationViewModel> BuildReservationViewModel(Reservation reservation, Guest guest)
         {
-            var roomTypes = await _context.RoomTypes.ToListAsync();
+            var roomTypes = await GetAvailableRoomTypesAsync(reservation.CheckIn, reservation.CheckOut);
+
+            // Jeśli nic nie ma w dostępności, fallback do wszystkich typów
+            if (!roomTypes.Any())
+            {
+                roomTypes = await _context.RoomTypes.ToListAsync();
+            }
+
+            int selectedRoomTypeId;
+            if (reservation.RoomTypeId != 0 && roomTypes.Any(rt => rt.Id == reservation.RoomTypeId))
+            {
+                selectedRoomTypeId = reservation.RoomTypeId;
+            }
+            else
+            {
+                selectedRoomTypeId = roomTypes.First().Id;
+            }
+
             var services = await _context.Services.ToListAsync();
-
-            var selectedRoomTypeId = reservation.RoomTypeId != 0
-                ? reservation.RoomTypeId
-                : roomTypes.First().Id;
-
             var availableRooms = await GetAvailableRoomsAsync(selectedRoomTypeId, reservation.CheckIn, reservation.CheckOut);
 
             return new ReservationViewModel
@@ -433,14 +606,43 @@ namespace HotelManagement.Controllers
                 AvailableRooms = new SelectList(availableRooms, "Id", "Number"),
                 Services = services,
                 SelectedServiceIds = new List<int>(),
-                PersonCount = 1
+                PersonCount = reservation.PersonCount > 0 ? reservation.PersonCount : 1
             };
+        }
+
+        private async Task<List<RoomType>> GetAvailableRoomTypesAsync(DateTime checkIn, DateTime checkOut, int? reservationId = null)
+        {
+            var roomTypes = await _context.RoomTypes
+                .Include(rt => rt.Rooms)
+                .ToListAsync();
+
+            var result = new List<RoomType>();
+
+            foreach (var rt in roomTypes)
+            {
+                var candidateRooms = rt.Rooms
+                    .Where(r => r.IsClean && !r.IsBlocked)
+                    .ToList();
+
+                foreach (var room in candidateRooms)
+                {
+                    bool isAvailable = await _roomAllocator.IsRoomAvailableAsync(room.Id, checkIn, checkOut, reservationId);
+                    if (isAvailable)
+                    {
+                        result.Add(rt);
+                        break;
+                    }
+                }
+            }
+
+            return result;
         }
 
         private async Task<List<Room>> GetAvailableRoomsAsync(int roomTypeId, DateTime checkIn, DateTime checkOut, int? reservationId = null)
         {
             var rooms = await _context.Rooms
-                .Where(r => r.RoomTypeId == roomTypeId && r.IsClean && !r.IsBlocked)
+                .Where(r => r.RoomTypeId == roomTypeId && !r.IsBlocked)
+                .OrderBy(r => r.Number)
                 .ToListAsync();
 
             var availableRooms = new List<Room>();
@@ -455,10 +657,11 @@ namespace HotelManagement.Controllers
             return availableRooms;
         }
 
+        // GET: dostępne pokoje dla konkretnego typu i dat (używane w modalu)
         [HttpGet]
-        public async Task<IActionResult> GetAvailableRooms(int roomTypeId, DateTime checkIn, DateTime checkOut)
+        public async Task<IActionResult> GetAvailableRooms(int roomTypeId, DateTime checkIn, DateTime checkOut, int? reservationId)
         {
-            var availableRooms = await GetAvailableRoomsAsync(roomTypeId, checkIn, checkOut);
+            var availableRooms = await GetAvailableRoomsAsync(roomTypeId, checkIn, checkOut, reservationId);
             var result = availableRooms.Select(r => new
             {
                 id = r.Id,
@@ -468,58 +671,144 @@ namespace HotelManagement.Controllers
             return Json(result);
         }
 
+        // GET: dostępne pokoje na podstawie samej rezerwacji (opcjonalne)
+        [HttpGet]
+        public async Task<IActionResult> GetAvailableRoomsForReservation(int id)
+        {
+            var reservation = await _context.Reservations
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (reservation == null)
+            {
+                return Json(Array.Empty<object>());
+            }
+
+            var rooms = await GetAvailableRoomsAsync(
+                reservation.RoomTypeId,
+                reservation.CheckIn,
+                reservation.CheckOut,
+                reservation.Id);
+
+            var result = rooms.Select(r => new
+            {
+                id = r.Id,
+                number = r.Number,
+                isClean = r.IsClean
+            });
+
+            return Json(result);
+        }
+
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin,Pracownik")]
-        public async Task<IActionResult> Search(string? reservationNumber, string? firstName, string? lastName, DateTime? fromDate, DateTime? toDate)
+        public async Task<IActionResult> Search(
+     string? searchType,
+     string? reservationNumber,
+     string? firstName,
+     string? lastName,
+     DateTime? fromDate,
+     DateTime? toDate,
+     string? guestQuery,
+     string? documentNumber,
+     DateTime? documentFromDate,
+     DateTime? documentToDate)
         {
-            bool hasFilter = !string.IsNullOrWhiteSpace(reservationNumber)
-                || !string.IsNullOrWhiteSpace(firstName)
-                || !string.IsNullOrWhiteSpace(lastName)
-                || fromDate.HasValue
-                || toDate.HasValue;
+            searchType = searchType?.ToLower() ?? "reservation";
 
-            List<Reservation> filteredReservations = new List<Reservation>();
+            IEnumerable<Reservation> reservationResults = Enumerable.Empty<Reservation>();
 
-            if (hasFilter)
+            if (searchType == "reservation")
             {
-                var query = _context.Reservations
-                    .Include(r => r.Guest)
-                    .Include(r => r.Room)
-                    .Include(r => r.RoomType)
-                    .AsQueryable();
+                bool hasFilter =
+                    !string.IsNullOrWhiteSpace(reservationNumber) ||
+                    !string.IsNullOrWhiteSpace(firstName) ||
+                    !string.IsNullOrWhiteSpace(lastName) ||
+                    fromDate.HasValue ||
+                    toDate.HasValue;
 
-                if (!string.IsNullOrWhiteSpace(reservationNumber))
+                if (hasFilter)
                 {
-                    if (int.TryParse(reservationNumber, out int resId))
-                    {
+                    var query = _context.Reservations
+                        .Include(r => r.Guest)
+                        .Include(r => r.Room)
+                        .Include(r => r.RoomType)
+                        .AsQueryable();
+
+                    if (!string.IsNullOrWhiteSpace(reservationNumber) && int.TryParse(reservationNumber, out int resId))
                         query = query.Where(r => r.Id == resId);
+
+                    if (!string.IsNullOrWhiteSpace(firstName))
+                    {
+                        var f = firstName.ToLower();
+                        query = query.Where(r => r.Guest.FirstName.ToLower().Contains(f));
                     }
-                }
 
-                if (!string.IsNullOrWhiteSpace(firstName))
-                {
-                    var lowerFirstName = firstName.ToLower();
-                    query = query.Where(r => r.Guest.FirstName.ToLower().Contains(lowerFirstName));
-                }
+                    if (!string.IsNullOrWhiteSpace(lastName))
+                    {
+                        var l = lastName.ToLower();
+                        query = query.Where(r => r.Guest.LastName.ToLower().Contains(l));
+                    }
 
-                if (!string.IsNullOrWhiteSpace(lastName))
-                {
-                    var lowerLastName = lastName.ToLower();
-                    query = query.Where(r => r.Guest.LastName.ToLower().Contains(lowerLastName));
-                }
+                    if (fromDate.HasValue)
+                        query = query.Where(r => r.CheckIn.Date >= fromDate.Value.Date);
 
-                if (fromDate.HasValue)
-                {
-                    query = query.Where(r => r.CheckIn.Date == fromDate.Value.Date);
-                }
+                    if (toDate.HasValue)
+                        query = query.Where(r => r.CheckOut.Date <= toDate.Value.Date);
 
-                if (toDate.HasValue)
-                {
-                    query = query.Where(r => r.CheckOut.Date == toDate.Value.Date);
+                    reservationResults = await query.ToListAsync();
                 }
-
-                filteredReservations = await query.ToListAsync();
             }
+
+            IEnumerable<Guest> guestResults = Enumerable.Empty<Guest>();
+
+            if (searchType == "guest")
+            {
+                if (!string.IsNullOrWhiteSpace(guestQuery))
+                {
+                    var q = guestQuery.ToLower();
+
+                    guestResults = await _context.Guests
+                        .Where(g =>
+                            g.FirstName.ToLower().Contains(q) ||
+                            g.LastName.ToLower().Contains(q) ||
+                            (g.Email != null && g.Email.ToLower().Contains(q)) ||
+                            (g.PhoneNumber != null && g.PhoneNumber.ToLower().Contains(q))
+                        )
+                        .OrderBy(g => g.LastName)
+                        .ToListAsync();
+                }
+            }
+
+            IEnumerable<Document> documentResults = Enumerable.Empty<Document>();
+
+            if (searchType == "document")
+            {
+                bool hasDocFilter =
+                    !string.IsNullOrWhiteSpace(documentNumber) ||
+                    documentFromDate.HasValue ||
+                    documentToDate.HasValue;
+
+                if (hasDocFilter)
+                {
+                    var q = _context.Documents
+                        .Include(d => d.Reservation)
+                            .ThenInclude(r => r.Guest)
+                        .AsQueryable();
+
+                    if (!string.IsNullOrWhiteSpace(documentNumber))
+                        q = q.Where(d => d.Number.Contains(documentNumber));
+
+                    if (documentFromDate.HasValue)
+                        q = q.Where(d => d.IssueDate.Date >= documentFromDate.Value.Date);
+
+                    if (documentToDate.HasValue)
+                        q = q.Where(d => d.IssueDate.Date <= documentToDate.Value.Date);
+
+                    documentResults = await q.ToListAsync();
+                }
+            }
+
+            ViewBag.SearchType = searchType;
 
             ViewBag.ReservationNumber = reservationNumber;
             ViewBag.FirstName = firstName;
@@ -527,8 +816,19 @@ namespace HotelManagement.Controllers
             ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
             ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
 
-            return View(filteredReservations);
+            ViewBag.GuestQuery = guestQuery;
+            ViewBag.GuestResults = guestResults;
+
+            ViewBag.DocumentNumber = documentNumber;
+            ViewBag.DocumentFromDate = documentFromDate?.ToString("yyyy-MM-dd");
+            ViewBag.DocumentToDate = documentToDate?.ToString("yyyy-MM-dd");
+            ViewBag.DocumentResults = documentResults;
+
+            ViewBag.AllRoomTypes = await _context.RoomTypes.ToListAsync();
+
+            return View(reservationResults);
         }
+
 
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin,Pracownik")]
@@ -555,6 +855,9 @@ namespace HotelManagement.Controllers
                 .ToList();
 
             ViewBag.TodayDate = today.ToString("yyyy-MM-dd");
+
+            // lista typów pokoi do modala (dla widoku z listą rezerwacji)
+            ViewBag.AllRoomTypes = await _context.RoomTypes.ToListAsync();
 
             return View();
         }
@@ -595,6 +898,23 @@ namespace HotelManagement.Controllers
 
             return Json(new { results });
         }
+
+        [HttpGet]
+        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        public async Task<IActionResult> Details(int id)
+        {
+            var reservation = await _context.Reservations
+                .Include(r => r.Guest)
+                .Include(r => r.Room)
+                .Include(r => r.RoomType)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (reservation == null)
+                return NotFound();
+
+            return View(reservation);
+        }
+
 
         [HttpPost]
         public async Task<IActionResult> SelectGuest(int id)

@@ -1,17 +1,5 @@
 ﻿@model IEnumerable<HotelManagement.Models.Reservation>
 
-@if (TempData["Notification"] != null)
-{
-        <div class="alert alert-success text-center fixed-top mt-3 mx-auto shadow" style="width: 50%; z-index: 9999;">
-        @TempData["Notification"]
-        </div>
-        <script>
-            setTimeout(function () {
-                document.querySelector('.alert').style.display = 'none';
-            }, 4000);
-        </script>
-}
-
 @{
     ViewData["Title"] = "Rezerwacje";
 
@@ -21,91 +9,300 @@
     var departures = ViewBag.Departures != null ? ((IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Departures).Count() : 0;
 }
 
-<div class="container mt-5">
-    <h2 class="text-center mb-4">Rezerwacje</h2>
+<div class="container mt-4">
 
-    <!-- Podsumowanie liczbowe -->
-    <div class="d-flex justify-content-center gap-5 mb-4">
-        <div class="text-center">
-            <h6 class="text-muted">📥 Przyjazdy</h6>
-            <h3 class="text-primary fw-bold">@arrivals</h3>
+    <!-- GŁÓWNY NAGŁÓWEK -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h2 class="mb-1">Rezerwacje</h2>
+            <p class="text-muted mb-0">Zarządzaj przyjazdami, pobytami i wyjazdami.</p>
         </div>
-        <div class="text-center">
-            <h6 class="text-muted">🏨 Pobyty</h6>
-            <h3 class="text-success fw-bold">@stays</h3>
-        </div>
-        <div class="text-center">
-            <h6 class="text-muted">📤 Wyjazdy</h6>
-            <h3 class="text-danger fw-bold">@departures</h3>
+
+        <div class="text-end">
+            <div class="small text-muted mb-1">
+                Dzisiejsza data operacyjna:
+                <span class="fw-semibold">@ViewBag.TodayDate</span>
+            </div>
+            <a asp-action="CreateGuest" class="btn btn-primary btn-lg shadow-sm">
+                <i class="bi bi-calendar-plus me-2"></i> Nowa rezerwacja
+            </a>
         </div>
     </div>
 
-    <div class="text-end my-4">
-        <h5 class="mb-3">
-            <strong>Dzisiejsza data:</strong> <span class="fw-normal">@ViewBag.TodayDate</span>
-        </h5>
+    @* Powiadomienie z TempData *@
+    @if (TempData["Notification"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle me-2"></i> @TempData["Notification"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zamknij"></button>
+        </div>
 
-        <a asp-action="CreateGuest" class="btn btn-lg btn-primary shadow-sm">
-            <i class="bi bi-calendar-plus me-2"></i> Załóż rezerwację
-        </a>
+        <script>
+            setTimeout(function () {
+                var alertEl = document.querySelector('.alert');
+                if (alertEl) {
+                    var bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+                    bsAlert.close();
+                }
+            }, 4000);
+        </script>
+    }
+
+    <!-- PODSUMOWANIE LICZBOWE -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="small text-muted mb-1">Przyjazdy</div>
+                        <div class="fs-3 fw-bold text-primary">@arrivals</div>
+                    </div>
+                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center"
+                         style="width:40px;height:40px;">
+                        <i class="bi bi-box-arrow-in-down"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="small text-muted mb-1">Pobyty</div>
+                        <div class="fs-3 fw-bold text-success">@stays</div>
+                    </div>
+                    <div class="rounded-circle bg-success-subtle text-success d-flex align-items-center justify-content-center"
+                         style="width:40px;height:40px;">
+                        <i class="bi bi-building"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="small text-muted mb-1">Wyjazdy</div>
+                        <div class="fs-3 fw-bold text-danger">@departures</div>
+                    </div>
+                    <div class="rounded-circle bg-danger-subtle text-danger d-flex align-items-center justify-content-center"
+                         style="width:40px;height:40px;">
+                        <i class="bi bi-box-arrow-up"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Zakładki -->
-    <ul class="nav nav-tabs" id="myTab" role="tablist">
-        <li class="nav-item" role="presentation">
-            <a class="nav-link active" id="arrivals-tab" data-bs-toggle="tab" href="#arrivals" role="tab">Przyjazdy</a>
-        </li>
-        <li class="nav-item" role="presentation">
-            <a class="nav-link" id="stay-tab" data-bs-toggle="tab" href="#stay" role="tab">Pobyty</a>
-        </li>
-        <li class="nav-item" role="presentation">
-            <a class="nav-link" id="departures-tab" data-bs-toggle="tab" href="#departures" role="tab">Wyjazdy</a>
-        </li>
-    </ul>
-
-    <!-- Treść zakładek -->
-    <div class="tab-content" id="myTabContent">
-        <!-- Przyjazdy -->
-        <div class="tab-pane fade show active" id="arrivals" role="tabpanel">
-            <h3 class="mt-3">Przyjazdy</h3>
-            @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Arrivals)
+    <!-- ZAKŁADKI -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 pb-0">
+            <ul class="nav nav-pills card-header-pills" id="reservationTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active"
+                            id="arrivals-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#arrivals"
+                            type="button"
+                            role="tab">
+                        <i class="bi bi-box-arrow-in-down me-1"></i> Przyjazdy
+                        <span class="badge bg-light text-primary border ms-1">@arrivals</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link"
+                            id="stay-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#stay"
+                            type="button"
+                            role="tab">
+                        <i class="bi bi-building me-1"></i> Pobyty
+                        <span class="badge bg-light text-success border ms-1">@stays</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link"
+                            id="departures-tab"
+                            data-bs-toggle="tab"
+                            data-bs-target="#departures"
+                            type="button"
+                            role="tab">
+                        <i class="bi bi-box-arrow-up me-1"></i> Wyjazdy
+                        <span class="badge bg-light text-danger border ms-1">@departures</span>
+                    </button>
+                </li>
+            </ul>
         </div>
 
-        <!-- Pobyty -->
-        <div class="tab-pane fade" id="stay" role="tabpanel">
-            <h3 class="mt-3">Pobyty</h3>
-            @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.InStay)
-        </div>
+        <div class="card-body">
+            <div class="tab-content" id="reservationTabsContent">
+                <!-- Przyjazdy -->
+                <div class="tab-pane fade show active" id="arrivals" role="tabpanel" aria-labelledby="arrivals-tab">
+                    @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Arrivals)
+                </div>
 
-        <!-- Wyjazdy -->
-        <div class="tab-pane fade" id="departures" role="tabpanel">
-            <h3 class="mt-3">Wyjazdy</h3>
-            @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Departures)
+                <!-- Pobyty -->
+                <div class="tab-pane fade" id="stay" role="tabpanel" aria-labelledby="stay-tab">
+                    @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.InStay)
+                </div>
+
+                <!-- Wyjazdy -->
+                <div class="tab-pane fade" id="departures" role="tabpanel" aria-labelledby="departures-tab">
+                    @Html.Partial("_ReservationTable", (IEnumerable<HotelManagement.Models.Reservation>)ViewBag.Departures)
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Skrypt sortowania -->
-<script>
-    function sortTable(header) {
-        const table = header.closest("table");
-        const tbody = table.querySelector("tbody");
-        const index = [...header.parentElement.children].indexOf(header);
-        const rows = [...tbody.querySelectorAll("tr")];
-        const asc = !header.classList.contains("asc");
+@section Scripts {
+    <script>
+        // Sortowanie tabeli
+        function sortTable(header) {
+            const table = header.closest("table");
+            const tbody = table.querySelector("tbody");
+            const index = [...header.parentElement.children].indexOf(header);
+            const rows = [...tbody.querySelectorAll("tr")];
+            const asc = !header.classList.contains("asc");
 
-        rows.sort((a, b) => {
-            let aText = a.children[index].innerText.trim();
-            let bText = b.children[index].innerText.trim();
-            return asc
-                ? aText.localeCompare(bText, undefined, { numeric: true })
-                : bText.localeCompare(aText, undefined, { numeric: true });
+            rows.sort((a, b) => {
+                let aText = a.children[index].innerText.trim();
+                let bText = b.children[index].innerText.trim();
+                return asc
+                    ? aText.localeCompare(bText, undefined, { numeric: true })
+                    : bText.localeCompare(aText, undefined, { numeric: true });
+            });
+
+            header.parentElement.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
+            header.classList.toggle("asc", asc);
+            header.classList.toggle("desc", !asc);
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Ładowanie pokoi przy otwarciu modala
+        document.addEventListener('show.bs.modal', function (event) {
+            var modal = event.target;
+            if (!modal.id || !modal.id.startsWith('assignRoomModal-')) {
+                return; // nie nasz modal
+            }
+
+            var button = event.relatedTarget;
+            if (!button) return;
+
+            var reservationId = button.getAttribute('data-reservation-id');
+            var currentRoomId = button.getAttribute('data-current-room-id') || '';
+
+            var selectRoom = modal.querySelector('.room-select');
+            var selectRoomType = modal.querySelector('.roomtype-select');
+            if (!selectRoom || !selectRoomType) return;
+
+            // Funkcja ładująca pokoje dla danego typu
+            function loadRoomsForType(roomTypeId, preselectRoomId) {
+                selectRoom.innerHTML = '<option value="">Ładowanie dostępnych pokoi...</option>';
+
+                var checkIn = selectRoomType.getAttribute('data-check-in');
+                var checkOut = selectRoomType.getAttribute('data-check-out');
+
+                var url = '@Url.Action("GetAvailableRooms", "Reservation")'
+                    + '?roomTypeId=' + encodeURIComponent(roomTypeId)
+                    + '&checkIn=' + encodeURIComponent(checkIn)
+                    + '&checkOut=' + encodeURIComponent(checkOut)
+                    + '&reservationId=' + encodeURIComponent(reservationId);
+
+                fetch(url)
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        selectRoom.innerHTML = '';
+
+                        if (!data || !data.length) {
+                            var opt = document.createElement('option');
+                            opt.value = '';
+                            opt.textContent = 'Brak dostępnych pokoi w tym terminie';
+                            selectRoom.appendChild(opt);
+                            return;
+                        }
+
+                        var placeholder = document.createElement('option');
+                        placeholder.value = '';
+                        placeholder.textContent = 'Wybierz pokój...';
+                        selectRoom.appendChild(placeholder);
+
+                        data.forEach(function (room) {
+                            var opt = document.createElement('option');
+                            opt.value = room.id;
+
+                            if (room.isClean)
+                                opt.textContent = room.number + ' ✔ (czysty)';
+                            else
+                                opt.textContent = room.number + ' ✖ (brudny)';
+
+                            if (!room.isClean) {
+                                opt.style.color = 'red';
+                                opt.style.fontWeight = '600';
+                            }
+
+                            if (preselectRoomId && room.id == preselectRoomId) {
+                                opt.selected = true;
+                            }
+
+                            selectRoom.appendChild(opt);
+                        });
+                    })
+                    .catch(function () {
+                        selectRoom.innerHTML = '';
+                        var opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = 'Błąd podczas ładowania pokoi';
+                        selectRoom.appendChild(opt);
+                    });
+            }
+
+            // Pierwsze załadowanie – dla aktualnie wybranego typu
+            loadRoomsForType(selectRoomType.value, currentRoomId);
+
+            // Podpinamy event zmiany typu pokoju (tylko raz)
+            if (!selectRoomType.dataset.boundChange) {
+                selectRoomType.addEventListener('change', function () {
+                    loadRoomsForType(selectRoomType.value, null);
+                });
+                selectRoomType.dataset.boundChange = 'true';
+            }
         });
 
-        header.parentElement.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
-        header.classList.toggle("asc", asc);
-        header.classList.toggle("desc", !asc);
+        // Obsługa potwierdzenia zmiany ceny przy submit
+        document.addEventListener('DOMContentLoaded', function () {
+            var forms = document.querySelectorAll('.assign-room-form');
+            forms.forEach(function (form) {
+                form.addEventListener('submit', function (e) {
+                    var reservationId = form.getAttribute('data-reservation-id');
+                    var roomTypeSelect = document.getElementById('roomTypeSelect-' + reservationId);
+                    var originalTypeInput = form.querySelector('input[name="originalRoomTypeId"]');
+                    var updatePriceInput = document.getElementById('updatePrice-' + reservationId);
 
-        rows.forEach(row => tbody.appendChild(row));
-    }
-</script>
+                    if (!roomTypeSelect || !originalTypeInput || !updatePriceInput) {
+                        return; // coś jest nie tak z markupem
+                    }
+
+                    var originalTypeId = originalTypeInput.value;
+                    var selectedTypeId = roomTypeSelect.value;
+
+                    if (selectedTypeId && originalTypeId && selectedTypeId !== originalTypeId) {
+                        var confirmUpdate = confirm(
+                            'Zmieniono typ pokoju.\n\n' +
+                            'Czy chcesz przeliczyć cenę według nowego typu pokoju?\n\n' +
+                            'OK – przelicz cenę\n' +
+                            'Anuluj – zostaw starą cenę'
+                        );
+
+                        updatePriceInput.value = confirmUpdate ? 'true' : 'false';
+                    }
+                    else {
+                        // brak zmiany typu -> nie ruszamy ceny
+                        updatePriceInput.value = 'false';
+                    }
+                });
+            });
+        });
+    </script>
+}

@@ -1,99 +1,368 @@
 ﻿@model IEnumerable<dynamic>
-@using System.Globalization
+@using System.Linq
 
 @{
     ViewData["Title"] = "Status pokoi";
     Layout = "_Layout";
+
     var selectedDate = (DateTime)ViewBag.SelectedDate;
+
+    var rooms = Model ?? Enumerable.Empty<dynamic>();
+
+    int totalRooms = rooms.Count();
+    int freeRooms = rooms.Count(r => (string)r.Occupancy == "Wolny");
+    int occupiedRooms = totalRooms - freeRooms;
 }
 
-<h2 class="mb-4">🧹 Status pokoi – @selectedDate.ToString("dd MMMM yyyy", new CultureInfo("pl-PL"))</h2>
+<style>
+    .roomstatus-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
 
-<form method="get" asp-action="RoomStatus" class="mb-4 d-flex align-items-center gap-3">
-    <div>
-        <label for="date">Data:</label>
-        <input type="date" id="date" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" class="form-control d-inline-block w-auto" />
+    .roomstatus-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .roomstatus-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .roomstatus-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(191, 219, 254, 0.9);
+        color: #1d4ed8;
+    }
+
+        .roomstatus-pill i {
+            font-size: .9rem;
+        }
+
+    .roomstatus-heading {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .roomstatus-heading i {
+            font-size: 1.4rem;
+            color: #1d4ed8;
+        }
+
+    .roomstatus-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .roomstatus-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .roomstatus-meta-badge {
+        border-radius: 999px;
+        padding: .2rem .7rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .roomstatus-summary-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        font-size: .8rem;
+    }
+
+    .roomstatus-summary-pill {
+        border-radius: .7rem;
+        padding: .25rem .65rem;
+        background: #f9fafb;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .roomstatus-filters-card {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        padding: .9rem 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
+    .roomstatus-filters-left {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .6rem;
+        font-size: .8rem;
+    }
+
+    .roomstatus-filters-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .roomstatus-filters-form .form-control {
+        font-size: .8rem;
+        border-radius: .55rem;
+        height: 32px;
+        padding-inline: .5rem;
+    }
+
+    .roomstatus-filters-form .btn {
+        font-size: .8rem;
+        border-radius: .7rem;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding-inline: .8rem;
+    }
+
+    .roomstatus-table-wrapper {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .roomstatus-table-caption {
+        padding: .6rem .95rem .4rem;
+        font-size: .78rem;
+        color: #6b7280;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+
+    .table-roomstatus {
+        font-size: .85rem;
+        margin-bottom: 0;
+    }
+
+        .table-roomstatus thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .table-roomstatus tbody td {
+            vertical-align: middle;
+            padding-top: .55rem;
+            padding-bottom: .55rem;
+        }
+
+    .roomstatus-room-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        border-radius: 999px;
+        padding: .15rem .55rem;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: .78rem;
+    }
+
+    @@media (max-width: 992px) {
+        .roomstatus-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .roomstatus-meta {
+            align-items: flex-start;
+        }
+
+        .roomstatus-filters-card {
+            align-items: flex-start;
+        }
+
+        .roomstatus-filters-left,
+        .roomstatus-filters-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .roomstatus-filters-left,
+        .roomstatus-filters-right {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .roomstatus-heading {
+            font-size: 1.05rem;
+        }
+
+        .table-roomstatus {
+            font-size: .8rem;
+        }
+    }
+</style>
+
+<div class="roomstatus-page">
+    <!-- HEADER -->
+    <div class="roomstatus-header">
+        <div class="roomstatus-title-wrap">
+            <span class="roomstatus-pill">
+                <i class="bi bi-house-gear"></i>
+                Raport operacyjny
+            </span>
+            <h2 class="roomstatus-heading">
+                <i class="bi bi-house-door"></i>
+                <span>Status pokoi</span>
+            </h2>
+            <p class="roomstatus-subtitle">
+                Stan pokoi na dzień
+                <strong>@selectedDate.ToString("dd.MM.yyyy")</strong>.
+            </p>
+        </div>
+
+        <div class="roomstatus-meta">
+            <div class="roomstatus-meta-badge">
+                <i class="bi bi-calendar-event"></i>
+                Dzień raportu:
+                <strong>@selectedDate.ToString("dd.MM.yyyy")</strong>
+            </div>
+            <div>
+                <i class="bi bi-clock-history me-1"></i>
+                Wygenerowano:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
+        </div>
     </div>
-    <button type="submit" class="btn btn-primary">Pokaż</button>
-</form>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">Brak danych dla wybranego dnia.</div>
-}
-else
-{
-    <form method="post" asp-action="ExportRoomStatus" class="mb-3">
-        @Html.AntiForgeryToken()
-        <input type="hidden" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" />
-        <button type="submit" class="btn btn-outline-danger">
-            <i class="bi bi-filetype-pdf"></i> Eksportuj do PDF
-        </button>
-    </form>
+    <!-- FILTRY + PDF -->
+    <div class="roomstatus-filters-card">
+        <div class="roomstatus-filters-left roomstatus-filters-form">
+            <form method="get"
+                  asp-action="RoomStatus"
+                  class="d-flex flex-wrap align-items-center gap-2 mb-0">
+                <div class="d-flex align-items-center gap-1">
+                    <label for="date" class="small text-muted mb-0">Data statusu:</label>
+                    <input type="date"
+                           id="date"
+                           name="date"
+                           value="@selectedDate.ToString("yyyy-MM-dd")"
+                           class="form-control form-control-sm" />
+                </div>
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-search"></i>
+                    Pokaż
+                </button>
+            </form>
+        </div>
 
-    <table class="table table-bordered table-striped text-center align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>#</th>
-                <th>Pokój</th>
-                <th>Typ pokoju</th>
-                <th>Status pokoju</th>
-                <th>Zajętość</th>
-                <th>Gość</th>
-            </tr>
-        </thead>
-        <tbody>
-            @{
-                int i = 1;
-                foreach (var r in Model)
-                {
-                    string statusClass = r.Status switch
-                    {
-                        "Czysty" => "text-success fw-bold",
-                        "Brudny" => "text-danger fw-bold",
-                        "Zablokowany" => "text-secondary fw-bold",
-                        _ => "text-muted"
-                    };
+        <div class="roomstatus-filters-right">
+            <div class="roomstatus-summary-row">
+                <div class="roomstatus-summary-pill">
+                    <i class="bi bi-houses"></i>
+                    <span>Pokoje łącznie: <strong>@totalRooms</strong></span>
+                </div>
+                <div class="roomstatus-summary-pill">
+                    <i class="bi bi-person-check"></i>
+                    <span>Zajęte: <strong>@occupiedRooms</strong></span>
+                </div>
+                <div class="roomstatus-summary-pill">
+                    <i class="bi bi-door-open"></i>
+                    <span>Wolne: <strong>@freeRooms</strong></span>
+                </div>
+            </div>
 
-                    string occupancyClass = r.Occupancy switch
-                    {
-                        "Pobyt" => "text-primary fw-bold",
-                        "Wyjazd" => "text-warning fw-bold",
-                        "Wolny" => "text-muted",
-                        _ => "text-muted"
-                    };
+            <form method="post"
+                  asp-action="ExportRoomStatus"
+                  class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-filetype-pdf me-1"></i>
+                    Eksportuj do PDF
+                </button>
+            </form>
+        </div>
+    </div>
 
-                    string statusIcon = r.Status switch
-                    {
-                        "Czysty" => "🟢",
-                        "Brudny" => "🔴",
-                        "Zablokowany" => "⚫",
-                        _ => "⚪"
-                    };
-
-                    string occIcon = r.Occupancy switch
-                    {
-                        "Pobyt" => "🔵",
-                        "Wyjazd" => "🟡",
-                        "Wolny" => "⚪",
-                        _ => "⚪"
-                    };
-
-                    <tr>
-                        <td>@i++</td>
-                        <td>@r.Number</td>
-                        <td>@r.RoomType</td>
-                        <td class="@statusClass">@statusIcon @r.Status</td>
-                        <td class="@occupancyClass">@occIcon @r.Occupancy</td>
-                        <td>@r.Guest</td>
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
-}
-
-<hr class="mt-4" />
-<p class="text-muted small text-end">
-    System <strong>HotelManagement</strong> – raport statusu pokoi © @DateTime.Now.Year
-</p>
+    <!-- TABELA -->
+    @if (!rooms.Any())
+    {
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            Brak pokoi do wyświetlenia dla tej daty.
+        </div>
+    }
+    else
+    {
+        <div class="roomstatus-table-wrapper">
+            <div class="roomstatus-table-caption">
+                <i class="bi bi-list-ul me-1"></i>
+                Lista pokoi – @totalRooms pozycji.
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-roomstatus align-middle text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Pokój</th>
+                            <th>Kod typu</th>
+                            <th>Status pokoju</th>
+                            <th>Zajętość</th>
+                            <th>Gość</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in rooms)
+                        {
+                            <tr>
+                                <td>
+                                    <span class="roomstatus-room-pill">
+                                        <i class="bi bi-door-closed"></i>
+                                        @r.Number
+                                    </span>
+                                </td>
+                                <td>@r.RoomCode</td>
+                                <td>@r.Status</td>
+                                <td>@r.Occupancy</td>
+                                <td>@r.Guest</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

@@ -1,395 +1,336 @@
-﻿@model IEnumerable<HotelManagement.Models.RoomType>
+﻿@using HotelManagement.Models
+@using HotelManagement.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+
+@inject UserManager<ApplicationUser> UserManager
+@inject HotelManagementContext DbContext
+
+@model IEnumerable<HotelManagement.Models.RoomType>
 
 @{
-	ViewData["Title"] = "Dostępne typy pokoi";
-	var isAdminOrManager = (bool?)ViewBag.IsAdminOrManager ?? false;
-	decimal? minPrice = Model?.Any() == true ? Model.Min(rt => rt.PricePerNight) : 0m;
-	decimal? maxPrice = Model?.Any() == true ? Model.Max(rt => rt.PricePerNight) : 0m;
+    ViewData["Title"] = "Dostępne typy pokoi";
+
+    var isAdminOrManager = (bool?)ViewBag.IsAdminOrManager ?? false;
+
+    // dostępność z kontrolera – Dictionary<int, int> (RoomTypeId -> min dostępność w całym pobycie)
+    var availability = ViewBag.Availability as Dictionary<int, int>;
+
+    string checkIn = ViewBag.CheckIn as string;
+    string checkOut = ViewBag.CheckOut as string;
+    bool hasSearch = !string.IsNullOrEmpty(checkIn) && !string.IsNullOrEmpty(checkOut);
+
+    decimal? minPrice = Model?.Any() == true ? Model.Min(rt => rt.PricePerNight) : 0m;
+    decimal? maxPrice = Model?.Any() == true ? Model.Max(rt => rt.PricePerNight) : 0m;
+
+    // ====== LOJALNOŚĆ – wyliczenie rabatu ======
+    ApplicationUser? currentUser = null;
+    bool hasLoyaltyCard = false;
+    string? loyaltyStatus = null;
+    decimal loyaltyDiscount = 0m;
+    int loyaltyDiscountPercent = 0;
+
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        currentUser = await UserManager.GetUserAsync(User);
+        if (currentUser?.GuestId != null)
+        {
+            var guest = await DbContext.Guests
+                .FirstOrDefaultAsync(g => g.Id == currentUser.GuestId.Value);
+
+            if (guest != null && guest.HasLoyaltyCard)
+            {
+                hasLoyaltyCard = true;
+                loyaltyStatus = guest.LoyaltyStatus.ToString();
+                loyaltyDiscount = guest.GetDiscountPercentage();
+                loyaltyDiscountPercent = (int)(loyaltyDiscount * 100);
+            }
+        }
+    }
 }
 
 <style>
-	/* ====== HERO ====== */
-	.hero {
-		background: radial-gradient(1200px 500px at 10% 0%, rgba(99,102,241,.15), transparent 60%),
-					radial-gradient(900px 400px at 90% 10%, rgba(16,185,129,.15), transparent 60%),
-					linear-gradient(135deg, #0ea5e9 0%, #6366f1 50%, #22c55e 100%);
-		color: #fff;
-		border-radius: 1.25rem;
-		padding: 3rem 1.5rem;
-		position: relative;
-		overflow: hidden;
-		box-shadow: 0 20px 40px rgba(2,6,23,.15);
-	}
-	.hero h1 {
-		font-weight: 800;
-		letter-spacing: .3px;
-		text-shadow: 0 2px 10px rgba(0,0,0,.15);
-	}
-	.hero .badge-hero {
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
-		background: rgba(255,255,255,.15);
-		border: 1px solid rgba(255,255,255,.35);
-		color: #fff;
-		border-radius: 999px;
-		padding: .35rem .75rem;
-		font-size: .9rem;
-	}
+    .hero {
+        background: radial-gradient(1200px 500px at 10% 0%, rgba(99,102,241,.15), transparent 60%), radial-gradient(900px 400px at 90% 10%, rgba(16,185,129,.15), transparent 60%);
+        border-radius: 1.5rem;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+        color: #111827;
+        position: relative;
+        overflow: hidden;
+    }
 
-	/* ====== FILTER BAR ====== */
-	.filter-bar {
-		margin-top: -2rem;
-		background: #ffffff;
-		border-radius: 1rem;
-		padding: 1rem;
-		box-shadow: 0 10px 30px rgba(2,6,23,.08);
-		position: relative;
-		z-index: 5;
-	}
-	.form-control, .form-select, input[type="range"] {
-		border-radius: .8rem !important;
-	}
-	.range-label {
-		min-width: 75px;
-		text-align: right;
-		font-variant-numeric: tabular-nums;
-	}
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .25rem .7rem;
+        border-radius: 999px;
+        background: rgba(255,255,255,.9);
+        font-size: .8rem;
+        color: #4b5563;
+    }
 
-	/* ====== CARDS ====== */
-	.room-card {
-		border: 0;
-		border-radius: 1.25rem;
-		overflow: hidden;
-		background: #ffffff;
-		box-shadow: 0 12px 24px rgba(2,6,23,.08);
-		transition: transform .25s ease, box-shadow .25s ease;
-		height: 100%;
-	}
-	.room-card:hover {
-		transform: translateY(-6px);
-		box-shadow: 0 20px 40px rgba(2,6,23,.12);
-	}
-	.room-image {
-		height: 220px;
-		object-fit: cover;
-		width: 100%;
-	}
-	.room-body {
-		padding: 1.1rem 1.1rem 1rem 1.1rem;
-	}
-	.room-title {
-		font-weight: 700;
-		margin-bottom: .35rem;
-	}
-	.room-desc {
-		color: #475569;
-		min-height: 3.2em;
-	}
-	.feature-pill {
-		display: inline-flex;
-		align-items: center;
-		gap: .4rem;
-		background: #f1f5f9;
-		color: #0f172a;
-		border-radius: 999px;
-		padding: .35rem .65rem;
-		font-size: .85rem;
-		margin-right: .4rem;
-	}
-	.price-tag {
-		font-weight: 800;
-		font-size: 1.1rem;
-		color: #111827;
-	}
-	.price-sub {
-		color: #64748b;
-		font-size: .9rem;
-		margin-left: .25rem;
-	}
-	.card-actions .btn {
-		border-radius: .7rem;
-	}
-	.badge-capacity {
-		background: #eef2ff;
-		color: #3730a3;
-		border: 1px solid #c7d2fe;
-		padding: .35rem .6rem;
-		border-radius: .6rem;
-		font-weight: 600;
-	}
-	.badge-price {
-		background: #ecfeff;
-		color: #155e75;
-		border: 1px solid #a5f3fc;
-		padding: .35rem .6rem;
-		border-radius: .6rem;
-		font-weight: 700;
-	}
-	.no-results {
-		border: 2px dashed #e2e8f0;
-		border-radius: 1rem;
-		padding: 2rem;
-		color: #64748b;
-		text-align: center;
-	}
+    .hero-title {
+        font-weight: 700;
+        font-size: 1.8rem;
+        margin-bottom: .5rem;
+    }
 
-	/* ====== SMALL SVG ICONS ====== */
-	.icon {
-		width: 18px; height: 18px; display: inline-block; vertical-align: -3px;
-	}
+    .hero-subtitle {
+        color: #4b5563;
+        max-width: 40rem;
+    }
 
-	/* ====== ADMIN CTA ====== */
-	.admin-cta {
-		display: inline-flex;
-		gap: .5rem;
-		align-items: center;
-	}
+    .filter-card {
+        border-radius: 1rem;
+        box-shadow: 0 10px 30px rgba(15,23,42,.06);
+        border: 1px solid #e5e7eb;
+    }
 
-	/* ====== MEDIA QUERY ====== */
-	@@media (max-width: 575.98px) {
-		.hero { padding: 2rem 1rem; }
-		.room-image { height: 180px; }
-	}
+    .room-card {
+        border-radius: 1.25rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 30px rgba(15,23,42,.05);
+        overflow: hidden;
+        transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+        background: #fff;
+    }
+
+        .room-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 18px 40px rgba(15,23,42,.08);
+            border-color: #c7d2fe;
+        }
+
+    .room-image {
+        height: 190px;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .price-line-through {
+        text-decoration: line-through;
+        color: #9ca3af;
+        font-size: .9rem;
+    }
+
+    .loyalty-banner {
+        border-radius: 1rem;
+        background: linear-gradient(135deg, #f97316, #facc15);
+        color: #111827;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
 </style>
 
-<div class="container my-5">
-	<!-- HERO -->
-	<div class="hero mb-4">
-		<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-			<span class="badge-hero">⭐️ Sprawdzone i polecane</span>
-			@if (isAdminOrManager)
-			{
-						<div class="admin-cta">
-							<a href="@Url.Action("Create", "RoomType")" class="btn btn-light btn-sm fw-semibold">
-								+ Dodaj typ pokoju
-							</a>
-						</div>
-			}
-		</div>
-		<h1 class="display-6 mt-3 mb-2">Znajdź idealny pokój</h1>
-		<p class="mb-0">Wybierz spośród nowoczesnych i komfortowych typów pokoi. Filtrowanie i sortowanie pomoże Ci szybko znaleźć najlepszą opcję.</p>
-	</div>
+<div class="container py-4">
 
-	<!-- FILTER BAR -->
-	<div class="filter-bar">
-		<div class="row g-3 align-items-end">
-			<div class="col-12 col-md-4">
-				<label class="form-label">Szukaj</label>
-				<input id="searchInput" type="text" class="form-control" placeholder="Nazwa lub opis..." />
-			</div>
+    <div class="hero">
+        <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+            <div>
+                <div class="hero-badge mb-2">
+                    <i class="bi bi-calendar-check"></i>
+                    <span>Rezerwacja online</span>
+                </div>
+                <h1 class="hero-title">Wybierz idealny pokój</h1>
+                <p class="hero-subtitle mb-0">
+                    Najpierw wybierz daty pobytu, aby zobaczyć dostępne typy pokoi.
+                    @if (hasLoyaltyCard && loyaltyDiscountPercent > 0 && !string.IsNullOrEmpty(loyaltyStatus))
+                    {
+                        <span class="d-block mt-1">
+                            Twój status <strong>@loyaltyStatus</strong> daje Ci
+                            <strong>@loyaltyDiscountPercent% rabatu</strong> na nocleg.
+                        </span>
+                    }
+                </p>
+            </div>
+        </div>
+    </div>
 
-			<div class="col-6 col-md-2">
-				<label class="form-label">Min. os.</label>
-				<select id="capacitySelect" class="form-select">
-					<option value="">Dowolnie</option>
-					@{
-						var capacities = Model?.Select(m => m.Capacity).Distinct().OrderBy(x => x) ?? Enumerable.Empty<int>();
-						foreach (var c in capacities)
-						{
-											<option value="@c">@c</option>
-						}
-					}
-				</select>
-			</div>
+    @if (hasLoyaltyCard && loyaltyDiscountPercent > 0 && !string.IsNullOrEmpty(loyaltyStatus) && hasSearch)
+    {
+        <div class="loyalty-banner">
+            <div>
+                <div class="fw-bold mb-1">
+                    <i class="bi bi-stars me-1"></i>
+                    Program lojalnościowy – status @loyaltyStatus
+                </div>
+                <div class="small">
+                    Ceny poniżej zawierają rabat <strong>@loyaltyDiscountPercent%</strong> na nocleg
+                    naliczany dla Twojej karty lojalnościowej.
+                </div>
+            </div>
+            <div class="text-end small">
+                Dziękujemy, że wracasz do nas 💙
+            </div>
+        </div>
+    }
 
-			<div class="col-6 col-md-3">
-				<label class="form-label d-flex justify-content-between">
-					<span>Budżet (noc)</span>
-					<span class="range-label"><span id="priceMinLbl">@((minPrice ?? 0).ToString("F0"))</span>–<span id="priceMaxLbl">@((maxPrice ?? 0).ToString("F0"))</span> zł</span>
-				</label>
-				<div class="d-flex align-items-center gap-2">
-					<input id="priceMin" type="range" class="form-range" min="@((minPrice ?? 0).ToString("F0"))" max="@((maxPrice ?? 0).ToString("F0"))" value="@((minPrice ?? 0).ToString("F0"))" />
-					<input id="priceMax" type="range" class="form-range" min="@((minPrice ?? 0).ToString("F0"))" max="@((maxPrice ?? 0).ToString("F0"))" value="@((maxPrice ?? 0).ToString("F0"))" />
-				</div>
-			</div>
+    <!-- FILTRY / SZUKAJKA -->
+    <div class="card filter-card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Przyjazd</label>
+                    <input type="date" name="checkIn" class="form-control" value="@checkIn" />
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Wyjazd</label>
+                    <input type="date" name="checkOut" class="form-control" value="@checkOut" />
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label">Cena od</label>
+                    <input type="number" step="1" name="minPrice" class="form-control"
+                           value="@minPrice" />
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label">Cena do</label>
+                    <input type="number" step="1" name="maxPrice" class="form-control"
+                           value="@maxPrice" />
+                </div>
+                <div class="col-12 col-md-2">
+                    <button type="submit" class="btn btn-primary w-100 mt-3 mt-md-0">
+                        <i class="bi bi-search me-1"></i> Szukaj
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-			<div class="col-6 col-md-2">
-				<label class="form-label">Sortuj</label>
-				<select id="sortSelect" class="form-select">
-					<option value="popular">Polecane</option>
-					<option value="priceAsc">Cena: rosnąco</option>
-					<option value="priceDesc">Cena: malejąco</option>
-					<option value="capacityDesc">Pojemność: malejąco</option>
-					<option value="nameAsc">Nazwa: A→Z</option>
-					<option value="nameDesc">Nazwa: Z→A</option>
-				</select>
-			</div>
+    @if (!hasSearch)
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-1"></i>
+            Aby zobaczyć dostępne typy pokoi, wybierz datę przyjazdu i wyjazdu, a następnie kliknij <strong>Szukaj</strong>.
+        </div>
+    }
+    else if (Model == null || !Model.Any())
+    {
+        <div class="alert alert-warning">
+            Brak dostępnych typów pokoi dla wybranych dat. Spróbuj zmienić daty lub liczbę osób.
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var roomType in Model)
+            {
+                var isAvailable = availability != null && availability.ContainsKey(roomType.Id) && availability[roomType.Id] > 0;
+                var availableCount = availability != null && availability.ContainsKey(roomType.Id) ? availability[roomType.Id] : 0;
 
-			<div class="col-6 col-md-1">
-				<button id="resetBtn" class="btn btn-outline-secondary w-100">Wyczyść</button>
-			</div>
-		</div>
-	</div>
+                var basePrice = roomType.PricePerNight;
+                decimal finalPrice = basePrice;
 
-	<!-- CARDS GRID -->
-	<div id="roomsGrid" class="row mt-4">
-		@if (Model == null || !Model.Any())
-		{
-					<div class="col-12">
-						<div class="no-results">Brak typów pokoi do wyświetlenia.</div>
-					</div>
-		}
-		else
-		{
-			foreach (var roomType in Model)
-			{
-				var price = roomType.PricePerNight;
-								<div class="col-12 col-sm-6 col-lg-4 mb-4 room-item"
-									 data-name="@roomType.Name?.ToLowerInvariant()"
-									 data-desc="@roomType.Description?.ToLowerInvariant()"
-									 data-capacity="@roomType.Capacity"
-									 data-price="@price"
-									 data-popular="@price">
-									<div class="card room-card h-100">
-						@if (!string.IsNullOrWhiteSpace(roomType.ImagePath))
-						{
-													<img src="@roomType.ImagePath" class="room-image" alt="@roomType.Name" loading="lazy" />
-						}
-						else
-						{
-													<img src="https://via.placeholder.com/800x500?text=Pok%C3%B3j" class="room-image" alt="Zdjęcie pokoju" loading="lazy" />
-						}
+                if (hasLoyaltyCard && loyaltyDiscount > 0)
+                {
+                    finalPrice = Math.Round(basePrice * (1 - loyaltyDiscount), 2);
+                }
 
-										<div class="room-body">
-											<div class="d-flex justify-content-between align-items-start mb-1">
-												<h5 class="room-title">@roomType.Name</h5>
-												<div class="d-flex align-items-center gap-2">
-													<span class="badge-price">@price.ToString("F0") zł<span class="price-sub">/noc</span></span>
-												</div>
-											</div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="room-card h-100 d-flex flex-column">
+                        @if (!string.IsNullOrEmpty(roomType.ImagePath))
+                        {
+                            <img src="@roomType.ImagePath" alt="@roomType.Name" class="room-image" />
+                        }
+                        else
+                        {
+                            <div class="room-image d-flex align-items-center justify-content-center bg-light text-muted">
+                                <i class="bi bi-building fs-1"></i>
+                            </div>
+                        }
 
-											<p class="room-desc">@roomType.Description</p>
+                        <div class="p-3 d-flex flex-column flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="mb-1">@roomType.Name</h5>
+                                    <div class="text-muted small">
+                                        @roomType.Description
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi bi-people me-1"></i>@roomType.Capacity os.
+                                    </span>
+                                    <div class="mt-1">
+                                        @if (isAvailable)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border-success">
+                                                Dostępne: @availableCount
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border-danger">
+                                                Wyprzedany
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
 
-											<div class="mb-3">
-												<span class="feature-pill" title="Maks. liczba osób">
-													<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-														<path d="M16 19c0-2.761-2.686-5-6-5s-6 2.239-6 5" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/>
-														<circle cx="10" cy="8" r="3.5" stroke="#334155" stroke-width="1.5"/>
-													</svg>
-									@roomType.Capacity&nbsp;os.
-												</span>
-												<span class="feature-pill" title="Elastyczne zasady">
-													<svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 12h16M4 7h16M4 17h10" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/></svg>
-													Elastyczne
-												</span>
-												<span class="feature-pill" title="Gwarancja najlepszej ceny">
-													<svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3l3 3 4-1-1 4 3 3-3 3 1 4-4-1-3 3-3-3-4 1 1-4-3-3 3-3-1-4 4 1 3-3z" stroke="#334155" stroke-width="1.2" stroke-linejoin="round"/></svg>
-													Najlepsza cena
-												</span>
-											</div>
+                            <div class="mt-auto d-flex justify-content-between align-items-end">
+                                <div>
+                                    @if (hasLoyaltyCard && loyaltyDiscount > 0)
+                                    {
+                                        <div class="price-line-through">
+                                            @basePrice.ToString("0.00") zł / noc
+                                        </div>
+                                        <div class="fw-bold fs-5 text-success">
+                                            @finalPrice.ToString("0.00") zł
+                                            <span class="small text-muted">/ noc</span>
+                                        </div>
+                                        <div class="small text-muted">
+                                            Rabat lojalnościowy @loyaltyDiscountPercent% zastosowany.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="fw-bold fs-5">
+                                            @basePrice.ToString("0.00") zł
+                                            <span class="small text-muted">/ noc</span>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="text-end">
+                                    @if (isAvailable)
+                                    {
+                                        <a asp-controller="RoomType"
+                                           asp-action="Reserve"
+                                           asp-route-roomTypeId="@roomType.Id"
+                                           asp-route-checkIn="@checkIn"
+                                           asp-route-checkOut="@checkOut"
+                                           class="btn btn-primary">
+                                            Wybierz
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-secondary" disabled>Wyprzedany</button>
+                                    }
 
-											<div class="d-flex justify-content-between align-items-center card-actions">
-												<div>
-													<span class="badge-capacity" title="Maksymalna liczba osób">@roomType.Capacity os.</span>
-												</div>
-												<div class="d-flex gap-2">
-													<a href="@Url.Action("Reserve", "RoomType", new { roomTypeId = roomType.Id })" class="btn btn-primary">
-														Zarezerwuj
-													</a>
-									@if (isAdminOrManager)
-									{
-																<a href="@Url.Action("Edit", "RoomType", new { id = roomType.Id })" class="btn btn-outline-secondary">Edytuj</a>
-									}
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-			}
-		}
-	</div>
+                                    @if (isAdminOrManager)
+                                    {
+                                        <div class="mt-2">
+                                            <a asp-controller="RoomType"
+                                               asp-action="Edit"
+                                               asp-route-id="@roomType.Id"
+                                               class="btn btn-sm btn-outline-secondary">
+                                                Edytuj
+                                            </a>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
 
-	<div id="noMatch" class="no-results d-none mt-4">
-		Nie znaleziono pokoi pasujących do filtrów. Spróbuj zmienić kryteria.
-	</div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
 </div>
-
-<script>
-	(function(){
-		const $ = (sel, el=document) => el.querySelector(sel);
-		const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
-
-		const searchInput = $('#searchInput');
-		const capacitySelect = $('#capacitySelect');
-		const sortSelect = $('#sortSelect');
-		const priceMin = $('#priceMin');
-		const priceMax = $('#priceMax');
-		const priceMinLbl = $('#priceMinLbl');
-		const priceMaxLbl = $('#priceMaxLbl');
-		const resetBtn = $('#resetBtn');
-		const grid = $('#roomsGrid');
-		const noMatch = $('#noMatch');
-
-		function normalize(val){
-			return (val || '').toString().trim().toLowerCase();
-		}
-
-		function applyFilters(){
-			const q = normalize(searchInput.value);
-			const cap = capacitySelect.value;
-			const minP = parseFloat(priceMin.value || priceMin.min || "0");
-			const maxP = parseFloat(priceMax.value || priceMax.max || "0");
-
-			let anyVisible = false;
-
-			$$('.room-item', grid).forEach(card => {
-				const name = card.dataset.name || '';
-				const desc = card.dataset.desc || '';
-				const capacity = parseInt(card.dataset.capacity || "0");
-				const price = parseFloat(card.dataset.price || "0");
-
-				const matchesQuery = !q || name.includes(q) || desc.includes(q);
-				const matchesCap = !cap || capacity === parseInt(cap);
-				const matchesPrice = (!isNaN(minP) ? price >= minP : true) && (!isNaN(maxP) ? price <= maxP : true);
-
-				const show = matchesQuery && matchesCap && matchesPrice;
-				card.style.display = show ? '' : 'none';
-				if (show) anyVisible = true;
-			});
-
-			noMatch.classList.toggle('d-none', anyVisible);
-		}
-
-		function applySort(){
-			const value = sortSelect.value;
-			const cards = $$('.room-item', grid);
-			const compare = {
-				popular: (a,b) => parseFloat(a.dataset.popular) - parseFloat(b.dataset.popular),
-				priceAsc: (a,b) => parseFloat(a.dataset.price) - parseFloat(b.dataset.price),
-				priceDesc: (a,b) => parseFloat(b.dataset.price) - parseFloat(a.dataset.price),
-				capacityDesc: (a,b) => parseInt(b.dataset.capacity) - parseInt(a.dataset.capacity),
-				nameAsc: (a,b) => (a.dataset.name || "").localeCompare(b.dataset.name || ""),
-				nameDesc: (a,b) => (b.dataset.name || "").localeCompare(a.dataset.name || "")
-			}[value] || (()=>0);
-
-			cards.sort(compare).forEach(c => grid.appendChild(c));
-		}
-
-		function clampRanges(){
-			let minV = Math.min(parseFloat(priceMin.value), parseFloat(priceMax.value));
-			let maxV = Math.max(parseFloat(priceMin.value), parseFloat(priceMax.value));
-			priceMin.value = minV;
-			priceMax.value = maxV;
-			priceMinLbl.textContent = Math.round(minV).toString();
-			priceMaxLbl.textContent = Math.round(maxV).toString();
-		}
-
-		[searchInput, capacitySelect].forEach(el => el && el.addEventListener('input', () => { applyFilters(); }));
-		[priceMin, priceMax].forEach(el => el && el.addEventListener('input', () => { clampRanges(); applyFilters(); }));
-		sortSelect && sortSelect.addEventListener('change', () => { applySort(); });
-		resetBtn && resetBtn.addEventListener('click', () => {
-			searchInput.value = '';
-			capacitySelect.value = '';
-			priceMin.value = priceMin.min;
-			priceMax.value = priceMax.max;
-			clampRanges();
-			sortSelect.value = 'popular';
-			applySort();
-			applyFilters();
-		});
-
-		clampRanges();
-		applySort();
-		applyFilters();
-	})();
-</script>

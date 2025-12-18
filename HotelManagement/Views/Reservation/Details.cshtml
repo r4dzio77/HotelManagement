@@ -1,16 +1,164 @@
 ﻿@model HotelManagement.Models.Reservation
 
-<h2>Szczegóły rezerwacji</h2>
+<div class="container mt-4">
 
-<p><strong>Gość:</strong> @Model.Guest.FirstName @Model.Guest.LastName</p>
-<p><strong>Pokój:</strong> @Model.Room.Number (@Model.RoomType.Name)</p>
-<p><strong>Daty:</strong> @Model.CheckIn.ToShortDateString() - @Model.CheckOut.ToShortDateString()</p>
-<p><strong>Status:</strong> @Model.Status</p>
-<p><strong>Śniadanie:</strong> @(Model.Breakfast ? "Tak" : "Nie")</p>
-<p><strong>Parking:</strong> @(Model.Parking ? "Tak" : "Nie")</p>
-<p><strong>Łóżko dodatkowe:</strong> @(Model.ExtraBed ? "Tak" : "Nie")</p>
-<p><strong>Cena łączna:</strong> @string.Format(System.Globalization.CultureInfo.GetCultureInfo("pl-PL"), "{0:N2}", Convert.ToDecimal(Model.TotalPrice)) zł</p>
+    <!-- Nagłówek -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-receipt me-2"></i>
+                Szczegóły rezerwacji
+            </h2>
+            <p class="text-muted mb-0">Podgląd danych dotyczących rezerwacji #@Model.Id</p>
+        </div>
 
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Powrót
+        </a>
+    </div>
 
+    <!-- Karta główna -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
 
-<a asp-action="Index" class="btn btn-secondary">Powrót</a>
+            <!-- Gość -->
+            <h5 class="mb-3">
+                <i class="bi bi-person-circle me-2 text-primary"></i> Dane gościa
+            </h5>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Imię i nazwisko:</strong></p>
+                    <div class="form-control bg-light">
+                        @Model.Guest.FirstName @Model.Guest.LastName
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>E-mail:</strong></p>
+                    <div class="form-control bg-light">
+                        @Model.Guest.Email
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pokój i daty -->
+            <h5 class="mb-3">
+                <i class="bi bi-door-open me-2 text-primary"></i> Informacje o pobycie
+            </h5>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Pokój:</strong></p>
+                    <div class="form-control bg-light">
+                        @(Model.Room != null ? Model.Room.Number : "Brak")
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Typ pokoju:</strong></p>
+                    <div class="form-control bg-light">
+                        @Model.RoomType?.Name
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Status rezerwacji:</strong></p>
+                    <div class="form-control bg-light">
+                        @Model.Status
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Data zameldowania:</strong></p>
+                    <div class="form-control bg-light">
+                        @Model.CheckIn.ToString("dd.MM.yyyy")
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Data wymeldowania:</strong></p>
+                    <div class="form-control bg-light">
+                        @Model.CheckOut.ToString("dd.MM.yyyy")
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usługi -->
+            <h5 class="mb-3">
+                <i class="bi bi-bag-check me-2 text-primary"></i> Usługi dodatkowe
+            </h5>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Śniadanie:</strong></p>
+                    <span class="badge @(Model.Breakfast ? "bg-success" : "bg-secondary")">
+                        @(Model.Breakfast ? "Tak" : "Nie")
+                    </span>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Parking:</strong></p>
+                    <span class="badge @(Model.Parking ? "bg-success" : "bg-secondary")">
+                        @(Model.Parking ? "Tak" : "Nie")
+                    </span>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Dodatkowe łóżko:</strong></p>
+                    <span class="badge @(Model.ExtraBed ? "bg-success" : "bg-secondary")">
+                        @(Model.ExtraBed ? "Tak" : "Nie")
+                    </span>
+                </div>
+            </div>
+
+            <!-- 🔥 NOWA SEKCJA: PŁATNOŚĆ -->
+            <h5 class="mb-3">
+                <i class="bi bi-credit-card me-2 text-primary"></i> Płatność
+            </h5>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Zapłacono online:</strong></p>
+                    <span class="badge @(Model.IsPaidOnline ? "bg-success" : "bg-danger")">
+                        @(Model.IsPaidOnline ? "Tak" : "Nie")
+                    </span>
+                </div>
+
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Metoda płatności:</strong></p>
+                    <div class="form-control bg-light">
+                        @(Model.PaymentMethod ?? "—")
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <p class="mb-1"><strong>Status płatności:</strong></p>
+                    <div class="form-control bg-light">
+                        @(Model.PaymentStatus ?? "—")
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cena -->
+            <h5 class="mb-3">
+                <i class="bi bi-cash-stack me-2 text-primary"></i> Rozliczenie
+            </h5>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Cena łączna:</strong></p>
+                    <div class="form-control bg-light fw-bold fs-5">
+                        @string.Format(System.Globalization.CultureInfo.GetCultureInfo("pl-PL"), "{0:N2} zł", Model.TotalPrice)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-footer bg-white text-end">
+            <a asp-action="Index" class="btn btn-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Powrót
+            </a>
+        </div>
+    </div>
+</div>

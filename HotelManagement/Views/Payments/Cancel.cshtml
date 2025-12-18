@@ -1,0 +1,27 @@
+﻿@model HotelManagement.Models.Reservation
+
+@{
+    ViewData["Title"] = "Płatność przerwana";
+}
+
+<div class="container py-5">
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Płatność została przerwana
+        </h4>
+        <p class="mb-2">
+            Twoja rezerwacja nie została opłacona. Możesz spróbować ponownie albo wybrać płatność na miejscu.
+        </p>
+        <hr />
+        <a asp-controller="Payment"
+           asp-action="Checkout"
+           asp-route-reservationId="@Model.Id"
+           class="btn btn-primary">
+            Spróbuj zapłacić ponownie
+        </a>
+        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary ms-2">
+            Wróć na stronę główną
+        </a>
+    </div>
+</div>

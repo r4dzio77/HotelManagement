@@ -5,12 +5,19 @@ using HotelManagement.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using QuestPDF.Infrastructure; // ← QuestPDF
+using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Google;
+using Stripe;  // Stripe SDK
+
+// 🔹 alias dla Twojego modelu Service, żeby nie kłócił się ze Stripe.Service
+using ServiceModel = HotelManagement.Models.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ Ustawienie licencji QuestPDF
+// ⭐ Stripe – ustawienie klucza API
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+
+// ⭐ Licencja QuestPDF
 QuestPDF.Settings.License = LicenseType.Community;
 
 // 🔄 KONFIGURACJA BAZY
@@ -30,7 +37,7 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<HotelManagementContext>();
 
-// 🔐 Integracja z Google Calendar (przez OAuth Google)
+// 🔐 Integracja Google OAuth
 if (!string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientId"]))
 {
     builder.Services
@@ -40,17 +47,14 @@ if (!string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientId"
             options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
             options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 
-            // ❗ NIE czyścimy domyślnych scope (openid, profile, email),
-            // tylko dodajemy kalendarzowe:
             options.Scope.Add("https://www.googleapis.com/auth/calendar");
             options.Scope.Add("https://www.googleapis.com/auth/calendar.events");
 
-            // 💾 Zapis tokenów (access_token itp.)
             options.SaveTokens = true;
         });
 }
 
-// ⚙️ Konfiguracja ciasteczek logowania
+// ⚙️ Ciasteczka logowania
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
@@ -66,7 +70,7 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// 📧 Wysyłka maili
+// 📧 Maile
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
 // 💡 Usługi aplikacji
@@ -77,13 +81,13 @@ builder.Services.AddScoped<RoomAllocatorService>();
 builder.Services.AddTransient<PdfDocumentGenerator>();
 builder.Services.AddScoped<LoyaltyService>();
 
-// ✅ Business Date + Night Audit
+// 🕒 Business Date + Night Audit
 builder.Services.AddScoped<IBusinessDateProvider, BusinessDateProvider>();
-builder.Services.AddSingleton<NightAuditProgressStore>();          // ⬅️ postęp audytu (RAM)
-builder.Services.AddScoped<IDailyReportGenerator, DailyReportGenerator>(); // ⬅️ PDF Raportu Dobowego
-builder.Services.AddScoped<NightAuditService>(); // uruchamianie audytu
+builder.Services.AddSingleton<NightAuditProgressStore>();
+builder.Services.AddScoped<IDailyReportGenerator, DailyReportGenerator>();
+builder.Services.AddScoped<NightAuditService>();
 
-// ✅ Google Calendar Helper
+// 📅 Google Calendar Helper
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<GoogleCalendarHelper>();
 
@@ -102,7 +106,7 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseSession();
-app.UseAuthentication(); // ⬅️ musi być przed Authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
@@ -111,7 +115,8 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
-// 📦 SEED: role, użytkownicy startowi, data operacyjna i podstawowe usługi
+
+// ⭐ SEED – role, użytkownicy, pokoje itp.
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -119,19 +124,17 @@ using (var scope = app.Services.CreateScope())
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var context = services.GetRequiredService<HotelManagementContext>();
 
-    // seed pokoi
+    // Pokoje + typy pokoi
     RoomTypeSeeder.Seed(context);
     RoomSeeder.Seed(context);
 
-    // Role — dodajemy oba warianty kierownika (PL i EN), aby pasowało do kontrolerów
+    // Role
     string[] roles = { "Admin", "Manager", "Kierownik", "Pracownik", "Klient" };
     foreach (var role in roles)
-    {
         if (!await roleManager.RoleExistsAsync(role))
             await roleManager.CreateAsync(new IdentityRole(role));
-    }
 
-    // Użytkownik: Kierownik
+    // Kierownik
     string emailManager = "kierownik@hotel.pl";
     if (await userManager.FindByEmailAsync(emailManager) == null)
     {
@@ -144,16 +147,15 @@ using (var scope = app.Services.CreateScope())
             EmailConfirmed = true
         };
 
-        var resultManager = await userManager.CreateAsync(manager, "kierownik123*");
-        if (resultManager.Succeeded)
+        var result = await userManager.CreateAsync(manager, "kierownik123*");
+        if (result.Succeeded)
         {
-            // dodaj oba role kierownicze
             await userManager.AddToRoleAsync(manager, "Kierownik");
             await userManager.AddToRoleAsync(manager, "Manager");
         }
     }
 
-    // Użytkownik: Klient
+    // Klient
     string emailClient = "klient@hotel.pl";
     if (await userManager.FindByEmailAsync(emailClient) == null)
     {
@@ -166,12 +168,12 @@ using (var scope = app.Services.CreateScope())
             EmailConfirmed = true
         };
 
-        var resultClient = await userManager.CreateAsync(client, "klient123*");
-        if (resultClient.Succeeded)
+        var result = await userManager.CreateAsync(client, "klient123*");
+        if (result.Succeeded)
             await userManager.AddToRoleAsync(client, "Klient");
     }
 
-    // ✅ BusinessDateState – jeśli brak, ustaw start na dzisiejszą datę (UTC.Date)
+    // BusinessDateState
     if (!context.BusinessDateStates.Any())
     {
         context.BusinessDateStates.Add(new BusinessDateState
@@ -182,13 +184,15 @@ using (var scope = app.Services.CreateScope())
         await context.SaveChangesAsync();
     }
 
-    // ✅ Podstawowe usługi używane w nocnym audycie (jeśli nie istnieją)
-    if (!context.Services.Any(s => s.Name == "Śniadanie" || s.Name == "Breakfast"))
-        context.Services.Add(new Service { Name = "Śniadanie", Price = 0m });
+    // Usługi – używamy aliasu ServiceModel zamiast gołego Service
+    if (!context.Services.Any(s => s.Name == "Śniadanie"))
+        context.Services.Add(new ServiceModel { Name = "Śniadanie", Price = 0m });
+
     if (!context.Services.Any(s => s.Name == "Parking"))
-        context.Services.Add(new Service { Name = "Parking", Price = 0m });
-    if (!context.Services.Any(s => s.Name == "Dostawka" || s.Name == "ExtraBed"))
-        context.Services.Add(new Service { Name = "Dostawka", Price = 0m });
+        context.Services.Add(new ServiceModel { Name = "Parking", Price = 0m });
+
+    if (!context.Services.Any(s => s.Name == "Dostawka"))
+        context.Services.Add(new ServiceModel { Name = "Dostawka", Price = 0m });
 
     if (context.ChangeTracker.HasChanges())
         await context.SaveChangesAsync();

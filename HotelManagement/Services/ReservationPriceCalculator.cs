@@ -15,7 +15,7 @@ namespace HotelManagement.Services
 
         public async Task<decimal> CalculateTotalPriceAsync(
             int roomTypeId, DateTime checkIn, DateTime checkOut,
-            bool breakfast, bool parking, bool extraBed, int personCount,
+            bool breakfast, bool parking, bool Pet,  bool extraBed, int personCount,
             List<int> selectedServiceIds)
         {
             decimal totalPrice = 0;
@@ -35,6 +35,8 @@ namespace HotelManagement.Services
             if (parking)
                 totalPrice += 40 * nights;
             if (extraBed)
+                totalPrice += 80 * nights;
+            if (Pet)
                 totalPrice += 80 * nights;
 
             if (selectedServiceIds != null && selectedServiceIds.Any())

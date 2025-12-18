@@ -1,0 +1,413 @@
+﻿@model List<HotelManagement.Models.Payment>
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Cash raport (gotówka)";
+    Layout = "_Layout";
+
+    var selectedDate = (DateTime)ViewBag.SelectedDate;
+
+    var totalPayments = Model?.Count ?? 0;
+    var totalAmount = Model?.Sum(p => p.Amount) ?? 0m;
+}
+
+<style>
+    .cash-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .cash-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .cash-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .cash-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(187, 247, 208, 0.9);
+        color: #15803d;
+    }
+
+        .cash-pill i {
+            font-size: .9rem;
+        }
+
+    .cash-heading {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .cash-heading i {
+            font-size: 1.4rem;
+            color: #15803d;
+        }
+
+    .cash-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .cash-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .cash-meta-badge {
+        border-radius: 999px;
+        padding: .2rem .7rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .cash-summary-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        font-size: .8rem;
+    }
+
+    .cash-summary-pill {
+        border-radius: .7rem;
+        padding: .25rem .65rem;
+        background: #f9fafb;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .cash-summary-amount {
+        font-weight: 600;
+        color: #15803d;
+    }
+
+    .cash-filters-card {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        padding: .9rem 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
+    .cash-filters-left {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .6rem;
+        font-size: .8rem;
+    }
+
+    .cash-filters-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .cash-filters-form .form-control {
+        font-size: .8rem;
+        border-radius: .55rem;
+        height: 32px;
+        padding-inline: .5rem;
+    }
+
+    .cash-filters-form .btn {
+        font-size: .8rem;
+        border-radius: .7rem;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding-inline: .8rem;
+    }
+
+    .cash-table-wrapper {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .cash-table-caption {
+        padding: .6rem .95rem .4rem;
+        font-size: .78rem;
+        color: #6b7280;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+
+    .table-cash {
+        font-size: .85rem;
+        margin-bottom: 0;
+    }
+
+        .table-cash thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .table-cash tbody td {
+            vertical-align: middle;
+            padding-top: .55rem;
+            padding-bottom: .55rem;
+        }
+
+    .cash-guest-name {
+        font-weight: 600;
+        font-size: .9rem;
+    }
+
+    .cash-guest-meta {
+        font-size: .78rem;
+        color: #6b7280;
+    }
+
+    .cash-room-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        border-radius: 999px;
+        padding: .15rem .55rem;
+        background: #ecfdf5;
+        color: #15803d;
+        font-size: .78rem;
+    }
+
+    .cash-amount {
+        font-weight: 600;
+    }
+
+    .cash-amount-pos {
+        color: #15803d;
+    }
+
+    @@media (max-width: 992px) {
+        .cash-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .cash-meta {
+            align-items: flex-start;
+        }
+
+        .cash-filters-card {
+            align-items: flex-start;
+        }
+
+        .cash-filters-left,
+        .cash-filters-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .cash-filters-left,
+        .cash-filters-right {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .cash-heading {
+            font-size: 1.05rem;
+        }
+
+        .table-cash {
+            font-size: .8rem;
+        }
+    }
+</style>
+
+<div class="cash-page">
+    <!-- HEADER -->
+    <div class="cash-header">
+        <div class="cash-title-wrap">
+            <span class="cash-pill">
+                <i class="bi bi-cash-stack"></i>
+                Raport finansowy
+            </span>
+            <h2 class="cash-heading">
+                <i class="bi bi-wallet2"></i>
+                <span>Cash raport (płatności gotówkowe)</span>
+            </h2>
+            <p class="cash-subtitle">
+                Wszystkie płatności <strong>gotówką</strong> z dnia
+                <strong>@selectedDate.ToString("dd MMMM yyyy", new CultureInfo("pl-PL"))</strong>.
+            </p>
+        </div>
+
+        <div class="cash-meta">
+            <div class="cash-meta-badge">
+                <i class="bi bi-calendar-event"></i>
+                Dzień raportu:
+                <strong>@selectedDate.ToString("dd.MM.yyyy")</strong>
+            </div>
+            <div>
+                <i class="bi bi-clock-history me-1"></i>
+                Wygenerowano:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRY + PDF + PODSUMOWANIE -->
+    <div class="cash-filters-card">
+        <div class="cash-filters-left cash-filters-form">
+            <form method="get"
+                  asp-action="CashReport"
+                  class="d-flex flex-wrap align-items-center gap-2 mb-0">
+                <div class="d-flex align-items-center gap-1">
+                    <label for="date" class="small text-muted mb-0">Dzień raportu:</label>
+                    <input type="date"
+                           id="date"
+                           name="date"
+                           value="@selectedDate.ToString("yyyy-MM-dd")"
+                           class="form-control form-control-sm" />
+                </div>
+                <button type="submit" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-search"></i>
+                    Pokaż
+                </button>
+            </form>
+        </div>
+
+        <div class="cash-filters-right">
+            <div class="cash-summary-row">
+                <div class="cash-summary-pill">
+                    <i class="bi bi-receipt"></i>
+                    <span>Płatności: <strong>@totalPayments</strong></span>
+                </div>
+                <div class="cash-summary-pill">
+                    <i class="bi bi-currency-exchange"></i>
+                    <span>
+                        Suma gotówki:
+                        <span class="cash-summary-amount">@totalAmount.ToString("0.00 zł")</span>
+                    </span>
+                </div>
+            </div>
+
+            <form method="post"
+                  asp-action="ExportCashReport"
+                  class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-filetype-pdf me-1"></i>
+                    Eksportuj do PDF
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABELA -->
+    @if (Model == null || !Model.Any())
+    {
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            Brak płatności gotówką w wybranym dniu.
+        </div>
+    }
+    else
+    {
+        <div class="cash-table-wrapper">
+            <div class="cash-table-caption">
+                <i class="bi bi-list-ul me-1"></i>
+                Cash raport – @totalPayments płatności, @totalAmount.ToString("0.00 zł") gotówki.
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-cash align-middle text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Godzina</th>
+                            <th>Gość</th>
+                            <th>Pokój</th>
+                            <th>Kwota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            int i = 1;
+                            foreach (var p in Model)
+                            {
+                                var guestName = p.Guest != null
+                                ? $"{p.Guest.FirstName} {p.Guest.LastName}"
+                                : (p.Reservation?.Guest != null
+                                ? $"{p.Reservation.Guest.FirstName} {p.Reservation.Guest.LastName}"
+                                : "—");
+
+                                var roomNumber = p.Reservation?.Room?.Number ?? "—";
+                                <tr>
+                                    <td>@i++</td>
+                                    <td>@p.PaidAt.ToString("HH:mm")</td>
+                                    <td class="text-start">
+                                        <div class="cash-guest-name">@guestName</div>
+                                        @* tu w przyszłości można dorzucić info o pracowniku, jeśli dodasz pole *@
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(roomNumber))
+                                        {
+                                            <span class="cash-room-pill">
+                                                <i class="bi bi-door-closed"></i>
+                                                Pokój @roomNumber
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-muted border">
+                                                <i class="bi bi-door-closed me-1"></i>Brak pokoju
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="cash-amount cash-amount-pos">
+                                            @p.Amount.ToString("0.00 zł")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

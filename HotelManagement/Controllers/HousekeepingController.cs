@@ -1,100 +1,198 @@
-﻿using HotelManagement.Data;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using HotelManagement.Data;
 using HotelManagement.Enums;
+using HotelManagement.Models;
+using HotelManagement.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Controllers
 {
+    [Authorize(Roles = "Kierownik,Recepcjonista")]
     public class HousekeepingController : Controller
     {
         private readonly HotelManagementContext _context;
+        private readonly IBusinessDateProvider _businessDateProvider;
 
-        public HousekeepingController(HotelManagementContext context)
+        // 🔴 JEDYNY konstruktor – nie zostawiaj żadnego innego!
+        public HousekeepingController(
+            HotelManagementContext context,
+            IBusinessDateProvider businessDateProvider)
         {
             _context = context;
+            _businessDateProvider = businessDateProvider;
         }
 
-        public async Task<IActionResult> Floor(int? floor)
+        // Prosty redirect na pierwsze dostępne piętro
+        public async Task<IActionResult> Index()
         {
-            var today = DateTime.Today;
-
-            var rooms = await _context.Rooms
-                .Where(r => floor == null || r.Floor == floor)
-                .Include(r => r.Reservations)
-                .OrderBy(r => r.Number)
+            var floors = await _context.Rooms
+                .Select(r => r.Floor)
+                .Distinct()
+                .OrderBy(f => f)
                 .ToListAsync();
 
-            foreach (var room in rooms)
+            if (!floors.Any())
+                return RedirectToAction(nameof(Floor));
+
+            return RedirectToAction(nameof(Floor), new { floor = floors.First() });
+        }
+
+        /// <summary>
+        /// Widok planu piętra – zasila Floor.cshtml
+        /// </summary>
+        public async Task<IActionResult> Floor(int? floor)
+        {
+            var businessDate = await _businessDateProvider.GetCurrentBusinessDateAsync();
+
+            // lista pięter
+            var floors = await _context.Rooms
+                .Select(r => r.Floor)
+                .Distinct()
+                .OrderBy(f => f)
+                .ToListAsync();
+
+            int selectedFloor;
+
+            if (floor.HasValue && floors.Contains(floor.Value))
             {
-                var activeReservation = room.Reservations
-                    .FirstOrDefault(r =>
-                        (r.Status == ReservationStatus.Confirmed && r.CheckIn.Date == today) ||
-                        (r.Status == ReservationStatus.CheckedIn));
-
-                room.Tag = null;
-
-                if (activeReservation != null)
-                {
-                    if (activeReservation.Status == ReservationStatus.Confirmed && activeReservation.CheckIn.Date == today)
-                        room.Tag = "przyjazd";
-                    else if (activeReservation.Status == ReservationStatus.CheckedIn && activeReservation.CheckOut.Date == today)
-                        room.Tag = "wyjazd";
-                    else if (activeReservation.Status == ReservationStatus.CheckedIn)
-                        room.Tag = "pobyt";
-                }
+                selectedFloor = floor.Value;
+            }
+            else
+            {
+                selectedFloor = floors.Any() ? floors.First() : 0;
             }
 
-            ViewBag.SelectedFloor = floor;
-            ViewBag.Floors = await _context.Rooms.Select(r => r.Floor).Distinct().OrderBy(f => f).ToListAsync();
+            // Pokoje na wybranym piętrze + rezerwacje
+            var rooms = await _context.Rooms
+                .Where(r => r.Floor == selectedFloor)
+                .Include(r => r.Reservations)
+                .Include(r => r.RoomType)
+                .ToListAsync();
+
+            // Ustawiamy Tag ("pobyt", "przyjazd", "wyjazd") na bazie rezerwacji dla daty operacyjnej
+            foreach (var room in rooms)
+            {
+                room.Tag = null;
+
+                var todaysReservations = room.Reservations
+                    .Where(res =>
+                        res.Status == ReservationStatus.Confirmed &&
+                        res.CheckIn.Date <= businessDate.Date &&
+                        res.CheckOut.Date > businessDate.Date)
+                    .ToList();
+
+                if (!todaysReservations.Any())
+                    continue;
+
+                // Priorytet: wyjazd > przyjazd > pobyt
+                var isDeparture = todaysReservations.Any(res => res.CheckOut.Date == businessDate.Date);
+                var isArrival = todaysReservations.Any(res => res.CheckIn.Date == businessDate.Date);
+
+                if (isDeparture)
+                    room.Tag = "wyjazd";
+                else if (isArrival)
+                    room.Tag = "przyjazd";
+                else
+                    room.Tag = "pobyt";
+            }
+
+            ViewBag.Floors = floors;
+            ViewBag.SelectedFloor = selectedFloor;
 
             return View(rooms);
         }
 
-
+        /// <summary>
+        /// Oznaczenie pokoju jako brudny
+        /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> MarkDirty(int id)
         {
-            var room = await _context.Rooms.FindAsync(id);
-            if (room == null) return NotFound();
+            var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
+            if (room == null)
+                return NotFound();
 
             room.IsDirty = true;
             room.IsClean = false;
+
             await _context.SaveChangesAsync();
-            return RedirectToAction("Floor", new { floor = room.Floor });
+
+            return RedirectToAction(nameof(Floor), new { floor = room.Floor });
         }
 
+        /// <summary>
+        /// Oznaczenie pokoju jako czysty
+        /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> MarkClean(int id)
         {
-            var room = await _context.Rooms.FindAsync(id);
-            if (room == null) return NotFound();
+            var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
+            if (room == null)
+                return NotFound();
 
             room.IsDirty = false;
             room.IsClean = true;
+
             await _context.SaveChangesAsync();
-            return RedirectToAction("Floor", new { floor = room.Floor });
+
+            return RedirectToAction(nameof(Floor), new { floor = room.Floor });
         }
 
+        /// <summary>
+        /// Blokowanie pokoju na zakres dat + powód
+        /// Wywoływane z modala w Floor.cshtml
+        /// </summary>
         [HttpPost]
-        public async Task<IActionResult> Block(int id)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Block(int id, DateTime fromDate, DateTime toDate, string reason)
         {
-            var room = await _context.Rooms.FindAsync(id);
-            if (room == null) return NotFound();
+            if (toDate.Date < fromDate.Date)
+            {
+                ModelState.AddModelError("", "Data do nie może być wcześniejsza niż data od.");
+                // w razie błędu – powrót na Index (można rozbudować o sensowne wyświetlenie błędów)
+                return RedirectToAction(nameof(Index));
+            }
+
+            var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
+            if (room == null)
+                return NotFound();
 
             room.IsBlocked = true;
+            room.BlockFrom = fromDate.Date;
+            room.BlockTo = toDate.Date;
+            room.BlockReason = reason;
+
             await _context.SaveChangesAsync();
-            return RedirectToAction("Floor", new { floor = room.Floor });
+
+            return RedirectToAction(nameof(Floor), new { floor = room.Floor });
         }
 
+        /// <summary>
+        /// Odblokowanie pokoju – czyści zakres i powód
+        /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Unblock(int id)
         {
-            var room = await _context.Rooms.FindAsync(id);
-            if (room == null) return NotFound();
+            var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == id);
+            if (room == null)
+                return NotFound();
 
             room.IsBlocked = false;
+            room.BlockFrom = null;
+            room.BlockTo = null;
+            room.BlockReason = null;
+
             await _context.SaveChangesAsync();
-            return RedirectToAction("Floor", new { floor = room.Floor });
+
+            return RedirectToAction(nameof(Floor), new { floor = room.Floor });
         }
     }
 }

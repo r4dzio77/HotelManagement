@@ -442,6 +442,9 @@ namespace HotelManagement.Migrations
                     b.Property<DateTime>("CheckOut")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("CheckoutSessionId")
+                        .HasColumnType("longtext");
+
                     b.Property<bool>("ExtraBed")
                         .HasColumnType("tinyint(1)");
 
@@ -451,11 +454,26 @@ namespace HotelManagement.Migrations
                     b.Property<bool>("IsClosed")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsPaidOnline")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("Parking")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("PaymentIntentId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PaymentStatus")
+                        .HasColumnType("longtext");
+
                     b.Property<int>("PersonCount")
                         .HasColumnType("int");
+
+                    b.Property<bool>("Pet")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<int?>("RoomId")
                         .HasColumnType("int");
@@ -489,6 +507,15 @@ namespace HotelManagement.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("BlockFrom")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("BlockReason")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("BlockTo")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("Capacity")
                         .HasColumnType("int");
@@ -533,6 +560,10 @@ namespace HotelManagement.Migrations
 
                     b.Property<int>("Capacity")
                         .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("Description")
                         .IsRequired()

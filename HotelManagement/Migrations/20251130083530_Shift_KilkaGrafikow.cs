@@ -6,15 +6,18 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace HotelManagement.Migrations
 {
-    /// <inheritdoc />
     public partial class Shift_KilkaGrafikow : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // UWAGA: kolumna WorkScheduleId JUŻ istnieje w tabeli WorkShifts,
-            // więc NIE dodajemy jej tutaj ponownie.
+            // 🔹 1) Dodajemy kolumnę WorkScheduleId do WorkShifts
+            migrationBuilder.AddColumn<int>(
+                name: "WorkScheduleId",
+                table: "WorkShifts",
+                type: "int",
+                nullable: true);
 
+            // 🔹 2) Tworzymy tabelę WorkSchedules
             migrationBuilder.CreateTable(
                 name: "WorkSchedules",
                 columns: table => new
@@ -42,45 +45,47 @@ namespace HotelManagement.Migrations
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
-            // indeks na istniejącej już kolumnie WorkScheduleId
+            // 🔹 3) Index na WorkScheduleId w WorkShifts
             migrationBuilder.CreateIndex(
                 name: "IX_WorkShifts_WorkScheduleId",
                 table: "WorkShifts",
                 column: "WorkScheduleId");
 
+            // 🔹 4) Index na CreatedBy w WorkSchedules (opcjonalnie, ale zwykle tak jest)
             migrationBuilder.CreateIndex(
                 name: "IX_WorkSchedules_CreatedById",
                 table: "WorkSchedules",
                 column: "CreatedById");
 
-            // klucz obcy WorkShifts → WorkSchedules
+            // 🔹 5) FK: WorkShifts.WorkScheduleId -> WorkSchedules.Id
             migrationBuilder.AddForeignKey(
                 name: "FK_WorkShifts_WorkSchedules_WorkScheduleId",
                 table: "WorkShifts",
                 column: "WorkScheduleId",
                 principalTable: "WorkSchedules",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+                onDelete: ReferentialAction.SetNull);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // przy wycofywaniu migracji usuwamy FK, tabelę i indeks,
-            // ale NIE usuwamy kolumny WorkScheduleId (bo istniała już wcześniej)
-
+            // Cofamy FK
             migrationBuilder.DropForeignKey(
                 name: "FK_WorkShifts_WorkSchedules_WorkScheduleId",
+                table: "WorkShifts");
+
+            // Cofamy indexy
+            migrationBuilder.DropIndex(
+                name: "IX_WorkShifts_WorkScheduleId",
                 table: "WorkShifts");
 
             migrationBuilder.DropTable(
                 name: "WorkSchedules");
 
-            migrationBuilder.DropIndex(
-                name: "IX_WorkShifts_WorkScheduleId",
+            // Usuwamy kolumnę
+            migrationBuilder.DropColumn(
+                name: "WorkScheduleId",
                 table: "WorkShifts");
-
-            // brak DropColumn("WorkScheduleId") – kolumna zostaje
         }
     }
 }

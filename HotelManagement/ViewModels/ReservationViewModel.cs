@@ -16,6 +16,8 @@ namespace HotelManagement.ViewModels
         public bool Breakfast { get; set; }
         public bool Parking { get; set; }
         public bool ExtraBed { get; set; }
+
+        public bool Pet { get; set; }
         public decimal TotalPrice { get; set; }
 
         public int? RoomId { get; set; }

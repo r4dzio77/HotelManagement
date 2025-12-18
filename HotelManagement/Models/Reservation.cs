@@ -29,7 +29,7 @@ namespace HotelManagement.Models
         [ValidateNever]
         public RoomType RoomType { get; set; }
 
-        // Daty
+        // Daty pobytu
         public DateTime CheckIn { get; set; }
         public DateTime CheckOut { get; set; }
 
@@ -39,12 +39,14 @@ namespace HotelManagement.Models
         [Column(TypeName = "decimal(18,2)")]
         [DisplayFormat(DataFormatString = "{0:N2}")]
         public decimal TotalPrice { get; set; }
+
         public int PersonCount { get; set; }
 
         // Usługi dodatkowe
         public bool Breakfast { get; set; }
         public bool Parking { get; set; }
         public bool ExtraBed { get; set; }
+        public bool Pet { get; set; }
 
         // Powiązane usługi
         public ICollection<ServiceUsage> ServicesUsed { get; set; } = new List<ServiceUsage>();
@@ -53,5 +55,35 @@ namespace HotelManagement.Models
 
         // 🔒 Flaga zamknięcia rachunku
         public bool IsClosed { get; set; } = false;
+
+
+        // =============================
+        //  🟦 NOWE POLA DOT. PŁATNOŚCI
+        // =============================
+
+        /// <summary>
+        /// Czy rezerwacja została opłacona online przez gościa?
+        /// </summary>
+        public bool IsPaidOnline { get; set; } = false;
+
+        /// <summary>
+        /// Metoda płatności użyta w Stripe (np. card, blik, p24...)
+        /// </summary>
+        public string? PaymentMethod { get; set; }
+
+        /// <summary>
+        /// Stripe PaymentIntent ID (najważniejszy identyfikator płatności)
+        /// </summary>
+        public string? PaymentIntentId { get; set; }
+
+        /// <summary>
+        /// Status płatności z Stripe: succeeded, processing, requires_payment_method, canceled...
+        /// </summary>
+        public string? PaymentStatus { get; set; }
+
+        /// <summary>
+        /// ID Stripe Checkout Session (opcjonalne, ale przydatne w integracji)
+        /// </summary>
+        public string? CheckoutSessionId { get; set; }
     }
 }

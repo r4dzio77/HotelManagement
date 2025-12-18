@@ -1,0 +1,225 @@
+﻿@model HotelManagement.Models.Reservation
+
+@{
+    ViewData["Title"] = "Płatność za rezerwację";
+
+    var nights = (double)(ViewBag.Nights ?? (Model.CheckOut.Date - Model.CheckIn.Date).TotalDays);
+    if (nights < 1) { nights = 1; }
+
+    var total = Model.TotalPrice;
+}
+
+<style>
+    .payment-hero {
+        background: radial-gradient(1200px 500px at 10% 0%, rgba(59,130,246,.15), transparent 60%), radial-gradient(900px 400px at 90% 10%, rgba(16,185,129,.15), transparent 60%);
+        border-radius: 1.5rem;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+        color: #111827;
+    }
+
+    .payment-hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .25rem .7rem;
+        border-radius: 999px;
+        background: rgba(255,255,255,.95);
+        font-size: .8rem;
+        color: #4b5563;
+    }
+
+    .payment-hero-title {
+        font-weight: 700;
+        font-size: 1.8rem;
+        margin-bottom: .5rem;
+    }
+
+    .payment-hero-subtitle {
+        color: #4b5563;
+        max-width: 40rem;
+    }
+
+    .card-soft {
+        border-radius: 1.25rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 30px rgba(15,23,42,.06);
+    }
+
+    .pay-option-card {
+        border-radius: 1rem;
+        border: 1px solid #e5e7eb;
+        padding: 1.25rem 1.5rem;
+        transition: transform .1s ease, box-shadow .1s ease, border-color .1s ease;
+        cursor: pointer;
+    }
+
+        .pay-option-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 30px rgba(15,23,42,.08);
+            border-color: #bfdbfe;
+        }
+
+    .price-highlight {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #16a34a;
+    }
+
+    .price-label {
+        font-size: .8rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: #6b7280;
+        margin-bottom: 0;
+    }
+</style>
+
+<div class="container py-4">
+
+    <!-- HERO -->
+    <div class="payment-hero mb-4">
+        <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+            <div>
+                <div class="payment-hero-badge mb-2">
+                    <i class="bi bi-credit-card"></i>
+                    <span>Płatność za rezerwację</span>
+                </div>
+                <h1 class="payment-hero-title">
+                    Dokończ rezerwację
+                </h1>
+                <p class="payment-hero-subtitle mb-0">
+                    Wybierz sposób płatności: online (Stripe – BLIK / karta / szybki przelew)
+                    albo zapłać na miejscu w hotelu.
+                </p>
+            </div>
+
+            <div class="text-end small">
+                <p class="price-label mb-1">Kwota do zapłaty</p>
+                <div class="price-highlight">
+                    @total.ToString("0.00") zł
+                </div>
+                <div class="text-muted">
+                    Rezerwacja nr <strong>@Model.Id</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- LEWA KOLUMNA – PODSUMOWANIE REZERWACJI -->
+        <div class="col-12 col-lg-5">
+            <div class="card card-soft mb-3">
+                <div class="card-body">
+                    <h5 class="mb-3">
+                        <i class="bi bi-clipboard-check me-1"></i> Twoja rezerwacja
+                    </h5>
+
+                    <dl class="row mb-0 small">
+                        <dt class="col-4 text-muted">Pokój</dt>
+                        <dd class="col-8">
+                            @Model.RoomType?.Name ?? "Pokój"
+                        </dd>
+
+                        <dt class="col-4 text-muted">Gość</dt>
+                        <dd class="col-8">
+                            @(Model.Guest != null
+                                                        ? $"{Model.Guest.FirstName} {Model.Guest.LastName}"
+                                                        : "Gość hotelu")
+                        </dd>
+
+                        <dt class="col-4 text-muted">Daty pobytu</dt>
+                        <dd class="col-8">
+                            @Model.CheckIn.ToString("dd.MM.yyyy")
+                            –
+                            @Model.CheckOut.ToString("dd.MM.yyyy")
+                            <br />
+                            <span class="text-muted">
+                                Łącznie: <strong>@nights</strong> @(nights == 1 ? "noc" : "noce")
+                            </span>
+                        </dd>
+
+                        <dt class="col-4 text-muted">Kwota</dt>
+                        <dd class="col-8">
+                            <strong>@total.ToString("0.00") zł</strong>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="alert alert-info small">
+                <i class="bi bi-info-circle me-1"></i>
+                Po dokonaniu płatności otrzymasz potwierdzenie rezerwacji na adres e-mail.
+            </div>
+        </div>
+
+        <!-- PRAWA KOLUMNA – WYBÓR SPOSOBU PŁATNOŚCI -->
+        <div class="col-12 col-lg-7">
+            <div class="card card-soft mb-3">
+                <div class="card-body">
+                    <h5 class="mb-3">
+                        <i class="bi bi-wallet2 me-1"></i> Wybierz sposób płatności
+                    </h5>
+
+                    <div class="mb-3">
+                        <!-- PŁATNOŚĆ ONLINE – STRIPE -->
+                        <form asp-controller="Payments"
+                              asp-action="CreateCheckoutSession"
+                              method="post"
+                              class="mb-3">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="reservationId" value="@Model.Id" />
+
+                            <button type="submit" class="btn w-100 btn-primary py-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="text-start">
+                                        <div class="fw-bold">
+                                            Zapłać online (Stripe)
+                                        </div>
+                                        <div class="small">
+                                            Karta, BLIK, szybki przelew – bezpieczna płatność online.
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <i class="bi bi-shield-lock fs-4"></i>
+                                    </div>
+                                </div>
+                            </button>
+                        </form>
+
+                        <div class="text-center text-muted small my-2">
+                            <span class="px-2 bg-white">lub</span>
+                        </div>
+
+                        <!-- PŁATNOŚĆ NA MIEJSCU -->
+                        <div class="pay-option-card">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <div class="fw-semibold">
+                                        Zapłacę na miejscu w hotelu
+                                    </div>
+                                    <div class="small text-muted">
+                                        Płatność przy zameldowaniu lub wymeldowaniu – gotówka / karta.
+                                    </div>
+                                </div>
+                                <div class="fs-3 text-muted">
+                                    <i class="bi bi-bank"></i>
+                                </div>
+                            </div>
+
+                            <a asp-controller="RoomType"
+                               asp-action="Confirmation"
+                               class="btn btn-outline-secondary w-100">
+                                Potwierdź rezerwację bez płatności online
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="small text-muted mt-3">
+                        Kontynuując, akceptujesz regulamin rezerwacji oraz politykę anulacji hotelu.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

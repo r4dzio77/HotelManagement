@@ -1,62 +1,408 @@
 ﻿@model List<HotelManagement.Models.Reservation>
 @using System.Globalization
+@using System.Linq
 
 @{
     ViewData["Title"] = "Oczekiwane wyjazdy";
     Layout = "_Layout";
+
     var selectedDate = (DateTime)ViewBag.SelectedDate;
+
+    var totalReservations = Model?.Count ?? 0;
+    var totalPersons = Model?.Sum(r => r.PersonCount) ?? 0;
 }
 
-<h2 class="mb-4">🚪 Oczekiwane wyjazdy – @selectedDate.ToString("dd MMMM yyyy", new CultureInfo("pl-PL"))</h2>
+<style>
+    .departures-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
 
-<form method="get" asp-action="ExpectedDepartures" class="mb-4 d-flex align-items-center gap-3">
-    <div>
-        <label for="date">Data:</label>
-        <input type="date" id="date" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" class="form-control d-inline-block w-auto" />
+    .departures-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .departures-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .departures-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(234, 179, 8, 0.08);
+        border: 1px solid rgba(252, 211, 77, 0.9);
+        color: #b45309;
+    }
+
+        .departures-pill i {
+            font-size: .9rem;
+        }
+
+    .departures-heading {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .departures-heading i {
+            font-size: 1.4rem;
+            color: #b45309;
+        }
+
+    .departures-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .departures-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .departures-meta-badge {
+        border-radius: 999px;
+        padding: .2rem .7rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .departures-summary-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        font-size: .8rem;
+    }
+
+    .departures-summary-pill {
+        border-radius: .7rem;
+        padding: .25rem .65rem;
+        background: #f9fafb;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .departures-filters-card {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        padding: .9rem 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
+    .departures-filters-left {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .6rem;
+        font-size: .8rem;
+    }
+
+    .departures-filters-right {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .departures-filters-form .form-control {
+        font-size: .8rem;
+        border-radius: .55rem;
+        height: 32px;
+        padding-inline: .5rem;
+    }
+
+    .departures-filters-form .btn {
+        font-size: .8rem;
+        border-radius: .7rem;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding-inline: .8rem;
+    }
+
+    .departures-table-wrapper {
+        border-radius: .9rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .departures-table-caption {
+        padding: .6rem .95rem .4rem;
+        font-size: .78rem;
+        color: #6b7280;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+
+    .table-departures {
+        font-size: .85rem;
+        margin-bottom: 0;
+    }
+
+        .table-departures thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .table-departures tbody td {
+            vertical-align: middle;
+            padding-top: .55rem;
+            padding-bottom: .55rem;
+        }
+
+    .departures-guest-name {
+        font-weight: 600;
+        font-size: .9rem;
+    }
+
+    .departures-guest-meta {
+        font-size: .78rem;
+        color: #6b7280;
+    }
+
+    .departures-room-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        border-radius: 999px;
+        padding: .15rem .55rem;
+        background: #fffbeb;
+        color: #b45309;
+        font-size: .78rem;
+    }
+
+    @@media (max-width: 992px) {
+        .departures-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .departures-meta {
+            align-items: flex-start;
+        }
+
+        .departures-filters-card {
+            align-items: flex-start;
+        }
+
+        .departures-filters-left,
+        .departures-filters-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .departures-filters-left,
+        .departures-filters-right {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .departures-heading {
+            font-size: 1.05rem;
+        }
+
+        .table-departures {
+            font-size: .8rem;
+        }
+    }
+</style>
+
+<div class="departures-page">
+    <!-- HEADER -->
+    <div class="departures-header">
+        <div class="departures-title-wrap">
+            <span class="departures-pill">
+                <i class="bi bi-door-open"></i>
+                Raport operacyjny
+            </span>
+            <h2 class="departures-heading">
+                <i class="bi bi-calendar-x"></i>
+                <span>Oczekiwane wyjazdy</span>
+            </h2>
+            <p class="departures-subtitle">
+                Rezerwacje z datą <strong>Check-out</strong> na
+                <strong>@selectedDate.ToString("dd MMMM yyyy", new CultureInfo("pl-PL"))</strong>.
+            </p>
+        </div>
+
+        <div class="departures-meta">
+            <div class="departures-meta-badge">
+                <i class="bi bi-calendar-event"></i>
+                Dzień raportu:
+                <strong>@selectedDate.ToString("dd.MM.yyyy")</strong>
+            </div>
+            <div>
+                <i class="bi bi-clock-history me-1"></i>
+                Wygenerowano:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
+        </div>
     </div>
-    <button type="submit" class="btn btn-primary">Pokaż</button>
-</form>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">Brak zaplanowanych wyjazdów w wybranym dniu.</div>
-}
-else
-{
-    <form method="post" asp-action="ExportExpectedDepartures" class="mb-3">
-        @Html.AntiForgeryToken()
-        <input type="hidden" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" />
-        <button type="submit" class="btn btn-outline-danger">
-            <i class="bi bi-filetype-pdf"></i> Eksportuj do PDF
-        </button>
-    </form>
+    <!-- FILTRY + PDF -->
+    <div class="departures-filters-card">
+        <div class="departures-filters-left departures-filters-form">
+            <form method="get"
+                  asp-action="ExpectedDepartures"
+                  class="d-flex flex-wrap align-items-center gap-2 mb-0">
+                <div class="d-flex align-items-center gap-1">
+                    <label for="date" class="small text-muted mb-0">Data wyjazdu:</label>
+                    <input type="date"
+                           id="date"
+                           name="date"
+                           value="@selectedDate.ToString("yyyy-MM-dd")"
+                           class="form-control form-control-sm" />
+                </div>
+                <button type="submit" class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-search"></i>
+                    Pokaż
+                </button>
+            </form>
+        </div>
 
-    <table class="table table-bordered table-striped text-center align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>#</th>
-                <th>Gość</th>
-                <th>Pokój</th>
-                <th>Data przyjazdu</th>
-                <th>Data wyjazdu</th>
-                <th>Osób</th>
-            </tr>
-        </thead>
-        <tbody>
-            @{
-                int i = 1;
-                foreach (var r in Model)
-                {
-                    <tr>
-                        <td>@i++</td>
-                        <td>@($"{r.Guest.FirstName} {r.Guest.LastName}")</td>
-                        <td>@(r.Room?.Number?.ToString() ?? "—")</td>
-                        <td>@r.CheckIn.ToString("dd.MM.yyyy")</td>
-                        <td>@r.CheckOut.ToString("dd.MM.yyyy")</td>
-                        <td>@r.PersonCount</td>
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
-}
+        <div class="departures-filters-right">
+            <div class="departures-summary-row">
+                <div class="departures-summary-pill">
+                    <i class="bi bi-people"></i>
+                    <span>Rezerwacje: <strong>@totalReservations</strong></span>
+                </div>
+                <div class="departures-summary-pill">
+                    <i class="bi bi-person-fill"></i>
+                    <span>Osób łącznie: <strong>@totalPersons</strong></span>
+                </div>
+            </div>
+
+            <form method="post"
+                  asp-action="ExportExpectedDepartures"
+                  class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="date" value="@selectedDate.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-filetype-pdf me-1"></i>
+                    Eksportuj do PDF
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABELA -->
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            Brak zaplanowanych wyjazdów w wybranym dniu.
+        </div>
+    }
+    else
+    {
+        <div class="departures-table-wrapper">
+            <div class="departures-table-caption">
+                <i class="bi bi-list-ul me-1"></i>
+                Lista oczekiwanych wyjazdów – @totalReservations rezerwacji, @totalPersons osób.
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-departures align-middle text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Gość</th>
+                            <th>Pokój</th>
+                            <th>Data przyjazdu</th>
+                            <th>Data wyjazdu</th>
+                            <th>Osób</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            int i = 1;
+                            foreach (var r in Model)
+                            {
+                                <tr>
+                                    <td>@i++</td>
+                                    <td class="text-start">
+                                        <div class="departures-guest-name">
+                                            @($"{r.Guest.FirstName} {r.Guest.LastName}")
+                                        </div>
+                                        <div class="departures-guest-meta">
+                                            @if (!string.IsNullOrWhiteSpace(r.Guest.Email))
+                                            {
+                                                <span>
+                                                    <i class="bi bi-envelope me-1"></i>@r.Guest.Email
+                                                </span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(r.Guest.Email) && !string.IsNullOrWhiteSpace(r.Guest.PhoneNumber))
+                                            {
+                                                <span class="mx-1">·</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(r.Guest.PhoneNumber))
+                                            {
+                                                <span>
+                                                    <i class="bi bi-telephone me-1"></i>@r.Guest.PhoneNumber
+                                                </span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (r.Room != null && !string.IsNullOrWhiteSpace(r.Room.Number))
+                                        {
+                                            <span class="departures-room-pill">
+                                                <i class="bi bi-door-closed"></i>
+                                                Pokój @r.Room.Number
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-muted border">
+                                                <i class="bi bi-door-closed me-1"></i>Brak przydziału
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>@r.CheckIn.ToString("dd.MM.yyyy")</td>
+                                    <td>@r.CheckOut.ToString("dd.MM.yyyy")</td>
+                                    <td>@r.PersonCount</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

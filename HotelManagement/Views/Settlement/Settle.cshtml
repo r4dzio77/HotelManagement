@@ -1,6 +1,7 @@
 ﻿@model SettlementViewModel
 @using HotelManagement.Enums
 @using Microsoft.AspNetCore.Mvc.Rendering
+@using System.Globalization
 
 @{
     ViewData["Title"] = $"Rozliczenie - Rezerwacja #{Model.Reservation.Id}";
@@ -12,130 +13,423 @@
     string F2(decimal v) => $"{v:0.00}";
 }
 
-<div class="container my-4">
+<style>
+    .settlement-page {
+        margin-top: 1.5rem;
+        margin-bottom: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Rozliczenie – Rezerwacja #@Model.Reservation.Id</h2>
-        <span class="text-muted">
-            @Model.Reservation.CheckIn.ToString("dd.MM.yyyy") – @Model.Reservation.CheckOut.ToString("dd.MM.yyyy")
-        </span>
+    .settlement-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .settlement-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .4rem;
+    }
+
+    .settlement-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .18rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(191, 219, 254, 0.9);
+        color: #1d4ed8;
+    }
+
+        .settlement-pill i {
+            font-size: .9rem;
+        }
+
+    .settlement-heading {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+        .settlement-heading i {
+            font-size: 1.5rem;
+            color: #1d4ed8;
+        }
+
+    .settlement-subtitle {
+        font-size: .86rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    .settlement-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        font-size: .8rem;
+        color: #6b7280;
+    }
+
+    .settlement-meta-badge {
+        border-radius: 999px;
+        padding: .25rem .75rem;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        background: #f9fafb;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .settlement-guest-label {
+        font-size: .85rem;
+        color: #9ca3af;
+    }
+
+    .settlement-guest-name {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .settlement-document-alert {
+        border-radius: .9rem;
+        border: 1px solid rgba(34, 197, 94, 0.35);
+        background: rgba(22, 163, 74, 0.03);
+        padding: .6rem .9rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .75rem;
+        font-size: .85rem;
+    }
+
+        .settlement-document-alert span {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+    .settlement-closed-alert {
+        border-radius: .7rem;
+        border: 1px solid rgba(156, 163, 175, 0.9);
+        background: #f9fafb;
+        padding: .6rem .8rem;
+        font-size: .85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        color: #4b5563;
+    }
+
+    .settlement-main-row {
+        margin-top: .5rem;
+    }
+
+    .settlement-card {
+        border-radius: 1rem;
+        border: 1px solid rgba(209, 213, 219, 0.9);
+        background: #ffffff;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.09);
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+
+    .settlement-card-header {
+        padding: .7rem .95rem;
+        border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .75rem;
+    }
+
+        .settlement-card-header h5 {
+            margin: 0;
+            font-size: .98rem;
+            font-weight: 600;
+        }
+
+    .settlement-card-body {
+        padding: .75rem .9rem .9rem;
+    }
+
+    .settlement-items-table {
+        font-size: .86rem;
+        margin-bottom: 0;
+    }
+
+        .settlement-items-table thead th {
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            border-bottom-width: 1px;
+        }
+
+        .settlement-items-table tbody td {
+            vertical-align: middle;
+            padding-top: .45rem;
+            padding-bottom: .45rem;
+        }
+
+    .settlement-payments-list {
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    .settlement-payment-item small {
+        font-size: .78rem;
+        color: #6b7280;
+    }
+
+    .settlement-footer-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: .75rem;
+    }
+
+    .settlement-close-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding-inline: 1.1rem;
+    }
+
+    @@media (max-width: 992px) {
+        .settlement-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .settlement-meta {
+            align-items: flex-start;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .settlement-heading {
+            font-size: 1.1rem;
+        }
+    }
+</style>
+
+<div class="container settlement-page">
+
+    <!-- HEADER -->
+    <div class="settlement-header">
+        <div class="settlement-title-wrap">
+            <span class="settlement-pill">
+                <i class="bi bi-receipt"></i>
+                Rozliczenie rachunku
+            </span>
+            <h2 class="settlement-heading">
+                <i class="bi bi-door-closed"></i>
+                <span>Rezerwacja #@Model.Reservation.Id</span>
+            </h2>
+            <p class="settlement-subtitle mb-1">
+                Pobyt:
+                <strong>@Model.Reservation.CheckIn.ToString("dd.MM.yyyy")</strong>
+                –
+                <strong>@Model.Reservation.CheckOut.ToString("dd.MM.yyyy")</strong>
+                (@(nights <= 0 ? 1 : nights) nocy)
+            </p>
+            <div>
+                <div class="settlement-guest-label">Gość główny</div>
+                <div class="settlement-guest-name">
+                    @guest.FirstName @guest.LastName
+                </div>
+            </div>
+        </div>
+
+        <div class="settlement-meta">
+            <div class="settlement-meta-badge">
+                <i class="bi bi-clock-history"></i>
+                Ostatnia aktualizacja:
+                <strong>@DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")</strong>
+            </div>
+            @if (Model.Reservation.IsClosed)
+            {
+                <div class="settlement-closed-alert">
+                    <i class="bi bi-lock-fill"></i>
+                    <span>Rachunek zamknięty – dodawanie usług i płatności jest zablokowane.</span>
+                </div>
+            }
+        </div>
     </div>
 
-    <h5 class="mb-3">Gość: @guest.FirstName @guest.LastName</h5>
-
+    <!-- DOKUMENT PDF -->
     @if (document != null)
     {
         var file = document.Number.Replace("/", "-") + ".pdf";
         var folder = document.Type == DocumentType.Receipt ? "receipts" : "invoices";
         var path = $"/{folder}/{file}";
-        <div class="alert alert-success d-flex justify-content-between align-items-center">
-            <span>Dokument został wygenerowany: <strong>@document.Number</strong></span>
-            <a href="@path" class="btn btn-outline-dark" target="_blank" download>📄 Pobierz PDF</a>
+        <div class="settlement-document-alert">
+            <span>
+                <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+                Dokument został wygenerowany:
+                <strong>@document.Number</strong>
+            </span>
+            <a href="@path" class="btn btn-sm btn-outline-dark" target="_blank" download>
+                <i class="bi bi-download me-1"></i> Pobierz PDF
+            </a>
         </div>
     }
 
-    @if (Model.Reservation.IsClosed)
-    {
-        <div class="alert alert-info">
-            🔒 Ten rachunek został zamknięty. Nie można już dodawać usług ani płatności.
-        </div>
-    }
-
-    <div class="row">
+    <!-- GŁÓWNY UKŁAD: LEWA (pozycje) / PRAWA (płatności) -->
+    <div class="row settlement-main-row">
         <!-- Pozycje / usługi -->
-        <div class="col-md-8">
-            <div class="card mb-3 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Pozycje na rachunku</h5>
+        <div class="col-lg-8">
+            <div class="settlement-card">
+                <div class="settlement-card-header">
+                    <h5>Pozycje na rachunku</h5>
                     <button class="btn btn-sm btn-outline-primary"
-                            data-bs-toggle="modal" data-bs-target="#addServiceModal"
+                            data-bs-toggle="modal"
+                            data-bs-target="#addServiceModal"
                             @(Model.Reservation.IsClosed ? "disabled" : "")>
-                        ➕ Dodaj usługę
+                        <i class="bi bi-plus-circle me-1"></i> Dodaj usługę
                     </button>
                 </div>
-                <div class="card-body p-0">
-                    <table class="table table-striped mb-0">
-                        <thead>
-                            <tr><th>Usługa</th><th>Ilość</th><th>Cena jednostkowa</th><th>Wartość</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Nocleg</td>
-                                <td>@nights</td>
-                                <td>@F2(unitPrice) zł</td>
-                                <td>@F2(Model.Reservation.TotalPrice) zł</td>
-                            </tr>
-                            @* Pozycje stałe z widoku *@
-                            @if (Model.Reservation.Breakfast)
-                            {
+                <div class="settlement-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle settlement-items-table mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <td>Śniadanie</td>
-                                    <td>@nights</td>
-                                    <td>@F2(40m) zł</td>
-                                    <td>@F2(nights * 40m) zł</td>
+                                    <th class="text-start">Usługa</th>
+                                    <th>Ilość</th>
+                                    <th>Cena jednostkowa</th>
+                                    <th>Wartość</th>
                                 </tr>
-                            }
-                            @if (Model.Reservation.Parking)
-                            {
+                            </thead>
+                            <tbody>
+                                <!-- Nocleg -->
                                 <tr>
-                                    <td>Parking</td>
-                                    <td>@nights</td>
-                                    <td>@F2(20m) zł</td>
-                                    <td>@F2(nights * 20m) zł</td>
+                                    <td class="text-start">
+                                        <strong>Nocleg</strong>
+                                        <div class="text-muted small">
+                                            @Model.Reservation.CheckIn.ToString("dd.MM.yyyy") – @Model.Reservation.CheckOut.ToString("dd.MM.yyyy")
+                                        </div>
+                                    </td>
+                                    <td>@(nights <= 0 ? 1 : nights)</td>
+                                    <td>@F2(unitPrice) zł</td>
+                                    <td>@F2(Model.Reservation.TotalPrice) zł</td>
                                 </tr>
-                            }
-                            @if (Model.Reservation.ExtraBed)
-                            {
-                                <tr>
-                                    <td>Dodatkowe łóżko</td>
-                                    <td>@nights</td>
-                                    <td>@F2(30m) zł</td>
-                                    <td>@F2(nights * 30m) zł</td>
-                                </tr>
-                            }
 
-                            @* Usługi z bazy – pomijamy te z ceną 0, żeby nie zaśmiecać tabeli *@
-                            @foreach (var s in Model.ServicesUsed.Where(x => x.Service?.Price > 0))
-                            {
-                                var line = s.Quantity * s.Service.Price;
-                                <tr>
-                                    <td>@s.Service.Name</td>
-                                    <td>@s.Quantity</td>
-                                    <td>@F2(s.Service.Price) zł</td>
-                                    <td>@F2(line) zł</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                                <!-- Pozycje dodatkowe z rezerwacji -->
+                                @if (Model.Reservation.Breakfast)
+                                {
+                                    <tr>
+                                        <td class="text-start">Śniadanie</td>
+                                        <td>@(nights <= 0 ? 1 : nights)</td>
+                                        <td>@F2(40m) zł</td>
+                                        <td>@F2((nights <= 0 ? 1 : nights) * 40m) zł</td>
+                                    </tr>
+                                }
+                                @if (Model.Reservation.Parking)
+                                {
+                                    <tr>
+                                        <td class="text-start">Parking</td>
+                                        <td>@(nights <= 0 ? 1 : nights)</td>
+                                        <td>@F2(20m) zł</td>
+                                        <td>@F2((nights <= 0 ? 1 : nights) * 20m) zł</td>
+                                    </tr>
+                                }
+                                @if (Model.Reservation.ExtraBed)
+                                {
+                                    <tr>
+                                        <td class="text-start">Dodatkowe łóżko</td>
+                                        <td>@(nights <= 0 ? 1 : nights)</td>
+                                        <td>@F2(30m) zł</td>
+                                        <td>@F2((nights <= 0 ? 1 : nights) * 30m) zł</td>
+                                    </tr>
+                                }
+
+                                <!-- Usługi z bazy -->
+                                @foreach (var s in Model.ServicesUsed.Where(x => x.Service?.Price > 0))
+                                {
+                                    var line = s.Quantity * s.Service.Price;
+                                    <tr>
+                                        <td class="text-start">@s.Service.Name</td>
+                                        <td>@s.Quantity</td>
+                                        <td>@F2(s.Service.Price) zł</td>
+                                        <td>@F2(line) zł</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Płatności -->
-        <div class="col-md-4">
-            <div class="card mb-3 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Płatności</h5>
+        <div class="col-lg-4">
+            @{
+                var paid = Model.Payments?.Sum(x => x.Amount) ?? 0m;
+                var remaining = Model.RemainingToPay;
+            }
+
+            <div class="settlement-card">
+                <div class="settlement-card-header">
+                    <h5>Płatności</h5>
                     <button class="btn btn-sm btn-outline-success"
-                            data-bs-toggle="modal" data-bs-target="#addPaymentModal"
+                            data-bs-toggle="modal"
+                            data-bs-target="#addPaymentModal"
                             @(Model.Reservation.IsClosed ? "disabled" : "")>
-                        ➕ Dodaj płatność
+                        <i class="bi bi-wallet2 me-1"></i> Dodaj płatność
                     </button>
                 </div>
-                <div class="card-body">
-                    <ul class="list-group">
-                        @foreach (var p in Model.Payments)
+                <div class="settlement-card-body">
+                    <div class="settlement-payments-list mb-3">
+                        @if (Model.Payments != null && Model.Payments.Any())
                         {
-                            <li class="list-group-item">
-                                <strong>@F2(p.Amount) zł</strong> – @p.PaidAt.ToLocalTime().ToShortDateString() (@p.Method)
-                            </li>
+                            <ul class="list-group list-group-flush">
+                                @foreach (var p in Model.Payments.OrderByDescending(x => x.PaidAt))
+                                {
+                                    <li class="list-group-item settlement-payment-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>@F2(p.Amount) zł</strong>
+                                                <span class="badge rounded-pill bg-light text-muted border ms-1">
+                                                    @p.Method
+                                                </span>
+                                            </div>
+                                            <small>
+                                                @p.PaidAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                            </small>
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
                         }
-                    </ul>
-                    <div class="mt-3">
-                        <h6>Pozostało do zapłaty:</h6>
-                        <h4 style="color:@(Model.RemainingToPay > 0 ? "red" : "green")">
-                            @F2(Model.RemainingToPay) zł
-                        </h4>
+                        else
+                        {
+                            <div class="text-muted small">
+                                Brak zarejestrowanych płatności dla tej rezerwacji.
+                            </div>
+                        }
+                    </div>
+                    <div class="border-top pt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-muted small">Zapłacono łącznie</span>
+                            <span class="fw-semibold text-success">@F2(paid) zł</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Pozostało do zapłaty</span>
+                            <span class="fw-bold @(remaining > 0 ? "text-danger" : "text-success")">
+                                @F2(remaining) zł
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -143,35 +437,48 @@
     </div>
 
     <!-- Zamknij rachunek -->
-    <div class="text-end mt-4">
-        <button class="btn btn-lg btn-primary"
-                data-bs-toggle="modal" data-bs-target="#finalizeModal"
+    <div class="settlement-footer-actions">
+        <button class="btn btn-primary btn-lg settlement-close-btn"
+                data-bs-toggle="modal"
+                data-bs-target="#finalizeModal"
                 @(Model.Reservation.IsClosed ? "disabled" : "")>
-            ✅ Zamknij rachunek
+            <i class="bi bi-check2-circle"></i>
+            <span>✅ Zamknij rachunek</span>
         </button>
     </div>
 </div>
 
 <!-- Modal: Dodaj usługę -->
-<div class="modal fade" id="addServiceModal" tabindex="-1">
+<div class="modal fade" id="addServiceModal" tabindex="-1" aria-labelledby="addServiceModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form asp-action="AddService" method="post">
-                <div class="modal-header"><h5 class="modal-title">Dodaj usługę</h5></div>
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addServiceModalLabel">
+                        <i class="bi bi-plus-circle me-1"></i> Dodaj usługę
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
                 <div class="modal-body">
                     <input type="hidden" asp-for="Reservation.Id" />
-                    <div class="form-group mb-3">
-                        <label>Usługa:</label>
-                        <select asp-for="NewServiceId" asp-items="@(new SelectList(Model.AvailableServices, "Id", "Name"))" class="form-control"></select>
+                    <div class="mb-3">
+                        <label class="form-label">Usługa</label>
+                        <select asp-for="NewServiceId"
+                                asp-items="@(new SelectList(Model.AvailableServices, "Id", "Name"))"
+                                class="form-control">
+                        </select>
                     </div>
-                    <div class="form-group mb-3">
-                        <label>Ilość:</label>
+                    <div class="mb-3">
+                        <label class="form-label">Ilość</label>
                         <input asp-for="NewServiceQuantity" class="form-control" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                    <button type="submit" class="btn btn-success">Dodaj</button>
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i> Dodaj usługę
+                    </button>
                 </div>
             </form>
         </div>
@@ -179,35 +486,46 @@
 </div>
 
 <!-- Modal: Dodaj płatność -->
-<div class="modal fade" id="addPaymentModal" tabindex="-1">
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form asp-action="AddPayment" method="post">
-                <div class="modal-header"><h5 class="modal-title">Dodaj płatność</h5></div>
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addPaymentModalLabel">
+                        <i class="bi bi-wallet2 me-1"></i> Dodaj płatność
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
                 <div class="modal-body">
                     <input type="hidden" asp-for="Reservation.Id" />
 
-                    <div class="form-group mb-3">
-                        <label>Kwota do zapłaty:</label>
-                        <input asp-for="NewPaymentAmount" class="form-control"
+                    <div class="mb-3">
+                        <label class="form-label">Kwota do zapłaty</label>
+                        <input asp-for="NewPaymentAmount"
+                               class="form-control"
                                value="@F2(Model.RemainingToPay)" />
                         <small class="text-muted">
-                            Domyślnie ustawiono pozostałą kwotę: <strong>@F2(Model.RemainingToPay) zł</strong>.
+                            Domyślnie ustawiono pozostałą kwotę:
+                            <strong>@F2(Model.RemainingToPay) zł</strong>.
                             Możesz zmienić, jeśli klient płaci częściowo.
                         </small>
                     </div>
 
-                    <div class="form-group mb-3">
-                        <label>Metoda:</label>
-                        <select asp-for="NewPaymentMethod" class="form-control"
+                    <div class="mb-3">
+                        <label class="form-label">Metoda płatności</label>
+                        <select asp-for="NewPaymentMethod"
+                                class="form-control"
                                 asp-items="Html.GetEnumSelectList<PaymentMethod>()">
                         </select>
                         <span asp-validation-for="NewPaymentMethod" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                    <button type="submit" class="btn btn-success">Dodaj</button>
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i> Zapisz płatność
+                    </button>
                 </div>
             </form>
         </div>
@@ -215,56 +533,90 @@
 </div>
 
 <!-- Modal: Zamknij rachunek -->
-<div class="modal fade" id="finalizeModal" tabindex="-1">
+<div class="modal fade" id="finalizeModal" tabindex="-1" aria-labelledby="finalizeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form asp-action="Finalize" method="post">
+                @Html.AntiForgeryToken()
                 <div class="modal-header">
-                    <h5 class="modal-title">Zamknij rachunek</h5>
+                    <h5 class="modal-title" id="finalizeModalLabel">
+                        <i class="bi bi-file-text me-1"></i> Zamknij rachunek i wygeneruj dokument
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" asp-for="Reservation.Id" />
                     <input type="hidden" asp-for="IsCompany" />
 
                     <div class="mb-3">
-                        <label class="form-label">Wybierz typ dokumentu:</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="DocumentType" value="Receipt" checked onchange="toggleBuyerFields('paragon')" />
-                            <label class="form-check-label">Paragon</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="DocumentType" value="Invoice" onchange="toggleBuyerFields('nip')" />
-                            <label class="form-check-label">Faktura z NIP</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="DocumentType" value="InvoiceForeign" onchange="toggleBuyerFields('foreign')" />
-                            <label class="form-check-label">Faktura zagraniczna</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="DocumentType" value="InvoicePersonal" onchange="toggleBuyerFields('personal')" />
-                            <label class="form-check-label">Faktura imienna</label>
+                        <label class="form-label">Wybierz typ dokumentu</label>
+                        <div class="list-group">
+                            <label class="list-group-item d-flex align-items-center gap-2">
+                                <input class="form-check-input me-1" type="radio"
+                                       name="DocumentType" value="Receipt"
+                                       checked onchange="toggleBuyerFields('paragon')" />
+                                <div>
+                                    <div>Paragon</div>
+                                    <small class="text-muted">Dla klientów indywidualnych, bez danych nabywcy.</small>
+                                </div>
+                            </label>
+
+                            <label class="list-group-item d-flex align-items-center gap-2">
+                                <input class="form-check-input me-1" type="radio"
+                                       name="DocumentType" value="Invoice"
+                                       onchange="toggleBuyerFields('nip')" />
+                                <div>
+                                    <div>Faktura z NIP</div>
+                                    <small class="text-muted">Dla firm z polskim numerem NIP.</small>
+                                </div>
+                            </label>
+
+                            <label class="list-group-item d-flex align-items-center gap-2">
+                                <input class="form-check-input me-1" type="radio"
+                                       name="DocumentType" value="InvoiceForeign"
+                                       onchange="toggleBuyerFields('foreign')" />
+                                <div>
+                                    <div>Faktura zagraniczna</div>
+                                    <small class="text-muted">Dla firm spoza Polski.</small>
+                                </div>
+                            </label>
+
+                            <label class="list-group-item d-flex align-items-center gap-2">
+                                <input class="form-check-input me-1" type="radio"
+                                       name="DocumentType" value="InvoicePersonal"
+                                       onchange="toggleBuyerFields('personal')" />
+                                <div>
+                                    <div>Faktura imienna</div>
+                                    <small class="text-muted">Dla osób prywatnych z danymi nabywcy.</small>
+                                </div>
+                            </label>
                         </div>
                     </div>
 
                     <div id="nipFields" class="buyer-field" style="display:none">
+                        <label class="form-label mt-3">Dane firmy (Polska)</label>
                         <input asp-for="CompanyName" class="form-control mb-2" placeholder="Nazwa firmy" />
                         <input asp-for="CompanyNip" class="form-control mb-2" placeholder="NIP" />
                         <input asp-for="CompanyAddress" class="form-control mb-2" placeholder="Adres firmy" />
                     </div>
 
                     <div id="foreignFields" class="buyer-field" style="display:none">
+                        <label class="form-label mt-3">Dane firmy (zagranicznej)</label>
                         <input asp-for="CompanyName" class="form-control mb-2" placeholder="Nazwa firmy" />
                         <input asp-for="CompanyAddress" class="form-control mb-2" placeholder="Adres" />
                     </div>
 
                     <div id="personalFields" class="buyer-field" style="display:none">
+                        <label class="form-label mt-3">Dane do faktury imiennej</label>
                         <input asp-for="PersonalName" class="form-control mb-2" placeholder="Imię i nazwisko" />
                         <input asp-for="PersonalAddress" class="form-control mb-2" placeholder="Adres" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                    <button type="submit" class="btn btn-primary">Potwierdź i zamknij</button>
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check2-circle me-1"></i> Potwierdź i zamknij rachunek
+                    </button>
                 </div>
             </form>
         </div>

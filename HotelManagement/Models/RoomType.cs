@@ -9,6 +9,10 @@ namespace HotelManagement.Models
         [Required]
         public string Name { get; set; } = string.Empty;
 
+        [MaxLength(20)]
+        [Display(Name = "Kod typu pokoju")]
+        public string? Code { get; set; }
+
         [Required]
         public string Description { get; set; } = string.Empty;
 

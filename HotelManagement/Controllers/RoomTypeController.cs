@@ -14,55 +14,103 @@ namespace HotelManagement.Controllers
         private readonly HotelManagementContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
 
+        // 💰 stałe cenowe dodatków (przed rabatem)
+        private const decimal BreakfastPriceBase = 40m;  // za osobę / noc
+        private const decimal ParkingPriceBase = 30m;    // za noc
+        private const decimal ExtraBedPriceBase = 80m;   // za noc
+        // jeżeli dodasz zwierzę, dodaj tu np:
+        // private const decimal PetPriceBase = 50m;
+
         public RoomTypeController(HotelManagementContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _userManager = userManager;
         }
 
-        // ===== INDEX — z obsługą filtrów dat =====
+        // ===== INDEX — z obsługą filtrów dat i pełną dostępnością (rezerwacje + blokady) =====
         [HttpGet]
         [Authorize(Roles = "Kierownik,Admin,Klient")]
         public async Task<IActionResult> Index(DateTime? checkIn, DateTime? checkOut)
         {
             var roomTypes = await _context.RoomTypes
                 .Include(rt => rt.Rooms)
+                    .ThenInclude(r => r.Reservations)
                 .ToListAsync();
 
-            DateTime from = checkIn ?? DateTime.Today;
-            DateTime to = checkOut ?? DateTime.Today.AddDays(1);
+            Dictionary<int, int>? availabilityForStay = null;
 
-            // pobierz wszystkie rezerwacje w okresie
-            var reservations = await _context.Reservations
-                .Where(r => r.CheckOut > from && r.CheckIn < to)
-                .ToListAsync();
-
-            // oblicz dostępność
-            var availability = new Dictionary<int, int>();
-
-            foreach (var rt in roomTypes)
+            if (checkIn.HasValue && checkOut.HasValue && checkOut.Value.Date > checkIn.Value.Date)
             {
-                int totalRooms = rt.Rooms.Count;
+                var from = checkIn.Value.Date;
+                var to = checkOut.Value.Date;
 
-                int reservedRooms = reservations
-                    .Where(r => r.RoomTypeId == rt.Id)
-                    .GroupBy(r => r.RoomId)
-                    .Count(); // liczba zajętych pokoi fizycznych
+                var nightsCount = (to - from).Days;
+                if (nightsCount < 1) nightsCount = 1;
 
-                int availableRooms = totalRooms - reservedRooms;
-                if (availableRooms < 0) availableRooms = 0;
+                var stayDates = Enumerable.Range(0, nightsCount)
+                    .Select(i => from.AddDays(i))
+                    .ToList();
 
-                availability[rt.Id] = availableRooms;
+                availabilityForStay = new Dictionary<int, int>();
+
+                foreach (var rt in roomTypes)
+                {
+                    int minAvailable = int.MaxValue;
+
+                    foreach (var date in stayDates)
+                    {
+                        int availableThatNight = rt.Rooms
+                            .Where(room => !IsBlockedOnDate(room, date))
+                            .Count(room => !HasReservationOnDate(room, date));
+
+                        if (availableThatNight < minAvailable)
+                            minAvailable = availableThatNight;
+                    }
+
+                    if (minAvailable == int.MaxValue)
+                        minAvailable = 0;
+
+                    availabilityForStay[rt.Id] = minAvailable;
+                }
+
+                ViewBag.CheckIn = from.ToString("yyyy-MM-dd");
+                ViewBag.CheckOut = to.ToString("yyyy-MM-dd");
+            }
+            else
+            {
+                ViewBag.CheckIn = checkIn?.ToString("yyyy-MM-dd");
+                ViewBag.CheckOut = checkOut?.ToString("yyyy-MM-dd");
             }
 
-            ViewBag.Availability = availability;
-            ViewBag.CheckIn = from.ToString("yyyy-MM-dd");
-            ViewBag.CheckOut = to.ToString("yyyy-MM-dd");
+            ViewBag.Availability = availabilityForStay;
 
             bool isAdminOrManager = User.IsInRole("Kierownik") || User.IsInRole("Admin");
             ViewBag.IsAdminOrManager = isAdminOrManager;
 
             return View(roomTypes);
+        }
+
+        private bool IsBlockedOnDate(Room room, DateTime date)
+        {
+            if (!room.IsBlocked)
+                return false;
+
+            if (room.BlockFrom.HasValue && room.BlockTo.HasValue)
+            {
+                var from = room.BlockFrom.Value.Date;
+                var to = room.BlockTo.Value.Date;
+                return date.Date >= from && date.Date <= to;
+            }
+
+            return true;
+        }
+
+        private bool HasReservationOnDate(Room room, DateTime date)
+        {
+            return room.Reservations.Any(res =>
+                res.Status == ReservationStatus.Confirmed &&
+                res.CheckIn.Date <= date.Date &&
+                res.CheckOut.Date > date.Date);
         }
 
         // ==================== CREATE ========================
@@ -151,7 +199,10 @@ namespace HotelManagement.Controllers
                 }
                 else
                 {
-                    var existingRoomType = await _context.RoomTypes.AsNoTracking().FirstOrDefaultAsync(rt => rt.Id == id);
+                    var existingRoomType = await _context.RoomTypes
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(rt => rt.Id == id);
+
                     roomType.ImagePath = existingRoomType?.ImagePath;
                 }
 
@@ -176,19 +227,53 @@ namespace HotelManagement.Controllers
         // ==================== REZERWACJA ========================
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> Reserve(int roomTypeId)
+        public async Task<IActionResult> Reserve(int roomTypeId, DateTime? checkIn, DateTime? checkOut)
         {
             var roomType = await _context.RoomTypes.FindAsync(roomTypeId);
             if (roomType == null)
                 return NotFound();
 
+            var from = checkIn?.Date ?? DateTime.Today;
+            var to = checkOut?.Date ?? from.AddDays(1);
+            if (to <= from)
+                to = from.AddDays(1);
+
+            // ⭐ program lojalnościowy + ceny dodatków (do widoku Reserve)
+            var user = await _userManager.GetUserAsync(User);
+
+            bool hasLoyaltyCard = false;
+            decimal loyaltyDiscount = 0m;
+            int loyaltyDiscountPercent = 0;
+            string? loyaltyStatus = null;
+
+            if (user?.GuestId != null)
+            {
+                var guest = await _context.Guests.FindAsync(user.GuestId.Value);
+                if (guest != null && guest.HasLoyaltyCard)
+                {
+                    hasLoyaltyCard = true;
+                    loyaltyDiscount = guest.GetDiscountPercentage();
+                    loyaltyDiscountPercent = (int)(loyaltyDiscount * 100);
+                    loyaltyStatus = guest.LoyaltyStatus.ToString();
+                }
+            }
+
             ViewBag.RoomType = roomType;
+
+            ViewBag.HasLoyaltyCard = hasLoyaltyCard;
+            ViewBag.LoyaltyDiscount = loyaltyDiscount;
+            ViewBag.LoyaltyDiscountPercent = loyaltyDiscountPercent;
+            ViewBag.LoyaltyStatus = loyaltyStatus;
+
+            ViewBag.BreakfastPrice = BreakfastPriceBase;
+            ViewBag.ParkingPrice = ParkingPriceBase;
+            ViewBag.ExtraBedPrice = ExtraBedPriceBase;
 
             return View(new Reservation
             {
                 RoomTypeId = roomTypeId,
-                CheckIn = DateTime.Today,
-                CheckOut = DateTime.Today.AddDays(1)
+                CheckIn = from,
+                CheckOut = to
             });
         }
 
@@ -231,24 +316,26 @@ namespace HotelManagement.Controllers
         [Authorize]
         public async Task<IActionResult> EnterGuestDetails(ReservationGuestViewModel model)
         {
-            if (!ModelState.IsValid) return View(model);
+            if (!ModelState.IsValid)
+                return View(model);
 
             var user = await _userManager.GetUserAsync(User);
             Guest guest;
 
+            // --- UPDATE lub CREATE guest ---
             if (user != null && user.GuestId.HasValue)
             {
                 guest = await _context.Guests.FindAsync(user.GuestId.Value);
-                if (guest != null)
-                {
-                    guest.FirstName = model.FirstName;
-                    guest.LastName = model.LastName;
-                    guest.Email = model.Email;
-                    guest.PhoneNumber = model.PhoneNumber;
-                    guest.Preferences = model.Preferences;
+                if (guest == null)
+                    return NotFound();
 
-                    _context.Guests.Update(guest);
-                }
+                guest.FirstName = model.FirstName;
+                guest.LastName = model.LastName;
+                guest.Email = model.Email;
+                guest.PhoneNumber = model.PhoneNumber;
+                guest.Preferences = model.Preferences;
+
+                _context.Guests.Update(guest);
             }
             else
             {
@@ -275,8 +362,55 @@ namespace HotelManagement.Controllers
 
             await _context.SaveChangesAsync();
 
+            // --- POBRANIE TYPU POKOJU ---
             var roomType = await _context.RoomTypes.FindAsync(model.RoomTypeId);
+            if (roomType == null)
+                return NotFound();
 
+            // 🔢 ILE NOCY
+            var nightsDouble = (model.CheckOut.Date - model.CheckIn.Date).TotalDays;
+            if (nightsDouble < 1) nightsDouble = 1;
+            var nights = (decimal)nightsDouble;
+
+            // 💰 CENA POKOJU
+            decimal baseRoomCost = roomType.PricePerNight * nights;
+
+            // 💰 KOSZT USŁUG DODATKOWYCH – używamy stałych z góry klasy
+            decimal extrasCost = 0m;
+
+            if (model.Breakfast)
+            {
+                extrasCost += BreakfastPriceBase * model.PersonCount * nights;
+            }
+
+            if (model.Parking)
+            {
+                extrasCost += ParkingPriceBase * nights;
+            }
+
+            if (model.ExtraBed)
+            {
+                extrasCost += ExtraBedPriceBase * nights;
+            }
+
+            // jeśli kiedyś dodasz zwierzaka:
+            // if (model.Pet)
+            // {
+            //     extrasCost += PetPriceBase * nights;
+            // }
+
+            // ⭐ RABAT LOJALNOŚCIOWY
+            decimal discountFactor = 0m;
+            if (guest.HasLoyaltyCard)
+            {
+                discountFactor = guest.GetDiscountPercentage(); // np. 0.10 = 10%
+            }
+
+            decimal subtotal = baseRoomCost + extrasCost;
+            decimal discountAmount = subtotal * discountFactor;
+            decimal finalTotal = subtotal - discountAmount;
+
+            // --- UTWORZENIE REZERWACJI Z PEŁNĄ CENĄ ---
             var reservation = new Reservation
             {
                 GuestId = guest.Id,
@@ -284,7 +418,7 @@ namespace HotelManagement.Controllers
                 CheckIn = model.CheckIn,
                 CheckOut = model.CheckOut,
                 Status = ReservationStatus.Confirmed,
-                TotalPrice = roomType.PricePerNight * (decimal)(model.CheckOut - model.CheckIn).TotalDays,
+                TotalPrice = finalTotal,          // pokój + usługi – rabat
                 Breakfast = model.Breakfast,
                 Parking = model.Parking,
                 ExtraBed = model.ExtraBed,
@@ -294,7 +428,8 @@ namespace HotelManagement.Controllers
             _context.Reservations.Add(reservation);
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("Confirmation");
+            // ✅ przejście do ekranu wyboru metody płatności (Stripe / na miejscu)
+            return RedirectToAction("Pay", "Payments", new { reservationId = reservation.Id });
         }
 
         [HttpGet]

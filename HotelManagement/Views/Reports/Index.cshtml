@@ -154,6 +154,16 @@
         color: #15803d;
     }
 
+    .report-icon-wrap-indigo {
+        background: rgba(79, 70, 229, 0.12);
+        color: #4f46e5;
+    }
+
+    .report-icon-wrap-emerald {
+        background: rgba(16, 185, 129, 0.12);
+        color: #059669;
+    }
+
     .report-title {
         font-size: .98rem;
         font-weight: 600;
@@ -233,9 +243,9 @@
                 <i class="bi bi-graph-up-arrow"></i>
                 Moduł raportowy
             </span>
-            <h2 class="reports-heading"></h2>
+            <h2 class="reports-heading">Zestawienia operacyjne hotelu</h2>
             <p class="reports-subtitle">
-                Wybierz zestawienie operacyjne, aby podejrzeć dane z dnia operacyjnego i wygenerować raport.
+                Wybierz raport, aby podejrzeć dane z dnia operacyjnego i w razie potrzeby wygenerować elegancki PDF.
             </p>
         </div>
         <div class="reports-meta">
@@ -352,25 +362,70 @@
             </div>
         </div>
 
-        <!-- 📈 Obłożenie pokoi -->
-        <div class="report-card report-card-disabled">
+        <!-- 📊 Raport dobowy -->
+        <div class="report-card">
             <div class="report-card-body">
-                <div class="report-icon-wrap report-icon-wrap-success">
-                    <i class="bi bi-bar-chart fs-5"></i>
+                <div class="report-icon-wrap report-icon-wrap-indigo">
+                    <i class="bi bi-speedometer2 fs-5"></i>
                 </div>
-                <h5 class="report-title">Obłożenie pokoi</h5>
+                <h5 class="report-title">Raport dobowy</h5>
                 <p class="report-desc">
-                    Statystyka zajętości i wolnych pokoi na wybrany dzień – raport w przygotowaniu.
+                    Podsumowanie doby: liczba pokoi, obłożenie, liczba gości, śniadania oraz podsumowanie płatności.
                 </p>
                 <div class="report-footer">
                     <span class="report-tag">
-                        <i class="bi bi-hourglass-split me-1"></i>W przygotowaniu
+                        <i class="bi bi-activity me-1"></i>Dashboard dobowy
                     </span>
-                    <a asp-action="OccupancyReport"
+                    <a asp-action="DailySummary"
                        asp-controller="Reports"
-                       class="btn btn-outline-success btn-sm disabled"
-                       title="W przygotowaniu">
-                        Niedostępny
+                       class="btn btn-outline-primary btn-sm">
+                        Otwórz raport
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 💳 Wszystkie płatności dnia -->
+        <div class="report-card">
+            <div class="report-card-body">
+                <div class="report-icon-wrap report-icon-wrap-success">
+                    <i class="bi bi-credit-card-2-front fs-5"></i>
+                </div>
+                <h5 class="report-title">Płatności dnia</h5>
+                <p class="report-desc">
+                    Szczegółowe zestawienie wszystkich płatności z wybranego dnia, z podziałem na metody płatności.
+                </p>
+                <div class="report-footer">
+                    <span class="report-tag">
+                        <i class="bi bi-cash-coin me-1"></i>Finanse
+                    </span>
+                    <a asp-action="Payments"
+                       asp-controller="Reports"
+                       class="btn btn-outline-success btn-sm">
+                        Otwórz raport
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 💵 Cash raport (gotówka) -->
+        <div class="report-card">
+            <div class="report-card-body">
+                <div class="report-icon-wrap report-icon-wrap-emerald">
+                    <i class="bi bi-cash-stack fs-5"></i>
+                </div>
+                <h5 class="report-title">Cash raport</h5>
+                <p class="report-desc">
+                    Raport tylko z płatności gotówką – idealny do rozliczenia kasy danego pracownika / zmiany.
+                </p>
+                <div class="report-footer">
+                    <span class="report-tag">
+                        <i class="bi bi-safe me-1"></i>Kasa / gotówka
+                    </span>
+                    <a asp-action="CashReport"
+                       asp-controller="Reports"
+                       class="btn btn-outline-success btn-sm">
+                        Otwórz raport
                     </a>
                 </div>
             </div>
