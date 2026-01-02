@@ -6,11 +6,13 @@ using HotelManagement.Data;
 using HotelManagement.Models;
 using HotelManagement.Models.ViewModels;
 using HotelManagement.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Controllers
 {
+    [Authorize(Roles = "Pracownik,Kierownik")]
     public class AvailabilityController : Controller
     {
         private readonly AvailabilityService _availabilityService;
@@ -51,7 +53,6 @@ namespace HotelManagement.Controllers
                 .ToListAsync();
 
             // 🔹 Wszystkie rezerwacje w interesującym nas zakresie dat
-            //    (tu są zarówno rezerwacje z kanału gościa, jak i te założone przez pracowników)
             var reservationsInRange = await _context.Reservations
                 .Where(r =>
                     r.CheckIn < lastDate &&
@@ -70,13 +71,11 @@ namespace HotelManagement.Controllers
 
                 foreach (var date in dates)
                 {
-                    // 🔸 Funkcja pomocnicza do sprawdzenia blokady pokoju w konkretnym dniu
                     bool IsBlockedOnDate(Room room)
                     {
                         if (!room.IsBlocked)
                             return false;
 
-                        // Jeśli mamy zakres dat blokady – sprawdzamy konkretny dzień
                         if (room.BlockFrom.HasValue && room.BlockTo.HasValue)
                         {
                             var from = room.BlockFrom.Value.Date;
@@ -84,27 +83,21 @@ namespace HotelManagement.Controllers
                             return date.Date >= from && date.Date <= to;
                         }
 
-                        // Brak zakresu – nie blokujemy w widoku dostępności
-                        // (blokady z UI i tak powinny mieć daty)
                         return false;
                     }
 
-                    // 🔹 Liczba fizycznych pokoi tego typu NIEzablokowanych w danym dniu
                     var roomsNotBlocked = rt.Rooms
                         .Where(room => !IsBlockedOnDate(room))
                         .ToList();
 
                     var totalRoomsNotBlocked = roomsNotBlocked.Count;
 
-                    // 🔹 Wszystkie rezerwacje (gości + pracowników) tego typu,
-                    //    które obejmują tę dobę [CheckIn, CheckOut)
                     var reservationCountForTypeAndDate = reservationsInRange
                         .Count(res =>
                             res.RoomTypeId == rt.Id &&
                             res.CheckIn.Date <= date.Date &&
                             res.CheckOut.Date > date.Date);
 
-                    // Dostępne pokoje = liczba pokoi nieblokowanych – liczba rezerwacji
                     var availableCount = totalRoomsNotBlocked - reservationCountForTypeAndDate;
                     if (availableCount < 0)
                         availableCount = 0;

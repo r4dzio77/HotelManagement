@@ -8,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Pracownik,Kierownik")]
     public class ShiftController : Controller
+
     {
         private readonly HotelManagementContext _context;
         private readonly UserManager<ApplicationUser> _userManager;

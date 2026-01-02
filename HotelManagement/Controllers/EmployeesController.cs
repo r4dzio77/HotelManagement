@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HotelManagement.Controllers
 {
-    [Authorize(Roles = "Admin,Kierownik,Manager")]
+    [Authorize(Roles = "Kierownik")]
     public class EmployeesController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
@@ -23,15 +23,14 @@ namespace HotelManagement.Controllers
         }
 
         /// <summary>
-        /// Lista zwykłych pracowników (bez kierowników / managerów).
+        /// Lista zwykłych pracowników (recepcja).
         /// </summary>
         public async Task<IActionResult> Index()
         {
-            // Role uznawane za "zwykłych pracowników"
+            // Jedyna rola pracownika w systemie
             var employeeRoleNames = new[]
             {
-                "Pracownik",
-                "Recepcjonista"
+                "Pracownik"
             };
 
             var employees = new List<ApplicationUser>();
@@ -61,14 +60,13 @@ namespace HotelManagement.Controllers
         }
 
         /// <summary>
-        /// Osobny widok kierowników / managerów.
+        /// Lista kierowników (w praktyce: tylko Kierownik).
         /// </summary>
         public async Task<IActionResult> Managers()
         {
             var managerRoleNames = new[]
             {
-                "Kierownik",
-                "Manager"
+                "Kierownik"
             };
 
             var managers = new List<ApplicationUser>();
@@ -109,8 +107,7 @@ namespace HotelManagement.Controllers
             if (string.IsNullOrWhiteSpace(firstName) ||
                 string.IsNullOrWhiteSpace(lastName) ||
                 string.IsNullOrWhiteSpace(email) ||
-                string.IsNullOrWhiteSpace(password) ||
-                string.IsNullOrWhiteSpace(department))
+                string.IsNullOrWhiteSpace(password))
             {
                 TempData["Error"] = "Wszystkie pola formularza są wymagane.";
                 return RedirectToAction(nameof(Index));
@@ -129,7 +126,7 @@ namespace HotelManagement.Controllers
                 Email = email,
                 FirstName = firstName.Trim(),
                 LastName = lastName.Trim(),
-                Department = department.Trim(),
+                Department = string.IsNullOrWhiteSpace(department) ? null : department.Trim(),
                 EmailConfirmed = true
             };
 
@@ -148,14 +145,13 @@ namespace HotelManagement.Controllers
                 await _roleManager.CreateAsync(new IdentityRole("Pracownik"));
             }
 
-            // nowy pracownik ma zawsze rolę "Pracownik"
+            // nowy pracownik zawsze ma rolę "Pracownik"
             await _userManager.AddToRoleAsync(user, "Pracownik");
 
             TempData["Message"] = "Pracownik został dodany.";
             return RedirectToAction(nameof(Index));
         }
 
-        // 📝 EDYCJA pracownika – imię, nazwisko, dział
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditEmployee(

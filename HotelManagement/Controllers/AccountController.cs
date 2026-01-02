@@ -31,12 +31,24 @@ namespace HotelManagement.Controllers
 
         // ================= LOGIN =================
 
-        public IActionResult Login() => View();
+        [AllowAnonymous]
+        public IActionResult Login()
+        {
+            // nie zmieniam logiki - tylko UX: jak zalogowany to nie pokazujemy loginu
+            if (User.Identity?.IsAuthenticated == true)
+                return RedirectToAction("Index", "Home");
+
+            return View();
+        }
 
         [HttpPost]
+        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(string email, string password)
         {
+            if (User.Identity?.IsAuthenticated == true)
+                return RedirectToAction("Index", "Home");
+
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             {
                 ModelState.AddModelError(string.Empty, "Email i hasło są wymagane.");
@@ -55,6 +67,7 @@ namespace HotelManagement.Controllers
         // ================= LOGIN GOOGLE =================
 
         [HttpPost]
+        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public IActionResult ExternalLogin(string provider, string returnUrl = null)
         {
@@ -63,6 +76,7 @@ namespace HotelManagement.Controllers
             return Challenge(properties, provider);
         }
 
+        [AllowAnonymous]
         public async Task<IActionResult> ExternalLoginCallback(string returnUrl = null, string remoteError = null)
         {
             returnUrl ??= Url.Content("~/");
@@ -77,7 +91,10 @@ namespace HotelManagement.Controllers
             if (info == null) return RedirectToAction(nameof(Login));
 
             // Logowanie użytkownika jeśli istnieje
-            var signInResult = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false);
+            var signInResult = await _signInManager.ExternalLoginSignInAsync(
+                info.LoginProvider,
+                info.ProviderKey,
+                isPersistent: false);
 
             ApplicationUser user;
 
@@ -103,7 +120,9 @@ namespace HotelManagement.Controllers
                     };
 
                     await _userManager.CreateAsync(user);
-                    await _userManager.AddToRoleAsync(user, "Pracownik"); // domyślna rola
+
+                    // ✅ domyślna rola: Gość (zgodnie z ustaleniem)
+                    await _userManager.AddToRoleAsync(user, "Gość");
                 }
 
                 await _userManager.AddLoginAsync(user, info);
@@ -131,7 +150,7 @@ namespace HotelManagement.Controllers
         // ================= LINKOWANIE GOOGLE DO ISTNIEJĄCEGO KONTA =================
 
         [HttpGet]
-        [Authorize]
+        [Authorize] // dowolna rola zalogowana
         public IActionResult LinkGoogle(string returnUrl = null)
         {
             var redirectUrl = Url.Action(nameof(LinkGoogleCallback), "Account", new { returnUrl });
@@ -139,9 +158,8 @@ namespace HotelManagement.Controllers
             return Challenge(properties, "Google");
         }
 
-
         [HttpGet]
-        [Authorize]
+        [Authorize] // dowolna rola zalogowana
         public async Task<IActionResult> LinkGoogleCallback(string returnUrl = null)
         {
             returnUrl ??= Url.Content("~/");
@@ -173,12 +191,23 @@ namespace HotelManagement.Controllers
 
         // ================= REGISTER =================
 
-        public IActionResult Register() => View();
+        [AllowAnonymous]
+        public IActionResult Register()
+        {
+            if (User.Identity?.IsAuthenticated == true)
+                return RedirectToAction("Index", "Home");
+
+            return View();
+        }
 
         [HttpPost]
+        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(string firstName, string lastName, string email, string phoneNumber, string password)
         {
+            if (User.Identity?.IsAuthenticated == true)
+                return RedirectToAction("Index", "Home");
+
             if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName)
                 || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(phoneNumber)
                 || string.IsNullOrWhiteSpace(password))
@@ -217,7 +246,9 @@ namespace HotelManagement.Controllers
                 user.GuestId = guest.Id;
                 await _userManager.UpdateAsync(user);
 
-                await _userManager.AddToRoleAsync(user, "Klient");
+                // ✅ rola zgodna z ustaleniem: Gość
+                await _userManager.AddToRoleAsync(user, "Gość");
+
                 await _signInManager.SignInAsync(user, isPersistent: false);
 
                 return RedirectToAction("Index", "Home");
@@ -233,6 +264,7 @@ namespace HotelManagement.Controllers
 
         // ================= LOGOUT =================
 
+        [Authorize]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
@@ -242,9 +274,11 @@ namespace HotelManagement.Controllers
         // ================= RESET HASŁA =================
 
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult RequestPasswordReset() => View();
 
         [HttpPost]
+        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RequestPasswordReset(string email)
         {
@@ -271,9 +305,11 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(PasswordResetConfirmation));
         }
 
+        [AllowAnonymous]
         public IActionResult PasswordResetConfirmation() => View();
 
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult ResetPassword(string token, string email)
         {
             if (token == null || email == null)
@@ -286,6 +322,7 @@ namespace HotelManagement.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
         {
@@ -312,6 +349,8 @@ namespace HotelManagement.Controllers
             return View(model);
         }
 
+        // ✅ FIX: brakowało tej akcji i dlatego miałeś CS0103
+        [AllowAnonymous]
         public IActionResult ResetPasswordConfirmation() => View();
     }
 

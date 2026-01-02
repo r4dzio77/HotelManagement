@@ -2,16 +2,21 @@
 using HotelManagement.Enums;
 using HotelManagement.Models;
 using HotelManagement.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+[Authorize(Roles = "Pracownik,Kierownik")]
 public class SettlementController : Controller
 {
     private readonly HotelManagementContext _context;
     private readonly PdfDocumentGenerator _pdfGen;
     private readonly IBusinessDateProvider _businessDate; // ⬅️ data operacyjna
 
-    public SettlementController(HotelManagementContext context, PdfDocumentGenerator pdfGen, IBusinessDateProvider businessDate)
+    public SettlementController(
+        HotelManagementContext context,
+        PdfDocumentGenerator pdfGen,
+        IBusinessDateProvider businessDate)
     {
         _context = context;
         _pdfGen = pdfGen;
@@ -109,7 +114,7 @@ public class SettlementController : Controller
             {
                 ReservationId = reservation.Id,
                 PaidAt = paidAt,
-                Amount = Math.Round(model.NewPaymentAmount, 2), // ⬅️ zaokrąglenie
+                Amount = Math.Round(model.NewPaymentAmount, 2),
                 Method = model.NewPaymentMethod.Value,
                 GuestId = reservation.GuestId
             };
@@ -143,7 +148,7 @@ public class SettlementController : Controller
                         (reservation.ExtraBed ? 30m : 0m) +
                         servicesTotal;
 
-        total = Math.Round(total, 2); // ⬅️ zaokrąglenie
+        total = Math.Round(total, 2);
 
         string buyerName = model.IsCompany ? model.CompanyName : model.PersonalName;
         string buyerAddress = model.IsCompany ? model.CompanyAddress : model.PersonalAddress;

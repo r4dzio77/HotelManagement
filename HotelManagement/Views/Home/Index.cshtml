@@ -1,5 +1,6 @@
 ﻿@{
     ViewData["Title"] = "Witamy w HotelManagement";
+    var review = ViewBag.LastPositiveReview;
 }
 
 <style>
@@ -468,12 +469,41 @@
                     <img src="/images/hotel-hero.jpg" alt="Widok nowoczesnego hotelu" />
                     <div class="hero-photo-footer">
                         <div class="hero-photo-footer-left">
-                            <div class="hero-stars">
-                                ★★★★☆ <span class="ms-1">Ocena gości 4.8/5</span>
-                            </div>
-                            <div style="font-size:.78rem; opacity:.9;">
-                                „Cicho, czysto i bardzo wygodnie. Idealne miejsce na delegację i weekendowy wypad.”
-                            </div>
+                            
+                            @if (review != null)
+                            {
+                                <div class="hero-stars">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        if (i <= review.Rating)
+                                        {
+                                            <span>★</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="opacity:.35;">★</span>
+                                        }
+                                    }
+                                    <span class="ms-1">Ocena gości @review.Rating.ToString("0.0")/5</span>
+
+                                </div>
+
+                                <div style="font-size:.78rem; opacity:.9;">
+                                    „@review.Comment”
+                                </div>
+                            }
+
+                            else
+                            {
+                                <div class="hero-stars">
+                                    ★★★★☆ <span class="ms-1">Ocena gości 4+/5</span>
+                                </div>
+
+                                <div style="font-size:.78rem; opacity:.85;">
+                                    „Goście szczególnie doceniają komfort i obsługę naszego hotelu.”
+                                </div>
+                            }
+
                         </div>
                         <div class="hero-photo-badge">
                             <i class="bi bi-clock-history"></i>

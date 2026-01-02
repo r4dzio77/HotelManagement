@@ -1,5 +1,4 @@
 ﻿using HotelManagement.Data;
-using HotelManagement.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Services
@@ -14,44 +13,42 @@ namespace HotelManagement.Services
         }
 
         public async Task<decimal> CalculateTotalPriceAsync(
-            int roomTypeId, DateTime checkIn, DateTime checkOut,
-            bool breakfast, bool parking, bool Pet,  bool extraBed, int personCount,
+            int roomTypeId,
+            DateTime checkIn,
+            DateTime checkOut,
+            bool breakfast,
+            bool parking,
+            bool extraBed,
+            bool pet,
+            int personCount,
             List<int> selectedServiceIds)
         {
-            decimal totalPrice = 0;
-
-            int nights = (checkOut - checkIn).Days;
-            if (nights <= 0)
+            int nights = (checkOut.Date - checkIn.Date).Days;
+            if (nights < 1)
                 throw new ArgumentException("Niepoprawny zakres dat");
 
-            var roomType = await _context.RoomTypes.FindAsync(roomTypeId);
-            if (roomType == null)
-                throw new Exception("Nie znaleziono typu pokoju");
+            decimal total = 0;
 
-            totalPrice += roomType.PricePerNight * nights;
+            // ===== CENA POKOJU =====
+            var roomType = await _context.RoomTypes.FindAsync(roomTypeId)
+                ?? throw new Exception("Nie znaleziono typu pokoju");
 
-            if (breakfast)
-                totalPrice += 60 * nights * personCount;
-            if (parking)
-                totalPrice += 40 * nights;
-            if (extraBed)
-                totalPrice += 80 * nights;
-            if (Pet)
-                totalPrice += 80 * nights;
+            total += roomType.PricePerNight * nights;
 
+            // ===== USŁUGI Z BAZY (RABAT DZIAŁA) =====
             if (selectedServiceIds != null && selectedServiceIds.Any())
             {
                 var services = await _context.Services
                     .Where(s => selectedServiceIds.Contains(s.Id))
                     .ToListAsync();
 
-                foreach (var service in services)
+                foreach (var s in services)
                 {
-                    totalPrice += service.Price;
+                    total += s.Price;
                 }
             }
 
-            return totalPrice;
+            return total;
         }
     }
 }

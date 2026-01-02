@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HotelManagement.Controllers
 {
+    [Authorize(Roles = "Pracownik,Kierownik")]
     public class ReservationController : Controller
     {
         private readonly HotelManagementContext _context;
@@ -236,7 +237,7 @@ namespace HotelManagement.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> Edit(int id)
         {
             var reservation = await _context.Reservations
@@ -283,7 +284,7 @@ namespace HotelManagement.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> Edit(int id, ReservationViewModel vm)
         {
             if (!ModelState.IsValid)
@@ -415,7 +416,7 @@ namespace HotelManagement.Controllers
         // ====== PRZYDZIELANIE / ZMIANA POKOJU Z LISTY REZERWACJI + ZMIANA TYPU ======
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> AssignRoom(int id, int? roomId, int? roomTypeId, bool updatePrice = false, int? originalRoomTypeId = null)
         {
             if (!roomId.HasValue)
@@ -535,7 +536,15 @@ namespace HotelManagement.Controllers
                 .Include(r => r.Room)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            if (reservation == null) return NotFound();
+            if (reservation == null)
+                return NotFound();
+
+            // 🔒 BLOKADA: brak przydzielonego pokoju
+            if (reservation.RoomId == null)
+            {
+                TempData["Error"] = "Nie można zameldować gościa bez przydzielonego pokoju.";
+                return RedirectToAction(nameof(Index));
+            }
 
             reservation.Status = ReservationStatus.CheckedIn;
 
@@ -544,10 +553,11 @@ namespace HotelManagement.Controllers
                 reservation.Room.IsClean = false;
                 reservation.Room.IsDirty = true;
             }
+
             await _context.SaveChangesAsync();
 
             TempData["Notification"] =
-                $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {(reservation.Room != null ? reservation.Room.Number : "nieprzydzielony")}";
+                $"Zameldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {reservation.Room.Number}";
 
             return RedirectToAction(nameof(Index));
         }
@@ -558,21 +568,37 @@ namespace HotelManagement.Controllers
             var reservation = await _context.Reservations
                 .Include(r => r.Guest)
                 .Include(r => r.Room)
+                .Include(r => r.Payments)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            if (reservation == null) return NotFound();
+            if (reservation == null)
+                return NotFound();
+
+            // 💰 SUMA WPŁAT
+            var paidAmount = reservation.Payments?.Sum(p => p.Amount) ?? 0m;
+
+            // 🔒 BLOKADA: nierozliczona rezerwacja
+            if (paidAmount < reservation.TotalPrice)
+            {
+                var remaining = reservation.TotalPrice - paidAmount;
+
+                TempData["Error"] =
+                    $"Nie można wymeldować gościa. Do zapłaty pozostało {remaining:0.00} zł.";
+
+                return RedirectToAction(nameof(Index));
+            }
 
             reservation.Status = ReservationStatus.CheckedOut;
             await _context.SaveChangesAsync();
 
             _loyaltyService.AwardPointsForCheckout(reservation);
 
-            var roomNumber = reservation.Room != null ? reservation.Room.Number : "nieprzydzielony";
             TempData["Notification"] =
-                $"Wymeldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {roomNumber}";
+                $"Wymeldowano pomyślnie: {reservation.Guest.FirstName} {reservation.Guest.LastName}, pokój {reservation.Room?.Number ?? "-"}";
 
             return RedirectToAction(nameof(Index));
         }
+
 
         private async Task<ReservationViewModel> BuildReservationViewModel(Reservation reservation, Guest guest)
         {
@@ -700,7 +726,7 @@ namespace HotelManagement.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> Search(
      string? searchType,
      string? reservationNumber,
@@ -831,7 +857,7 @@ namespace HotelManagement.Controllers
 
 
         [HttpGet]
-        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> Index()
         {
             var today = await _businessDate.GetCurrentBusinessDateAsync();
@@ -900,7 +926,7 @@ namespace HotelManagement.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Kierownik,Admin,Pracownik")]
+        [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> Details(int id)
         {
             var reservation = await _context.Reservations

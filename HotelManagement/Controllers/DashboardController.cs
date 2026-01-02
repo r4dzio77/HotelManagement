@@ -10,13 +10,15 @@ using HotelManagement.Services;
 
 namespace HotelManagement.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Pracownik,Kierownik")]
     public class DashboardController : Controller
     {
         private readonly HotelManagementContext _context;
         private readonly IBusinessDateProvider _businessDate;
 
-        public DashboardController(HotelManagementContext context, IBusinessDateProvider businessDate)
+        public DashboardController(
+            HotelManagementContext context,
+            IBusinessDateProvider businessDate)
         {
             _context = context;
             _businessDate = businessDate;
@@ -47,9 +49,9 @@ namespace HotelManagement.Controllers
                 .AsNoTracking()
                 .CountAsync(r => r.CheckIn.Date < today && r.CheckOut.Date > today);
 
-            // ŚNIADANIA NA 7 DNI DO PRZODU (liczymy WSZYSTKIE rezerwacje ze śniadaniem)
+            // ŚNIADANIA NA 7 DNI DO PRZODU
             var startDate = today;
-            var endDate = today.AddDays(7); // today .. today+6
+            var endDate = today.AddDays(7);
 
             for (var d = startDate; d < endDate; d = d.AddDays(1))
             {
@@ -57,9 +59,9 @@ namespace HotelManagement.Controllers
 
                 var count = await _context.Reservations
                     .AsNoTracking()
-                    .Where(r => r.Breakfast == true)                       // ma śniadanie
-                    .Where(r => r.CheckIn.Date < date && r.CheckOut.Date >= date) // pobyt obejmuje ten dzień
-                    .SumAsync(r => (int?)r.PersonCount) ?? 0;              // liczymy osoby
+                    .Where(r => r.Breakfast == true)
+                    .Where(r => r.CheckIn.Date < date && r.CheckOut.Date >= date)
+                    .SumAsync(r => (int?)r.PersonCount) ?? 0;
 
                 model.BreakfastsNext7Days.Add(new DashboardBreakfastItem
                 {

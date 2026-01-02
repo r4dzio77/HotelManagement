@@ -57,9 +57,8 @@ namespace HotelManagement.Models
         public bool IsClosed { get; set; } = false;
 
 
-        // =============================
-        //  🟦 NOWE POLA DOT. PŁATNOŚCI
-        // =============================
+        public Review? Review { get; set; }
+
 
         /// <summary>
         /// Czy rezerwacja została opłacona online przez gościa?

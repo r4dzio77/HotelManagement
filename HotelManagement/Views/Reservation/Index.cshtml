@@ -48,6 +48,18 @@
         </script>
     }
 
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-warning alert-dismissible fade show shadow-sm mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <strong>Operacja zablokowana.</strong>
+            <span class="ms-1">@TempData["Error"]</span>
+
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+
     <!-- PODSUMOWANIE LICZBOWE -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">

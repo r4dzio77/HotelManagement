@@ -55,7 +55,8 @@
     decimal breakfastBase = ViewBag.BreakfastPrice is decimal bp ? bp : 0m;
     decimal parkingBase = ViewBag.ParkingPrice is decimal pk ? pk : 0m;
     decimal extraBedBase = ViewBag.ExtraBedPrice is decimal eb ? eb : 0m;
-    decimal petBase = ViewBag.PetPrice is decimal pp ? pp : 0m;
+    decimal petBase = 80m; // 🐶 stała cena za zwierzę / noc
+
 
     // ceny po zniżce dla usług
     decimal breakfastDiscounted = Math.Round(breakfastBase * discountFactor, 2);

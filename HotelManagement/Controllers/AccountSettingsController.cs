@@ -14,42 +14,73 @@ namespace HotelManagement.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly HotelManagementContext _context;
 
-        public AccountSettingsController(UserManager<ApplicationUser> userManager, HotelManagementContext context)
+        public AccountSettingsController(
+            UserManager<ApplicationUser> userManager,
+            HotelManagementContext context)
         {
             _userManager = userManager;
             _context = context;
         }
 
-        // GET: /AccountSettings (profil użytkownika)
+        // =========================
+        // PROFIL UŻYTKOWNIKA
+        // =========================
         [HttpGet]
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
-            if (user == null) return NotFound();
+            if (user == null)
+                return NotFound();
 
             var model = new AccountSettingsViewModel
             {
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Email = user.Email,
+                Email = user.Email ?? "",
                 PhoneNumber = user.PhoneNumber,
                 Preferences = user.Preferences
             };
 
+            if (user.GuestId.HasValue)
+            {
+                var reservations = await _context.Reservations
+                    .Include(r => r.Room)
+                    .Include(r => r.RoomType)
+                    .Include(r => r.Review) // 🔑 potrzebne do opinii
+                    .Where(r =>
+                        r.GuestId == user.GuestId.Value &&
+                        r.Status != Enums.ReservationStatus.Cancelled)
+                    .ToListAsync();
+
+                model.ActiveReservations = reservations
+                    .Where(r => !r.IsClosed)
+                    .OrderBy(r => r.CheckIn)
+                    .ToList();
+
+                model.PastReservations = reservations
+                    .Where(r => r.IsClosed)
+                    .OrderByDescending(r => r.CheckOut)
+                    .ToList();
+            }
+
             return View(model);
         }
 
-        // GET: /AccountSettings/Loyalty (program lojalnościowy)
+        // =========================
+        // PROGRAM LOJALNOŚCIOWY
+        // =========================
         [HttpGet]
         public async Task<IActionResult> Loyalty()
         {
             var user = await _userManager.GetUserAsync(User);
-            if (user == null || !user.GuestId.HasValue) return NotFound();
+            if (user == null || !user.GuestId.HasValue)
+                return NotFound();
 
             var guest = await _context.Guests
                 .FirstOrDefaultAsync(g => g.Id == user.GuestId.Value);
 
-            if (guest == null) return NotFound();
+            if (guest == null)
+                return NotFound();
 
             var model = new LoyaltyViewModel
             {
@@ -68,44 +99,51 @@ namespace HotelManagement.Controllers
             return View(model);
         }
 
-        // POST: Aktualizacja telefonu z modal
+        // =========================
+        // EDYCJA TELEFONU
+        // =========================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdatePhone(AccountSettingsViewModel model)
         {
             var user = await _userManager.GetUserAsync(User);
-            if (user == null) return NotFound();
+            if (user == null)
+                return NotFound();
 
             user.PhoneNumber = model.PhoneNumber;
             await _userManager.UpdateAsync(user);
 
-            TempData["Message"] = "Telefon został zaktualizowany";
+            TempData["Message"] = "Telefon został zaktualizowany.";
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Aktualizacja preferencji z modal
+        // =========================
+        // EDYCJA PREFERENCJI
+        // =========================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdatePreferences(AccountSettingsViewModel model)
         {
             var user = await _userManager.GetUserAsync(User);
-            if (user == null) return NotFound();
+            if (user == null)
+                return NotFound();
 
             user.Preferences = model.Preferences;
             await _userManager.UpdateAsync(user);
 
-            TempData["Message"] = "Preferencje zostały zaktualizowane";
+            TempData["Message"] = "Preferencje zostały zaktualizowane.";
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: /AccountSettings/ChangePassword
+        // =========================
+        // ZMIANA HASŁA
+        // =========================
         [HttpGet]
         public IActionResult ChangePassword()
         {
             return View();
         }
 
-        // POST: /AccountSettings/ChangePassword
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
@@ -114,17 +152,23 @@ namespace HotelManagement.Controllers
                 return View(model);
 
             var user = await _userManager.GetUserAsync(User);
-            if (user == null) return NotFound();
+            if (user == null)
+                return NotFound();
 
-            var result = await _userManager.ChangePasswordAsync(user, model.OldPassword, model.NewPassword);
+            var result = await _userManager.ChangePasswordAsync(
+                user,
+                model.OldPassword,
+                model.NewPassword);
+
             if (!result.Succeeded)
             {
                 foreach (var error in result.Errors)
                     ModelState.AddModelError("", error.Description);
+
                 return View(model);
             }
 
-            TempData["Message"] = "Hasło zostało zmienione pomyślnie.";
+            TempData["Message"] = "Hasło zostało zmienione.";
             return RedirectToAction(nameof(Index));
         }
     }

@@ -9,8 +9,9 @@ using QuestPDF.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Google;
 using Stripe;  // Stripe SDK
 
-// 🔹 alias dla Twojego modelu Service, żeby nie kłócił się ze Stripe.Service
+// 🔹 aliasy
 using ServiceModel = HotelManagement.Models.Service;
+using ReviewServiceApp = HotelManagement.Services.ReviewService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,7 +59,7 @@ if (!string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientId"
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
-    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.AccessDeniedPath = "/Home/AccessDenied";
 });
 
 // 💾 Sesja
@@ -80,6 +81,7 @@ builder.Services.AddScoped<ReservationPriceCalculator>();
 builder.Services.AddScoped<RoomAllocatorService>();
 builder.Services.AddTransient<PdfDocumentGenerator>();
 builder.Services.AddScoped<LoyaltyService>();
+builder.Services.AddScoped<ReviewServiceApp>();
 
 // 🕒 Business Date + Night Audit
 builder.Services.AddScoped<IBusinessDateProvider, BusinessDateProvider>();
@@ -114,7 +116,6 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.MapRazorPages();
-
 
 // ⭐ SEED – role, użytkownicy, pokoje itp.
 using (var scope = app.Services.CreateScope())

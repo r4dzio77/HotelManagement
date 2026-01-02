@@ -17,7 +17,7 @@ using System.IO;
 
 namespace HotelManagement.Controllers
 {
-    [Authorize(Roles = "Kierownik,Recepcjonista")]
+    [Authorize(Roles = "Kierownik,Pracownik")]
     public class ReportsController : Controller
     {
         private readonly HotelManagementContext _context;

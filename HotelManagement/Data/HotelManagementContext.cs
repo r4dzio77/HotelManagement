@@ -34,6 +34,9 @@ namespace HotelManagement.Data
 
         // data operacyjna sterowana przez nocny audyt
         public DbSet<BusinessDateState> BusinessDateStates { get; set; }
+        public DbSet<Review> Reviews { get; set; }
+        public DbSet<ReviewRating> ReviewRatings { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -130,6 +133,12 @@ namespace HotelManagement.Data
                 .HasForeignKey(lp => lp.UserId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .IsRequired(false);
+
+            modelBuilder.Entity<Review>()
+                .HasOne(r => r.Reservation)
+                .WithOne(r => r.Review)
+                .HasForeignKey<Review>(r => r.ReservationId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Opis stanu daty operacyjnej (BusinessDateState)
             modelBuilder.Entity<BusinessDateState>()

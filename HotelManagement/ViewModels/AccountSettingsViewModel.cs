@@ -1,27 +1,21 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using HotelManagement.Models;
 
 namespace HotelManagement.ViewModels
 {
     public class AccountSettingsViewModel
     {
-        [Required]
-        [Display(Name = "Imię")]
-        public string FirstName { get; set; }
+        // ===== DANE UŻYTKOWNIKA =====
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public string? Preferences { get; set; }
 
-        [Required]
-        [Display(Name = "Nazwisko")]
-        public string LastName { get; set; }
+        // ===== REZERWACJE =====
+        public IEnumerable<Reservation> ActiveReservations { get; set; }
+            = new List<Reservation>();
 
-        [Required]
-        [EmailAddress]
-        [Display(Name = "Email")]
-        public string Email { get; set; }
-
-        [Phone]
-        [Display(Name = "Numer telefonu")]
-        public string PhoneNumber { get; set; }
-
-        [Display(Name = "Preferencje")]
-        public string Preferences { get; set; }
+        public IEnumerable<Reservation> PastReservations { get; set; }
+            = new List<Reservation>();
     }
 }

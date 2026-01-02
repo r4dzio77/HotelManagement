@@ -1,0 +1,58 @@
+﻿@model ErrorViewModel
+
+@{
+    ViewData["Title"] = "Wystąpił błąd";
+    Layout = "_Layout";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6 text-center">
+
+            <div class="card shadow-sm border-danger">
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <span style="font-size: 4rem;">⚠️</span>
+                    </div>
+
+                    <h2 class="text-danger mb-3">
+                        Coś poszło nie tak
+                    </h2>
+
+                    <p class="mb-3">
+                        Wystąpił nieoczekiwany błąd podczas przetwarzania żądania.
+                    </p>
+
+                    <p class="text-muted">
+                        Spróbuj ponownie za chwilę lub wróć do strony głównej.
+                    </p>
+
+                    @if (Model != null && Model.ShowRequestId)
+                    {
+                        <hr />
+                        <p class="small text-muted mb-0">
+                            <strong>ID błędu:</strong>
+                            <code>@Model.RequestId</code>
+                        </p>
+                    }
+
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a asp-controller="Home"
+                   asp-action="Index"
+                   class="btn btn-outline-secondary me-2">
+                    ⬅ Strona główna
+                </a>
+
+                <a href="javascript:location.reload()"
+                   class="btn btn-outline-danger">
+                    🔄 Spróbuj ponownie
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
