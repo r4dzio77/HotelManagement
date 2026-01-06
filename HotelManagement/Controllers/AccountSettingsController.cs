@@ -41,12 +41,19 @@ namespace HotelManagement.Controllers
                 Preferences = user.Preferences
             };
 
+            // 🔒 JEŚLI KIEROWNIK LUB PRACOWNIK – NIE POKAZUJEMY REZERWACJI
+            if (User.IsInRole("Kierownik") || User.IsInRole("Pracownik"))
+            {
+                return View(model);
+            }
+
+            // 👤 TYLKO ZWYKŁY GOŚĆ MOŻE ZOBACZYĆ SWOJE REZERWACJE
             if (user.GuestId.HasValue)
             {
                 var reservations = await _context.Reservations
                     .Include(r => r.Room)
                     .Include(r => r.RoomType)
-                    .Include(r => r.Review) // 🔑 potrzebne do opinii
+                    .Include(r => r.Review)
                     .Where(r =>
                         r.GuestId == user.GuestId.Value &&
                         r.Status != Enums.ReservationStatus.Cancelled)

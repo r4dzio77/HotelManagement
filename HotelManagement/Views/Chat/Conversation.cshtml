@@ -1,0 +1,110 @@
+﻿@model HotelManagement.Models.ChatConversation
+
+@{
+    ViewData["Title"] = "Chat";
+    var isStaff = User.IsInRole("Recepcjonista") || User.IsInRole("Kierownik") || User.IsInRole("Admin");
+}
+
+<div class="container mt-4" style="max-width:900px;">
+
+    <div class="card shadow-sm border-0 rounded-4">
+
+        <!-- HEADER -->
+        <div class="card-header bg-white border-bottom rounded-top-4">
+            <div class="fw-semibold fs-5">
+                Rozmowa z recepcją
+            </div>
+            @* Chat #ID celowo ukryty – niepotrzebny w UX *@
+        </div>
+
+        <!-- KONTEKST REZERWACJI -->
+        @if (isStaff && Model.Reservation != null)
+        {
+            <div class="alert alert-info rounded-0 border-0 mb-0">
+                <strong>Rezerwacja</strong><br />
+                Gość: @Model.Reservation.Guest.FirstName @Model.Reservation.Guest.LastName<br />
+                Pobyt:
+                @Model.Reservation.CheckIn.ToString("dd.MM.yyyy")
+                –
+                @Model.Reservation.CheckOut.ToString("dd.MM.yyyy")<br />
+                Pokój: @Model.Reservation.Room?.Number
+            </div>
+        }
+
+        <!-- WIADOMOŚCI -->
+        <div id="chatMessages"
+             class="card-body"
+             style="height:420px; overflow-y:auto; background:#f8fafc;">
+
+            @foreach (var msg in Model.Messages.OrderBy(m => m.SentAt))
+            {
+                var isMine = !msg.IsFromStaff;
+
+                <div class="d-flex mb-3 @(isMine ? "justify-content-end" : "justify-content-start")">
+                    <div class="p-3 rounded-4 shadow-sm"
+                         style="max-width:70%;
+                                    background:@(isMine ? "#2563eb" : "#ffffff");
+                                    color:@(isMine ? "white" : "#0f172a");">
+
+                        <div class="small fw-semibold mb-1">
+                            @(isMine ? "Ty" : "Recepcja")
+                        </div>
+
+                        <div>@msg.Content</div>
+
+                        <div class="small mt-1" style="opacity:.75;">
+                            @msg.SentAt.ToLocalTime().ToString("HH:mm")
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- INPUT -->
+        <div class="card-footer bg-white border-top rounded-bottom-4">
+            <form asp-action="SendMessage"
+                  method="post"
+                  id="chatForm"
+                  class="d-flex gap-2 align-items-end">
+
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="conversationId" value="@Model.Id" />
+
+                <textarea name="content"
+                          id="chatInput"
+                          class="form-control rounded-3"
+                          rows="2"
+                          placeholder="Napisz wiadomość… (Enter = wyślij)"
+                          required></textarea>
+
+                <button type="submit"
+                        class="btn btn-primary rounded-3 px-4">
+                    Wyślij
+                </button>
+            </form>
+
+            <div class="text-muted small mt-2">
+                Odpowiedź zostanie udzielona przez recepcję tak szybko, jak to możliwe.
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // auto-scroll do ostatniej wiadomości
+        const container = document.getElementById("chatMessages");
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Enter = wyślij, Shift+Enter = nowa linia
+        document.getElementById("chatInput")?.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById("chatForm").submit();
+            }
+        });
+    </script>
+}

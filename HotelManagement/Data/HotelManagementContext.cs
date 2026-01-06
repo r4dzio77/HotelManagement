@@ -37,6 +37,10 @@ namespace HotelManagement.Data
         public DbSet<Review> Reviews { get; set; }
         public DbSet<ReviewRating> ReviewRatings { get; set; }
 
+        // ===== SUPPORT CHAT =====
+        public DbSet<ChatConversation> ChatConversations { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -143,6 +147,36 @@ namespace HotelManagement.Data
             // Opis stanu daty operacyjnej (BusinessDateState)
             modelBuilder.Entity<BusinessDateState>()
                 .HasKey(b => b.Id);
+
+            // ===== SUPPORT CHAT RELACJE =====
+
+            // ChatConversation ↔ ApplicationUser (właściciel rozmowy)
+            modelBuilder.Entity<ChatConversation>()
+                .HasOne(c => c.User)
+                .WithMany()
+                .HasForeignKey(c => c.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ChatConversation ↔ Reservation (opcjonalna)
+            modelBuilder.Entity<ChatConversation>()
+                .HasOne(c => c.Reservation)
+                .WithMany()
+                .HasForeignKey(c => c.ReservationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ChatConversation ↔ ChatMessage
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.Conversation)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(m => m.ChatConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ChatMessage ↔ ApplicationUser (nadawca)
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.SenderUser)
+                .WithMany()
+                .HasForeignKey(m => m.SenderUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

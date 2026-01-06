@@ -74,6 +74,27 @@ namespace HotelManagement.Controllers
                 .Include(r => r.RoomType)
                 .ToListAsync();
 
+            // ✅ AUTO-ODBLOKOWANIE pokoi po upływie daty blokady
+            var roomsToUnblock = rooms
+                .Where(r =>
+                    r.IsBlocked &&
+                    r.BlockTo.HasValue &&
+                    r.BlockTo.Value.Date < businessDate.Date)
+                .ToList();
+
+            if (roomsToUnblock.Any())
+            {
+                foreach (var room in roomsToUnblock)
+                {
+                    room.IsBlocked = false;
+                    room.BlockFrom = null;
+                    room.BlockTo = null;
+                    room.BlockReason = null;
+                }
+
+                await _context.SaveChangesAsync();
+            }
+
             // Ustawiamy Tag ("pobyt", "przyjazd", "wyjazd") na bazie rezerwacji dla daty operacyjnej
             foreach (var room in rooms)
             {
@@ -147,7 +168,6 @@ namespace HotelManagement.Controllers
 
         /// <summary>
         /// Blokowanie pokoju na zakres dat + powód
-        /// Wywoływane z modala w Floor.cshtml
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -156,7 +176,6 @@ namespace HotelManagement.Controllers
             if (toDate.Date < fromDate.Date)
             {
                 ModelState.AddModelError("", "Data do nie może być wcześniejsza niż data od.");
-                // w razie błędu – powrót na Index (można rozbudować o sensowne wyświetlenie błędów)
                 return RedirectToAction(nameof(Index));
             }
 
@@ -175,7 +194,7 @@ namespace HotelManagement.Controllers
         }
 
         /// <summary>
-        /// Odblokowanie pokoju – czyści zakres i powód
+        /// Odblokowanie pokoju – ręczne
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]

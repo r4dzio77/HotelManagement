@@ -26,27 +26,28 @@ public class HomeController : Controller
     public async Task<IActionResult> Index()
     {
         // ===== ZALOGOWANY U¯YTKOWNIK =====
-        if (User.Identity != null && User.Identity.IsAuthenticated)
+        if (User.Identity?.IsAuthenticated == true)
         {
             var user = await _userManager.GetUserAsync(User);
             ViewData["UserName"] = user?.FullName;
         }
 
-        // ===== OSTATNIA OPINIA Z AVG >= 4.0 =====
-        var lastPositiveReview = await _context.Reviews
-            .Where(r => r.AverageRating >= 4m)
+        // ===== OSTATNIE POZYTYWNE OPINIE (Z BAZY) =====
+        ViewBag.LastPositiveReviews = await _context.Reviews
+            .AsNoTracking()
+           .Where(r => r.AverageRating >= 4m)
             .OrderByDescending(r => r.CreatedAt)
-            .Select(r => new
+            .Take(10)
+            .Select(r => new ReviewPreviewVm
             {
-                Rating = r.AverageRating,          // przekazujemy jako "Rating" do widoku
-                Comment = r.Comment ?? ""
+                Rating = (double)r.AverageRating,
+                Comment = r.Comment ?? string.Empty
             })
-            .FirstOrDefaultAsync();
-
-        ViewBag.LastPositiveReview = lastPositiveReview;
+            .ToListAsync();
 
         return View();
     }
+
 
     public IActionResult Privacy()
     {

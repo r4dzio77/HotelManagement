@@ -439,9 +439,10 @@
                                         else if (room.IsBlocked)
                                         {
                                             <form asp-action="Unblock" asp-route-id="@room.Id" method="post">
-                                                <input type="submit" class="btn btn-sm btn-outline-light border-light" value="Odblokuj" />
+                                                <input type="submit" class="btn btn-sm btn-success" value="Odblokuj" />
                                             </form>
                                         }
+
                                     </div>
                                 </div>
                             }

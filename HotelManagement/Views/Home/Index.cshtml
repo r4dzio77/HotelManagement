@@ -463,19 +463,22 @@
                     Rezerwacja zajmuje mniej niż 2 minuty · Bezpieczne płatności · Elastyczne warunki anulacji
                 </div>
             </div>
-
             <div class="hero-right fade-in-up fade-delay-2">
                 <div class="hero-photo-card">
-                    <img src="/images/hotel-hero.jpg" alt="Widok nowoczesnego hotelu" />
                     <div class="hero-photo-footer">
                         <div class="hero-photo-footer-left">
-                            
-                            @if (review != null)
+
+                            @{
+                                var reviews = ViewBag.LastPositiveReviews as IEnumerable<ReviewPreviewVm>;
+                                var lastReview = reviews?.FirstOrDefault();
+                            }
+
+                            @if (lastReview != null)
                             {
                                 <div class="hero-stars">
                                     @for (int i = 1; i <= 5; i++)
                                     {
-                                        if (i <= review.Rating)
+                                        if (i <= Math.Round(lastReview.Rating))
                                         {
                                             <span>★</span>
                                         }
@@ -484,27 +487,43 @@
                                             <span style="opacity:.35;">★</span>
                                         }
                                     }
-                                    <span class="ms-1">Ocena gości @review.Rating.ToString("0.0")/5</span>
-
+                                    <span class="ms-1">
+                                        Ocena gości @lastReview.Rating.ToString("0.0")/5
+                                    </span>
                                 </div>
 
-                                <div style="font-size:.78rem; opacity:.9;">
-                                    „@review.Comment”
+                                <div style="font-size:.78rem; opacity:.9; margin-top:.2rem;">
+                                    „@lastReview.Comment”
+                                </div>
+
+                                <div style="font-size:.65rem; opacity:.6; margin-top:.15rem;">
+                                    Ostatnia pozytywna opinia z aplikacji
                                 </div>
                             }
-
                             else
                             {
+                                <!-- Brak opinii w bazie -->
                                 <div class="hero-stars">
                                     ★★★★☆ <span class="ms-1">Ocena gości 4+/5</span>
                                 </div>
 
                                 <div style="font-size:.78rem; opacity:.85;">
-                                    „Goście szczególnie doceniają komfort i obsługę naszego hotelu.”
+                                    Brak opinii gości – bądź pierwszym, który ją doda.
                                 </div>
                             }
 
+                            <div style="margin-top:.4rem;">
+                                <a asp-controller="Review"
+                                   asp-action="Index"
+                                   class="btn-hero-ghost"
+                                   style="padding:.35rem .8rem; font-size:.72rem;">
+                                    <i class="bi bi-chat-square-text"></i>
+                                    Przeglądaj opinie
+                                </a>
+                            </div>
+
                         </div>
+
                         <div class="hero-photo-badge">
                             <i class="bi bi-clock-history"></i>
                             Zameldowanie od 14:00
@@ -512,6 +531,8 @@
                     </div>
                 </div>
             </div>
+
+
         </div>
     </section>
 
@@ -615,3 +636,50 @@
         });
     });
 </script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const container = document.getElementById("review-carousel");
+        if (!container) return;
+
+        const reviews = JSON.parse(container.dataset.reviews);
+        const starsEl = document.getElementById("review-stars");
+        const commentEl = document.getElementById("review-comment");
+
+        let index = 0;
+
+        function renderReview(i) {
+            const review = reviews[i];
+
+            let starsHtml = "";
+            for (let s = 1; s <= 5; s++) {
+                starsHtml += s <= review.rating
+                    ? "★"
+                    : "<span style='opacity:.35;'>★</span>";
+            }
+
+            starsEl.innerHTML = `${starsHtml}
+                <span class="ms-1">Ocena gości ${review.rating.toFixed(1)}/5</span>`;
+
+            commentEl.textContent = `„${review.comment}”`;
+        }
+
+        renderReview(index);
+
+        setInterval(() => {
+            index = (index + 1) % reviews.length;
+
+            // delikatny fade
+            commentEl.style.opacity = "0";
+            starsEl.style.opacity = "0";
+
+            setTimeout(() => {
+                renderReview(index);
+                commentEl.style.opacity = "0.9";
+                starsEl.style.opacity = "1";
+            }, 300);
+
+        }, 5000);
+    });
+</script>
+
