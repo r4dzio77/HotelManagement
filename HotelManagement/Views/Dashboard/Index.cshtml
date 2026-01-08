@@ -4,370 +4,348 @@
 @{
     ViewData["Title"] = "Dashboard";
     var pl = new CultureInfo("pl-PL");
-    var bizDate = Model.BusinessDate; // DATA OPERACYJNA
+    var bizDate = Model.BusinessDate;
+
+    var chatWaitingCount = ViewBag.ChatWaitingCount as int? ?? 0;
+    var chatWaitingList = ViewBag.ChatWaitingList as IEnumerable<HotelManagement.Models.ChatConversation>
+                          ?? Enumerable.Empty<HotelManagement.Models.ChatConversation>();
+
+    var todayShifts = ViewBag.TodayShifts as IEnumerable<HotelManagement.Models.WorkShift>
+                      ?? Enumerable.Empty<HotelManagement.Models.WorkShift>();
+
+    var dirtyRooms = ViewBag.DirtyRoomsCount as int? ?? 0;
+    var blockedRooms = ViewBag.BlockedRoomsCount as int? ?? 0;
+
+    var occupancy = ViewBag.OccupancyPercent as int? ?? 0;
+    var occupiedRooms = ViewBag.OccupiedRooms as int? ?? 0;
+    var totalRooms = ViewBag.TotalRooms as int? ?? 0;
+
+    var dailyTasks = ViewBag.DailyTasks as IEnumerable<HotelManagement.Models.DailyTask>
+                     ?? Enumerable.Empty<HotelManagement.Models.DailyTask>();
+
+    var isManager = User.IsInRole("Kierownik");
 }
 
 @section Styles {
     <style>
-        .dashboard-wrapper {
+        /* ====== LAYOUT ====== */
+        .dashboard {
+            background: #f6f7fb;
             min-height: 100vh;
-            padding: 2rem 1.5rem 3rem;
-            background: radial-gradient(circle at top left, #0d6efd15, transparent 55%), radial-gradient(circle at bottom right, #20c99710, transparent 55%), #f5f7fb;
+            padding: 2.5rem 2rem 3rem;
         }
 
         .dashboard-header {
             display: flex;
-            flex-wrap: wrap;
             justify-content: space-between;
-            gap: 1rem;
-            align-items: center;
-            margin-bottom: 2rem;
+            align-items: flex-end;
+            margin-bottom: 2.2rem;
         }
 
         .dashboard-title {
-            font-size: 1.8rem;
+            font-size: 1.9rem;
             font-weight: 700;
-            color: #1f2933;
+            letter-spacing: -.02em;
+            color: #0f172a;
         }
 
         .dashboard-subtitle {
-            color: #6b7280;
-            margin-top: .25rem;
-            font-size: .9rem;
+            font-size: .85rem;
+            color: #64748b;
         }
 
-        .dashboard-date-pill {
-            padding: .6rem 1.25rem;
+        .dashboard-date {
+            font-size: .85rem;
+            padding: .45rem .9rem;
             border-radius: 999px;
             background: #ffffff;
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-            font-size: .9rem;
-            display: inline-flex;
-            align-items: center;
-            gap: .5rem;
-            color: #4b5563;
+            border: 1px solid rgba(148,163,184,.35);
+            color: #334155;
         }
 
-            .dashboard-date-pill span:first-child {
-                display: inline-flex;
-                width: 26px;
-                height: 26px;
-                border-radius: 999px;
-                align-items: center;
-                justify-content: center;
-                font-size: .85rem;
-                font-weight: 600;
-                background: #0d6efd;
-                color: #fff;
-            }
-
+        /* ====== GRID ====== */
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 1.25rem;
+            grid-template-columns: repeat(auto-fit,minmax(280px,1fr));
+            gap: 1.4rem;
         }
 
-        .dashboard-card-link {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .dashboard-card {
-            position: relative;
-            height: 100%;
-            border-radius: 1.25rem;
-            padding: 1.2rem 1.25rem;
+        /* ====== CARD ====== */
+        .card {
             background: #ffffff;
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+            border-radius: 1.25rem;
+            padding: 1.35rem 1.4rem 1.5rem;
+            border: 1px solid rgba(148,163,184,.25);
+            box-shadow: 0 18px 45px rgba(15,23,42,.08);
             display: flex;
             flex-direction: column;
-            gap: .65rem;
-            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-            overflow: hidden;
+            gap: 1rem;
+            transition: .18s ease;
         }
 
-            .dashboard-card::after {
-                content: "";
-                position: absolute;
-                inset: 0;
-                background: radial-gradient(circle at top right, rgba(13, 110, 253, 0.09), transparent 65%);
-                opacity: 0;
-                transition: opacity 0.2s ease;
-                pointer-events: none;
+            .card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 22px 55px rgba(15,23,42,.14);
             }
 
-            .dashboard-card:hover {
-                transform: translateY(-3px);
-                box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
-                border-color: rgba(59, 130, 246, 0.55);
-            }
-
-                .dashboard-card:hover::after {
-                    opacity: 1;
-                }
-
-        .dashboard-card-header {
+        /* ====== HEADERS ====== */
+        .card-header {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: .75rem;
+            flex-direction: column;
+            gap: .15rem;
         }
 
-        .dashboard-card-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-
-        .dashboard-card-icon-primary {
-            background: linear-gradient(135deg, #0d6efd, #2563eb);
-            color: #fff;
-        }
-
-        .dashboard-card-icon-success {
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: #fff;
-        }
-
-        .dashboard-card-title {
+        .card-title {
+            font-size: .95rem;
             font-weight: 600;
-            font-size: 1rem;
-            color: #111827;
+            color: #0f172a;
+        }
+
+        .card-subtitle {
+            font-size: .75rem;
+            color: #64748b;
+        }
+
+        /* ====== KPI ====== */
+        .kpi {
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -.03em;
+            color: #0f172a;
+        }
+
+        .kpi-danger {
+            color: #dc2626;
+        }
+
+        /* ====== LISTS ====== */
+        .list {
+            list-style: none;
+            padding: 0;
             margin: 0;
         }
 
-        .dashboard-card-badge {
-            font-size: .72rem;
-            padding: .18rem .6rem;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.03);
-            color: #6b7280;
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            white-space: nowrap;
-        }
-
-        .dashboard-card-desc {
-            font-size: .85rem;
-            color: #6b7280;
-            margin-bottom: .2rem;
-        }
-
-        .dashboard-card-footer {
-            margin-top: auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: .8rem;
-            color: #4b5563;
-        }
-
-            .dashboard-card-footer span {
-                display: inline-flex;
-                align-items: center;
-                gap: .35rem;
-            }
-
-        .dashboard-stats-row {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: .6rem;
-            margin-top: .5rem;
-        }
-
-        .dashboard-stat {
-            padding: .5rem .6rem;
-            border-radius: .85rem;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.02), rgba(148, 163, 184, 0.05));
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            display: flex;
-            flex-direction: column;
-            gap: .1rem;
-        }
-
-        .dashboard-stat-label {
-            font-size: .72rem;
-            color: #6b7280;
-        }
-
-        .dashboard-stat-value {
-            font-weight: 700;
-            font-size: .98rem;
-            color: #111827;
-        }
-
-        .dashboard-mini-list {
-            list-style: none;
-            padding-left: 0;
-            margin: .5rem 0 .25rem;
-        }
-
-            .dashboard-mini-list li {
+            .list li {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 font-size: .8rem;
-                color: #4b5563;
-                padding: .3rem .25rem;
-                border-radius: .6rem;
+                padding: .35rem 0;
+                color: #334155;
             }
 
-                .dashboard-mini-list li:nth-child(odd) {
-                    background: rgba(15, 23, 42, 0.02);
-                }
+        .list-muted {
+            font-size: .75rem;
+            color: #64748b;
+        }
 
-                .dashboard-mini-list li span:first-child {
-                    font-weight: 500;
-                }
+        /* ====== BADGES ====== */
+        .badge {
+            font-size: .65rem;
+            padding: .15rem .55rem;
+            border-radius: 999px;
+            font-weight: 600;
+        }
 
-                .dashboard-mini-list li span:last-child {
-                    font-weight: 700;
-                }
+        .badge-danger {
+            background: rgba(220,38,38,.12);
+            color: #b91c1c;
+        }
 
-        @@media (max-width: 576px) {
-            .dashboard-wrapper {
-                padding: 1.5rem 1rem 2.5rem;
-            }
+        .badge-warning {
+            background: rgba(245,158,11,.15);
+            color: #b45309;
+        }
 
-            .dashboard-title {
-                font-size: 1.5rem;
-            }
+        .badge-success {
+            background: rgba(22,163,74,.15);
+            color: #15803d;
+        }
+
+        /* ====== PROGRESS ====== */
+        .progress {
+            height: 8px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg,#22c55e,#16a34a);
+        }
+
+        /* ====== TODO ====== */
+        .todo-done {
+            text-decoration: line-through;
+            color: #94a3b8;
         }
     </style>
 }
 
-<div class="dashboard-wrapper">
-    <div class="container-fluid px-0">
-        <div class="dashboard-header">
-            <div>
-                <div class="dashboard-title">
-                    Panel główny hotelu
-                </div>
-                <div class="dashboard-subtitle">
-                    Podsumowanie dnia operacyjnego: przyjazdy, pobyty, wyjazdy oraz plan śniadań.
-                </div>
-            </div>
-            <div>
-                <div class="dashboard-date-pill">
-                    <span>@bizDate.ToString("dd")</span>
-                    <div>
-                        <div style="font-weight:600; font-size:.8rem;">
-                            @bizDate.ToString("dddd", pl)
-                        </div>
-                        <div style="font-size:.8rem;">
-                            @bizDate.ToString("dd.MM.yyyy")
-                        </div>
-                    </div>
-                </div>
+<div class="dashboard">
+
+    <div class="dashboard-header">
+        <div>
+            <div class="dashboard-title">Dashboard hotelu</div>
+            <div class="dashboard-subtitle">
+                Dzień operacyjny • @bizDate.ToString("dddd dd.MM.yyyy", pl)
             </div>
         </div>
 
-        <!-- DWA KAFELKI: przyjazdy/pobyty/wyjazdy + śniadania -->
-        <div class="dashboard-grid">
-            <!-- Przyjazdy / pobyty / wyjazdy -->
-            <a asp-controller="Reports" asp-action="ArrivalsDepartures" class="dashboard-card-link">
-                <div class="dashboard-card">
-                    <div class="dashboard-card-header">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="dashboard-card-icon dashboard-card-icon-primary">
-                                📅
-                            </div>
-                            <div>
-                                <p class="dashboard-card-title mb-0">
-                                    Przyjazdy, pobyty, wyjazdy (dzień operacyjny)
-                                </p>
-                                <p class="mb-0 dashboard-card-desc">
-                                    Szybki podgląd obłożenia – kliknij, aby przejść do raportu przyjazdów/wyjazdów.
-                                </p>
-                            </div>
-                        </div>
-                        <span class="dashboard-card-badge">
-                            Raport dzienny
-                        </span>
-                    </div>
-
-                    <div class="dashboard-stats-row">
-                        <div class="dashboard-stat">
-                            <span class="dashboard-stat-label">Przyjazdy</span>
-                            <span class="dashboard-stat-value">
-                                @Model.TodayArrivals
-                            </span>
-                        </div>
-                        <div class="dashboard-stat">
-                            <span class="dashboard-stat-label">Pobyty</span>
-                            <span class="dashboard-stat-value">
-                                @Model.TodayStays
-                            </span>
-                        </div>
-                        <div class="dashboard-stat">
-                            <span class="dashboard-stat-label">Wyjazdy</span>
-                            <span class="dashboard-stat-value">
-                                @Model.TodayDepartures
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-card-footer mt-2">
-                        <span>Przejdź do raportu przyjazdów / wyjazdów</span>
-                        <span>→</span>
-                    </div>
-                </div>
-            </a>
-
-            <!-- Śniadania (7 dni do przodu) -->
-            <a asp-controller="Reports" asp-action="Breakfast" class="dashboard-card-link">
-                <div class="dashboard-card">
-                    <div class="dashboard-card-header">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="dashboard-card-icon dashboard-card-icon-success">
-                                🥐
-                            </div>
-                            <div>
-                                <p class="dashboard-card-title mb-0">
-                                    Śniadania (7 dni do przodu)
-                                </p>
-                                <p class="mb-0 dashboard-card-desc">
-                                    Ilość śniadań na dzień operacyjny i kolejne dni – kliknij, aby otworzyć raport.
-                                </p>
-                            </div>
-                        </div>
-                        <span class="dashboard-card-badge">
-                            F&amp;B • Planowanie
-                        </span>
-                    </div>
-
-                    <ul class="dashboard-mini-list">
-                        @if (Model.BreakfastsNext7Days != null && Model.BreakfastsNext7Days.Any())
-                        {
-                            foreach (var item in Model.BreakfastsNext7Days)
-                            {
-                                <li>
-                                    <span>
-                                        @item.Date.ToString("ddd dd.MM", pl)
-                                    </span>
-                                    <span>@item.BreakfastCount</span>
-                                </li>
-                            }
-                        }
-                        else
-                        {
-                            <li>
-                                <span>Brak danych</span>
-                                <span>–</span>
-                            </li>
-                        }
-                    </ul>
-
-                    <div class="dashboard-card-footer">
-                        <span>Przejdź do raportu śniadań</span>
-                        <span>→</span>
-                    </div>
-                </div>
-            </a>
+        <div class="dashboard-date">
+            @bizDate.ToString("dd.MM.yyyy")
         </div>
+    </div>
+
+    <div class="dashboard-grid">
+
+        <!-- RUCH -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Ruch hotelowy</div>
+                <div class="card-subtitle">Przyjazdy, pobyty, wyjazdy</div>
+            </div>
+
+            <ul class="list">
+                <li><span>Przyjazdy</span><strong>@Model.TodayArrivals</strong></li>
+                <li><span>Pobyty</span><strong>@Model.TodayStays</strong></li>
+                <li><span>Wyjazdy</span><strong>@Model.TodayDepartures</strong></li>
+            </ul>
+        </div>
+
+        <!-- ŚNIADANIA -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Śniadania</div>
+                <div class="card-subtitle">Plan na 7 dni</div>
+            </div>
+
+            <ul class="list">
+                @foreach (var b in Model.BreakfastsNext7Days)
+                {
+                    <li>
+                        <span>@b.Date.ToString("ddd dd.MM", pl)</span>
+                        <strong>@b.BreakfastCount</strong>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <!-- CHAT -->
+        <a asp-controller="Chat" asp-action="Staff" class="text-decoration-none text-dark">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Wiadomości</div>
+                    <div class="card-subtitle">Czekają na odpowiedź</div>
+                </div>
+
+                <div class="kpi kpi-danger">@chatWaitingCount</div>
+
+                @foreach (var chat in chatWaitingList.Take(3))
+                {
+                    <div class="list-muted d-flex justify-content-between">
+                        <span>
+                            @(!string.IsNullOrWhiteSpace(chat.User.FirstName)
+                                                    ? $"{chat.User.FirstName} {chat.User.LastName}"
+                                                    : chat.User.UserName)
+                    </span>
+                    <span class="badge badge-danger">NOWE</span>
+                </div>
+                                }
+            </div>
+        </a>
+
+        <!-- GRAFIK -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Dzisiejsza obsada</div>
+                <div class="card-subtitle">Kto pracuje</div>
+            </div>
+
+            <ul class="list">
+                @foreach (var s in todayShifts)
+                {
+                    <li>
+                        <span>@s.User.FirstName @s.User.LastName</span>
+                        <strong>@s.StartTime:00–@s.EndTime:00</strong>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <!-- POKOJE -->
+        <a asp-controller="Housekeeping" asp-action="Floor" class="text-decoration-none text-dark">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Status pokoi</div>
+                    <div class="card-subtitle">Wymagające uwagi</div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <span>Brudne</span>
+                    <span class="badge badge-warning">@dirtyRooms</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Zablokowane</span>
+                    <span class="badge badge-danger">@blockedRooms</span>
+                </div>
+            </div>
+        </a>
+
+        <!-- OBŁOŻENIE -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Obłożenie</div>
+                <div class="card-subtitle">Aktualne</div>
+            </div>
+
+            <div class="kpi">@occupancy%</div>
+
+            <div class="progress">
+                <div class="progress-bar" style="width:@occupancy%"></div>
+            </div>
+
+            <div class="list-muted">
+                @occupiedRooms / @totalRooms pokoi
+            </div>
+        </div>
+
+        <!-- TODO -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">To-Do na dziś</div>
+                <div class="card-subtitle">Zadania zespołu</div>
+            </div>
+
+            @if (isManager)
+            {
+                <form asp-controller="DailyTask" asp-action="Add" method="post" class="d-flex gap-2">
+                    @Html.AntiForgeryToken()
+                    <input name="title" class="form-control form-control-sm" placeholder="Nowe zadanie…" />
+                    <button class="btn btn-sm btn-primary">Dodaj</button>
+                </form>
+            }
+
+            <ul class="list">
+                @foreach (var t in dailyTasks)
+                {
+                    <li>
+                        <span class="@(t.IsCompleted ? "todo-done" : "")">@t.Title</span>
+
+                        <form asp-controller="DailyTask"
+                              asp-action="ToggleComplete"
+                              method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@t.Id" />
+                            <button class="btn btn-sm btn-outline-success">
+                                @(t.IsCompleted ? "↺" : "✓")
+                            </button>
+                        </form>
+                    </li>
+                }
+            </ul>
+        </div>
+
     </div>
 </div>

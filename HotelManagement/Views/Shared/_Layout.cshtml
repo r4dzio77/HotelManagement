@@ -362,10 +362,10 @@
                         </li>
                     }
 
-                    @if (isAdmin || isManager)
+                    @if (isAdmin || isManager || isStaff)
                     {
                         <li class="sidebar-menu-item">
-                            <a href="/Reservation/Search"
+                            <a href="/Search"
                                class="sidebar-link @(path.StartsWith("/search") ? "active" : "")">
                                 <i class="bi bi-search"></i>
                                 Wyszukiwarka

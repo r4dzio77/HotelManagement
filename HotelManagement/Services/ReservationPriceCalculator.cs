@@ -12,7 +12,7 @@ namespace HotelManagement.Services
             _context = context;
         }
 
-        public async Task<decimal> CalculateTotalPriceAsync(
+        public async Task<ReservationPriceBreakdown> CalculateAsync(
             int roomTypeId,
             DateTime checkIn,
             DateTime checkOut,
@@ -23,32 +23,69 @@ namespace HotelManagement.Services
             int personCount,
             List<int> selectedServiceIds)
         {
-            int nights = (checkOut.Date - checkIn.Date).Days;
-            if (nights < 1)
+            if (checkOut <= checkIn)
                 throw new ArgumentException("Niepoprawny zakres dat");
 
-            decimal total = 0;
+            int nights = (checkOut.Date - checkIn.Date).Days;
 
-            // ===== CENA POKOJU =====
             var roomType = await _context.RoomTypes.FindAsync(roomTypeId)
                 ?? throw new Exception("Nie znaleziono typu pokoju");
 
-            total += roomType.PricePerNight * nights;
+            // =========================
+            // 1️⃣ NOCLEG
+            // =========================
+            decimal roomPrice = roomType.PricePerNight * nights;
 
-            // ===== USŁUGI Z BAZY (RABAT DZIAŁA) =====
+            // =========================
+            // 2️⃣ OPCJE STANDARDOWE
+            // =========================
+            decimal options = 0;
+
+            if (breakfast)
+                options += 40m * personCount * nights;
+
+            if (parking)
+                options += 30m * nights;
+
+            if (extraBed)
+                options += 80m * nights;
+
+            if (pet)
+                options += 80m * nights;
+
+            // =========================
+            // 3️⃣ USŁUGI Z BAZY
+            // =========================
+            decimal services = 0;
+
             if (selectedServiceIds != null && selectedServiceIds.Any())
             {
-                var services = await _context.Services
+                var dbServices = await _context.Services
                     .Where(s => selectedServiceIds.Contains(s.Id))
                     .ToListAsync();
 
-                foreach (var s in services)
+                foreach (var s in dbServices)
                 {
-                    total += s.Price;
+                    services += s.Price;
                 }
             }
 
-            return total;
+            return new ReservationPriceBreakdown
+            {
+                Nights = nights,
+                RoomPrice = roomPrice,
+                ServicesPrice = options + services,
+                TotalPrice = roomPrice + options + services
+            };
+        }
+
+        public class ReservationPriceBreakdown
+        {
+            public int Nights { get; set; }
+            public decimal RoomPrice { get; set; }
+            public decimal ServicesPrice { get; set; }
+            public decimal TotalPrice { get; set; }
         }
     }
+
 }

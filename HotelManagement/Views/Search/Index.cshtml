@@ -1,0 +1,319 @@
+﻿@model IEnumerable<HotelManagement.Models.Reservation>
+@using HotelManagement.Models
+@using System.Linq
+@using HotelManagement.Enums
+
+
+@{
+    ViewData["Title"] = "Wyszukiwarka";
+
+    var reservations = Model ?? Enumerable.Empty<Reservation>();
+
+    string reservationNumber = ViewBag.ReservationNumber as string ?? "";
+    string firstName = ViewBag.FirstName as string ?? "";
+    string lastName = ViewBag.LastName as string ?? "";
+    string fromDate = ViewBag.FromDate as string ?? "";
+    string toDate = ViewBag.ToDate as string ?? "";
+
+    var guestResults = ViewBag.GuestResults as IEnumerable<Guest> ?? Enumerable.Empty<Guest>();
+    string guestQuery = ViewBag.GuestQuery as string ?? "";
+
+    var documentResults = ViewBag.DocumentResults as IEnumerable<Document> ?? Enumerable.Empty<Document>();
+    string docNumber = ViewBag.DocumentNumber as string ?? "";
+    string docFromDate = ViewBag.DocumentFromDate as string ?? "";
+    string docToDate = ViewBag.DocumentToDate as string ?? "";
+
+    string activeTab = (ViewBag.SearchType as string ?? "reservation").ToLower();
+}
+
+<style>
+    .search-wrapper {
+        max-width: 1400px;
+        margin: 2rem auto;
+    }
+
+    .search-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .search-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .search-subtitle {
+        font-size: .85rem;
+        color: #64748b;
+    }
+
+    .nav-tabs {
+        border-bottom: 1px solid rgba(148,163,184,.35);
+    }
+
+        .nav-tabs .nav-link {
+            font-size: .85rem;
+            font-weight: 600;
+            color: #475569;
+            border: none;
+            padding: .7rem 1.1rem;
+        }
+
+            .nav-tabs .nav-link.active {
+                color: #2563eb;
+                border-bottom: 3px solid #2563eb;
+                background: none;
+            }
+
+    .search-card {
+        background: #fff;
+        border-radius: 1rem;
+        border: 1px solid rgba(148,163,184,.25);
+        box-shadow: 0 10px 30px rgba(15,23,42,.08);
+        padding: 1.2rem 1.3rem;
+    }
+
+    .search-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .6rem;
+        margin-bottom: .9rem;
+    }
+
+        .search-filters input {
+            font-size: .8rem;
+            height: 34px;
+            border-radius: .55rem;
+        }
+
+    .search-table {
+        font-size: .85rem;
+    }
+
+        .search-table thead th {
+            font-size: .7rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #64748b;
+        }
+
+    .table-clickable tbody tr {
+        cursor: pointer;
+    }
+
+        .table-clickable tbody tr:hover {
+            background: #f8fafc;
+        }
+
+    .badge-status {
+        font-size: .7rem;
+        padding: .25rem .6rem;
+        border-radius: 999px;
+        font-weight: 600;
+    }
+
+    .status-confirmed {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .status-checkedin {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status-checkedout {
+        background: #f3f4f6;
+        color: #374151;
+    }
+</style>
+
+<div class="search-wrapper">
+
+    <div class="search-header">
+        <div class="search-title">Wyszukiwarka</div>
+        <div class="search-subtitle">
+            Rezerwacje, goście oraz dokumenty – wszystko w jednym module
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "reservation" ? "active" : "")"
+                    data-bs-toggle="tab" data-bs-target="#tab-reservations">
+                Rezerwacje
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "guest" ? "active" : "")"
+                    data-bs-toggle="tab" data-bs-target="#tab-guests">
+                Goście
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "document" ? "active" : "")"
+                    data-bs-toggle="tab" data-bs-target="#tab-documents">
+                Rachunki / dokumenty
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- ================= REZERWACJE ================= -->
+        <div class="tab-pane fade @(activeTab == "reservation" ? "show active" : "")" id="tab-reservations">
+            <div class="search-card">
+
+                <form method="get" asp-controller="Search" asp-action="Index">
+                    <input type="hidden" name="searchType" value="reservation" />
+                    <div class="search-filters">
+                        <input name="reservationNumber" value="@reservationNumber" class="form-control" placeholder="Nr rezerwacji" />
+                        <input name="firstName" value="@firstName" class="form-control" placeholder="Imię" />
+                        <input name="lastName" value="@lastName" class="form-control" placeholder="Nazwisko" />
+                        <input type="date" name="fromDate" value="@fromDate" class="form-control" />
+                        <input type="date" name="toDate" value="@toDate" class="form-control" />
+                        <button class="btn btn-outline-primary btn-sm">Szukaj</button>
+                    </div>
+                </form>
+
+                @if (!reservations.Any())
+                {
+                    <div class="text-muted small">
+                        Brak rezerwacji spełniających podane kryteria.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover search-table table-clickable">
+                            <thead>
+                                <tr>
+                                    <th>Nr</th>
+                                    <th>Gość</th>
+                                    <th>Pokój</th>
+                                    <th>Check-in</th>
+                                    <th>Check-out</th>
+                                    <th>Status</th>
+                                    <th>Cena</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in reservations)
+                                {
+                                    string statusClass =
+                                    r.Status == ReservationStatus.Confirmed ? "status-confirmed" :
+                                    r.Status == ReservationStatus.CheckedIn ? "status-checkedin" :
+                                    "status-checkedout";
+
+
+                                    <tr onclick="location.href='@Url.Action("Details", "Reservation", new { id = r.Id })'">
+                                        <td>@r.Id</td>
+                                        <td>@r.Guest.FirstName @r.Guest.LastName</td>
+                                        <td>@(r.Room?.Number ?? "—")</td>
+                                        <td>@r.CheckIn.ToString("dd.MM.yyyy")</td>
+                                        <td>@r.CheckOut.ToString("dd.MM.yyyy")</td>
+                                        <td>
+                                            <span class="badge-status @statusClass">
+                                                @r.Status
+                                            </span>
+                                        </td>
+                                        <td>@r.TotalPrice.ToString("0.00") zł</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- ================= GOŚCIE ================= -->
+        <div class="tab-pane fade @(activeTab == "guest" ? "show active" : "")" id="tab-guests">
+            <div class="search-card">
+                <form method="get" asp-controller="Search" asp-action="Index">
+                    <input type="hidden" name="searchType" value="guest" />
+                    <div class="search-filters">
+                        <input name="guestQuery" value="@guestQuery" class="form-control"
+                               placeholder="Imię / nazwisko / e-mail / telefon" />
+                        <button class="btn btn-outline-primary btn-sm">Szukaj</button>
+                    </div>
+                </form>
+
+                @if (!guestResults.Any())
+                {
+                    <div class="text-muted small">Brak wyników.</div>
+                }
+                else
+                {
+                    <table class="table table-hover search-table">
+                        <thead>
+                            <tr>
+                                <th>Gość</th>
+                                <th>E-mail</th>
+                                <th>Telefon</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var g in guestResults)
+                            {
+                                <tr>
+                                    <td>@g.FirstName @g.LastName</td>
+                                    <td>@g.Email</td>
+                                    <td>@g.PhoneNumber</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <!-- ================= DOKUMENTY ================= -->
+        <div class="tab-pane fade @(activeTab == "document" ? "show active" : "")" id="tab-documents">
+            <div class="search-card">
+                <form method="get" asp-controller="Search" asp-action="Index">
+                    <input type="hidden" name="searchType" value="document" />
+                    <div class="search-filters">
+                        <input name="documentNumber" value="@docNumber" class="form-control" placeholder="Nr dokumentu" />
+                        <input type="date" name="documentFromDate" value="@docFromDate" class="form-control" />
+                        <input type="date" name="documentToDate" value="@docToDate" class="form-control" />
+                        <button class="btn btn-outline-primary btn-sm">Szukaj</button>
+                    </div>
+                </form>
+
+                @if (!documentResults.Any())
+                {
+                    <div class="text-muted small">Brak wyników.</div>
+                }
+                else
+                {
+                    <table class="table table-hover search-table">
+                        <thead>
+                            <tr>
+                                <th>Numer</th>
+                                <th>Typ</th>
+                                <th>Data</th>
+                                <th>Nabywca</th>
+                                <th>Kwota</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in documentResults)
+                            {
+                                <tr>
+                                    <td>@d.Number</td>
+                                    <td>@d.Type</td>
+                                    <td>@d.IssueDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@(d.BuyerName ?? d.Reservation?.Guest?.FirstName)</td>
+                                    <td>@d.TotalAmount.ToString("0.00") zł</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+    </div>
+</div>

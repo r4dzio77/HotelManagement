@@ -55,16 +55,13 @@ namespace HotelManagement.Controllers
             if (!ModelState.IsValid)
                 return View(guest);
 
-            // ====== OBSŁUGA FIRMY ======
             Company? company = null;
 
-            // 1. Jeśli wybrano firmę z wyszukiwarki (CompanyId w modelu)
             if (guest.CompanyId.HasValue)
             {
                 company = await _context.Companies.FindAsync(guest.CompanyId.Value);
             }
 
-            // 2. Jeśli nie ma firmy, ale wpisano dane – szukamy / tworzymy
             bool hasAnyCompanyData =
                 !string.IsNullOrWhiteSpace(CompanyName) ||
                 !string.IsNullOrWhiteSpace(CompanyVatNumber) ||
@@ -112,7 +109,6 @@ namespace HotelManagement.Controllers
                 guest.CompanyId = company.Id;
             }
 
-            // ====== DANE GOŚCIA / LOJALNOŚĆ ======
             guest.LoyaltyCardNumber = null;
             guest.LoyaltyStatus = LoyaltyStatus.Classic;
             guest.TotalNights = 0;
@@ -154,8 +150,6 @@ namespace HotelManagement.Controllers
                 return View(vm);
             }
 
-            // W tym widoku dane gościa są tylko do podglądu,
-            // więc pomijamy walidację zagnieżdżonego obiektu Guest.
             foreach (var key in ModelState.Keys.Where(k => k.StartsWith("Guest.")).ToList())
             {
                 ModelState.Remove(key);
@@ -196,7 +190,10 @@ namespace HotelManagement.Controllers
                 }
             }
 
-            var totalPrice = await _priceCalculator.CalculateTotalPriceAsync(
+            var selectedServiceIdsCreate = vm.SelectedServiceIds ?? new List<int>();
+            var personCountCreate = vm.PersonCount > 0 ? vm.PersonCount : 1;
+
+            var breakdown = await _priceCalculator.CalculateAsync(
                 vm.Reservation.RoomTypeId,
                 vm.Reservation.CheckIn,
                 vm.Reservation.CheckOut,
@@ -204,11 +201,11 @@ namespace HotelManagement.Controllers
                 vm.Parking,
                 vm.ExtraBed,
                 vm.Pet,
-                vm.PersonCount,
-                vm.SelectedServiceIds
+                personCountCreate,
+                selectedServiceIdsCreate
             );
 
-            totalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
+            var totalPrice = Math.Round(breakdown.TotalPrice, 2, MidpointRounding.AwayFromZero);
 
             var reservation = new Reservation
             {
@@ -220,9 +217,10 @@ namespace HotelManagement.Controllers
                 Breakfast = vm.Breakfast,
                 Parking = vm.Parking,
                 ExtraBed = vm.ExtraBed,
-                PersonCount = vm.PersonCount,
+                Pet = vm.Pet,
+                PersonCount = personCountCreate,
                 TotalPrice = totalPrice,
-                ServicesUsed = vm.SelectedServiceIds.Select(serviceId => new ServiceUsage
+                ServicesUsed = selectedServiceIdsCreate.Select(serviceId => new ServiceUsage
                 {
                     ServiceId = serviceId,
                     Quantity = 1
@@ -230,7 +228,6 @@ namespace HotelManagement.Controllers
             };
 
             _context.Reservations.Add(reservation);
-
             await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");
@@ -251,7 +248,6 @@ namespace HotelManagement.Controllers
 
             var roomTypes = await GetAvailableRoomTypesAsync(reservation.CheckIn, reservation.CheckOut, reservation.Id);
 
-            // Dopilnuj, aby aktualny typ pokoju zawsze był na liście
             if (!roomTypes.Any(rt => rt.Id == reservation.RoomTypeId))
             {
                 var currentRt = await _context.RoomTypes.FindAsync(reservation.RoomTypeId);
@@ -276,6 +272,7 @@ namespace HotelManagement.Controllers
                 Breakfast = reservation.Breakfast,
                 Parking = reservation.Parking,
                 ExtraBed = reservation.ExtraBed,
+                Pet = reservation.Pet,
                 PersonCount = reservation.PersonCount
             };
 
@@ -287,24 +284,6 @@ namespace HotelManagement.Controllers
         [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> Edit(int id, ReservationViewModel vm)
         {
-            if (!ModelState.IsValid)
-            {
-                var roomTypesInvalid = await GetAvailableRoomTypesAsync(vm.Reservation.CheckIn, vm.Reservation.CheckOut, id);
-                if (!roomTypesInvalid.Any(rt => rt.Id == vm.Reservation.RoomTypeId))
-                {
-                    var currentRt = await _context.RoomTypes.FindAsync(vm.Reservation.RoomTypeId);
-                    if (currentRt != null)
-                        roomTypesInvalid.Add(currentRt);
-                }
-
-                vm.RoomTypes = new SelectList(roomTypesInvalid, "Id", "Name", vm.Reservation.RoomTypeId);
-                vm.Services = await _context.Services.ToListAsync();
-                vm.AvailableRooms = new SelectList(
-                    await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id),
-                    "Id", "Number");
-                return View(vm);
-            }
-
             var reservation = await _context.Reservations
                 .Include(r => r.Guest)
                 .Include(r => r.ServicesUsed)
@@ -313,86 +292,44 @@ namespace HotelManagement.Controllers
             if (reservation == null)
                 return NotFound();
 
-            Room? allocatedRoom = null;
-
-            if (vm.RoomId.HasValue)
-            {
-                bool isAvailable = await _roomAllocator.IsRoomAvailableAsync(
-                    vm.RoomId.Value, vm.Reservation.CheckIn, vm.Reservation.CheckOut, reservation.Id);
-
-                if (!isAvailable)
-                {
-                    ModelState.AddModelError("", "Wybrany pokój nie jest dostępny.");
-
-                    var roomTypes = await GetAvailableRoomTypesAsync(vm.Reservation.CheckIn, vm.Reservation.CheckOut, id);
-                    if (!roomTypes.Any(rt => rt.Id == vm.Reservation.RoomTypeId))
-                    {
-                        var currentRt = await _context.RoomTypes.FindAsync(vm.Reservation.RoomTypeId);
-                        if (currentRt != null)
-                            roomTypes.Add(currentRt);
-                    }
-
-                    vm.RoomTypes = new SelectList(roomTypes, "Id", "Name", vm.Reservation.RoomTypeId);
-                    vm.Services = await _context.Services.ToListAsync();
-                    vm.AvailableRooms = new SelectList(
-                        await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id),
-                        "Id", "Number");
-                    return View(vm);
-                }
-
-                allocatedRoom = await _context.Rooms.FindAsync(vm.RoomId.Value);
-            }
-            else
-            {
-                allocatedRoom = await _roomAllocator.AllocateRoomAsync(
-                    vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, reservation.Id);
-
-                if (allocatedRoom == null)
-                {
-                    ModelState.AddModelError("", "Brak dostępnych pokoi w tym typie.");
-
-                    var roomTypes = await GetAvailableRoomTypesAsync(vm.Reservation.CheckIn, vm.Reservation.CheckOut, id);
-                    if (!roomTypes.Any(rt => rt.Id == vm.Reservation.RoomTypeId))
-                    {
-                        var currentRt = await _context.RoomTypes.FindAsync(vm.Reservation.RoomTypeId);
-                        if (currentRt != null)
-                            roomTypes.Add(currentRt);
-                    }
-
-                    vm.RoomTypes = new SelectList(roomTypes, "Id", "Name", vm.Reservation.RoomTypeId);
-                    vm.Services = await _context.Services.ToListAsync();
-                    vm.AvailableRooms = new SelectList(
-                        await GetAvailableRoomsAsync(vm.Reservation.RoomTypeId, vm.Reservation.CheckIn, vm.Reservation.CheckOut, id),
-                        "Id", "Number");
-                    return View(vm);
-                }
-            }
-
-            reservation.RoomId = allocatedRoom.Id;
             reservation.RoomTypeId = vm.Reservation.RoomTypeId;
             reservation.CheckIn = vm.Reservation.CheckIn;
             reservation.CheckOut = vm.Reservation.CheckOut;
             reservation.Breakfast = vm.Breakfast;
             reservation.Parking = vm.Parking;
             reservation.ExtraBed = vm.ExtraBed;
-            reservation.PersonCount = vm.PersonCount;
+            reservation.Pet = vm.Pet;
 
-            var totalPrice = await _priceCalculator.CalculateTotalPriceAsync(
-                vm.Reservation.RoomTypeId,
-                vm.Reservation.CheckIn,
-                vm.Reservation.CheckOut,
-                vm.Breakfast,
-                vm.Parking,
-                vm.ExtraBed,
-                vm.Pet,
-                vm.PersonCount,
-                vm.SelectedServiceIds
+            var personCount = vm.PersonCount > 0 ? vm.PersonCount : 1;
+            reservation.PersonCount = personCount;
+
+            if (vm.RoomId.HasValue)
+                reservation.RoomId = vm.RoomId.Value;
+
+            var selectedServiceIds = vm.SelectedServiceIds ?? new List<int>();
+
+            // 🔥 IDENTYCZNE LICZENIE JAK W CREATE
+            var breakdown = await _priceCalculator.CalculateAsync(
+                reservation.RoomTypeId,
+                reservation.CheckIn,
+                reservation.CheckOut,
+                reservation.Breakfast,
+                reservation.Parking,
+                reservation.ExtraBed,
+                reservation.Pet,
+                personCount,
+                selectedServiceIds
             );
 
-            reservation.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
+            reservation.TotalPrice = Math.Round(
+                breakdown.TotalPrice,
+                2,
+                MidpointRounding.AwayFromZero
+            );
 
             reservation.ServicesUsed.Clear();
-            foreach (var serviceId in vm.SelectedServiceIds)
+
+            foreach (var serviceId in selectedServiceIds)
             {
                 reservation.ServicesUsed.Add(new ServiceUsage
                 {
@@ -410,10 +347,9 @@ namespace HotelManagement.Controllers
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Details), new { id = reservation.Id });
         }
 
-        // ====== PRZYDZIELANIE / ZMIANA POKOJU Z LISTY REZERWACJI + ZMIANA TYPU ======
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Pracownik,Kierownik")]
@@ -446,13 +382,11 @@ namespace HotelManagement.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Jeśli nie przyszedł roomTypeId – przyjmujemy typ pokoju z pokoju
             if (!roomTypeId.HasValue)
             {
                 roomTypeId = room.RoomTypeId;
             }
 
-            // Upewniamy się, że pokój należy do wybranego typu
             if (room.RoomTypeId != roomTypeId.Value)
             {
                 TempData["Error"] = "Wybrany pokój nie należy do wybranego typu pokoju.";
@@ -465,11 +399,6 @@ namespace HotelManagement.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // UWAGA: OPCJA D – nie blokujemy pokoju, jeśli jest brudny.
-            // Może być przydzielony, ale później w notyfikacji dodamy ostrzeżenie,
-            // jeżeli room.IsClean == false.
-
-            // Sprawdzenie dostępności z uwzględnieniem tej konkretnej rezerwacji
             bool isAvailable = await _roomAllocator.IsRoomAvailableAsync(
                 room.Id,
                 reservation.CheckIn,
@@ -482,31 +411,27 @@ namespace HotelManagement.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Czy zmienia się typ pokoju?
             bool roomTypeChanged = reservation.RoomTypeId != roomTypeId.Value;
 
-            // Aktualizacja przydziału
             reservation.RoomId = room.Id;
             reservation.RoomTypeId = roomTypeId.Value;
 
-            // Jeżeli zmienił się typ i użytkownik zaakceptował przeliczenie ceny
             if (roomTypeChanged && updatePrice)
             {
-                var newTotalPrice = await _priceCalculator.CalculateTotalPriceAsync(
+                var breakdown = await _priceCalculator.CalculateAsync(
                     roomTypeId.Value,
                     reservation.CheckIn,
                     reservation.CheckOut,
                     reservation.Breakfast,
                     reservation.Parking,
-                    reservation.Pet,
                     reservation.ExtraBed,
+                    reservation.Pet,
                     reservation.PersonCount,
                     reservation.ServicesUsed.Select(su => su.ServiceId).ToList()
                 );
 
-                reservation.TotalPrice = Math.Round(newTotalPrice, 2, MidpointRounding.AwayFromZero);
+                reservation.TotalPrice = Math.Round(breakdown.TotalPrice, 2, MidpointRounding.AwayFromZero);
             }
-            // Jeśli roomTypeChanged == true i updatePrice == false -> zostawiamy starą cenę
 
             await _context.SaveChangesAsync();
 
@@ -539,7 +464,6 @@ namespace HotelManagement.Controllers
             if (reservation == null)
                 return NotFound();
 
-            // 🔒 BLOKADA: brak przydzielonego pokoju
             if (reservation.RoomId == null)
             {
                 TempData["Error"] = "Nie można zameldować gościa bez przydzielonego pokoju.";
@@ -574,10 +498,8 @@ namespace HotelManagement.Controllers
             if (reservation == null)
                 return NotFound();
 
-            // 💰 SUMA WPŁAT
             var paidAmount = reservation.Payments?.Sum(p => p.Amount) ?? 0m;
 
-            // 🔒 BLOKADA: nierozliczona rezerwacja
             if (paidAmount < reservation.TotalPrice)
             {
                 var remaining = reservation.TotalPrice - paidAmount;
@@ -599,12 +521,10 @@ namespace HotelManagement.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-
         private async Task<ReservationViewModel> BuildReservationViewModel(Reservation reservation, Guest guest)
         {
             var roomTypes = await GetAvailableRoomTypesAsync(reservation.CheckIn, reservation.CheckOut);
 
-            // Jeśli nic nie ma w dostępności, fallback do wszystkich typów
             if (!roomTypes.Any())
             {
                 roomTypes = await _context.RoomTypes.ToListAsync();
@@ -683,7 +603,6 @@ namespace HotelManagement.Controllers
             return availableRooms;
         }
 
-        // GET: dostępne pokoje dla konkretnego typu i dat (używane w modalu)
         [HttpGet]
         public async Task<IActionResult> GetAvailableRooms(int roomTypeId, DateTime checkIn, DateTime checkOut, int? reservationId)
         {
@@ -697,7 +616,6 @@ namespace HotelManagement.Controllers
             return Json(result);
         }
 
-        // GET: dostępne pokoje na podstawie samej rezerwacji (opcjonalne)
         [HttpGet]
         public async Task<IActionResult> GetAvailableRoomsForReservation(int id)
         {
@@ -727,137 +645,6 @@ namespace HotelManagement.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Pracownik,Kierownik")]
-        public async Task<IActionResult> Search(
-     string? searchType,
-     string? reservationNumber,
-     string? firstName,
-     string? lastName,
-     DateTime? fromDate,
-     DateTime? toDate,
-     string? guestQuery,
-     string? documentNumber,
-     DateTime? documentFromDate,
-     DateTime? documentToDate)
-        {
-            searchType = searchType?.ToLower() ?? "reservation";
-
-            IEnumerable<Reservation> reservationResults = Enumerable.Empty<Reservation>();
-
-            if (searchType == "reservation")
-            {
-                bool hasFilter =
-                    !string.IsNullOrWhiteSpace(reservationNumber) ||
-                    !string.IsNullOrWhiteSpace(firstName) ||
-                    !string.IsNullOrWhiteSpace(lastName) ||
-                    fromDate.HasValue ||
-                    toDate.HasValue;
-
-                if (hasFilter)
-                {
-                    var query = _context.Reservations
-                        .Include(r => r.Guest)
-                        .Include(r => r.Room)
-                        .Include(r => r.RoomType)
-                        .AsQueryable();
-
-                    if (!string.IsNullOrWhiteSpace(reservationNumber) && int.TryParse(reservationNumber, out int resId))
-                        query = query.Where(r => r.Id == resId);
-
-                    if (!string.IsNullOrWhiteSpace(firstName))
-                    {
-                        var f = firstName.ToLower();
-                        query = query.Where(r => r.Guest.FirstName.ToLower().Contains(f));
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(lastName))
-                    {
-                        var l = lastName.ToLower();
-                        query = query.Where(r => r.Guest.LastName.ToLower().Contains(l));
-                    }
-
-                    if (fromDate.HasValue)
-                        query = query.Where(r => r.CheckIn.Date >= fromDate.Value.Date);
-
-                    if (toDate.HasValue)
-                        query = query.Where(r => r.CheckOut.Date <= toDate.Value.Date);
-
-                    reservationResults = await query.ToListAsync();
-                }
-            }
-
-            IEnumerable<Guest> guestResults = Enumerable.Empty<Guest>();
-
-            if (searchType == "guest")
-            {
-                if (!string.IsNullOrWhiteSpace(guestQuery))
-                {
-                    var q = guestQuery.ToLower();
-
-                    guestResults = await _context.Guests
-                        .Where(g =>
-                            g.FirstName.ToLower().Contains(q) ||
-                            g.LastName.ToLower().Contains(q) ||
-                            (g.Email != null && g.Email.ToLower().Contains(q)) ||
-                            (g.PhoneNumber != null && g.PhoneNumber.ToLower().Contains(q))
-                        )
-                        .OrderBy(g => g.LastName)
-                        .ToListAsync();
-                }
-            }
-
-            IEnumerable<Document> documentResults = Enumerable.Empty<Document>();
-
-            if (searchType == "document")
-            {
-                bool hasDocFilter =
-                    !string.IsNullOrWhiteSpace(documentNumber) ||
-                    documentFromDate.HasValue ||
-                    documentToDate.HasValue;
-
-                if (hasDocFilter)
-                {
-                    var q = _context.Documents
-                        .Include(d => d.Reservation)
-                            .ThenInclude(r => r.Guest)
-                        .AsQueryable();
-
-                    if (!string.IsNullOrWhiteSpace(documentNumber))
-                        q = q.Where(d => d.Number.Contains(documentNumber));
-
-                    if (documentFromDate.HasValue)
-                        q = q.Where(d => d.IssueDate.Date >= documentFromDate.Value.Date);
-
-                    if (documentToDate.HasValue)
-                        q = q.Where(d => d.IssueDate.Date <= documentToDate.Value.Date);
-
-                    documentResults = await q.ToListAsync();
-                }
-            }
-
-            ViewBag.SearchType = searchType;
-
-            ViewBag.ReservationNumber = reservationNumber;
-            ViewBag.FirstName = firstName;
-            ViewBag.LastName = lastName;
-            ViewBag.FromDate = fromDate?.ToString("yyyy-MM-dd");
-            ViewBag.ToDate = toDate?.ToString("yyyy-MM-dd");
-
-            ViewBag.GuestQuery = guestQuery;
-            ViewBag.GuestResults = guestResults;
-
-            ViewBag.DocumentNumber = documentNumber;
-            ViewBag.DocumentFromDate = documentFromDate?.ToString("yyyy-MM-dd");
-            ViewBag.DocumentToDate = documentToDate?.ToString("yyyy-MM-dd");
-            ViewBag.DocumentResults = documentResults;
-
-            ViewBag.AllRoomTypes = await _context.RoomTypes.ToListAsync();
-
-            return View(reservationResults);
-        }
-
-
-        [HttpGet]
-        [Authorize(Roles = "Pracownik,Kierownik")]
         public async Task<IActionResult> Index()
         {
             var today = await _businessDate.GetCurrentBusinessDateAsync();
@@ -881,14 +668,10 @@ namespace HotelManagement.Controllers
                 .ToList();
 
             ViewBag.TodayDate = today.ToString("yyyy-MM-dd");
-
-            // lista typów pokoi do modala (dla widoku z listą rezerwacji)
             ViewBag.AllRoomTypes = await _context.RoomTypes.ToListAsync();
 
             return View();
         }
-
-        // ====== WYSZUKIWANIE GOŚCI DLA WIDOKU CreateGuest ======
 
         [HttpGet]
         public async Task<IActionResult> SearchGuests(string term)
@@ -933,14 +716,30 @@ namespace HotelManagement.Controllers
                 .Include(r => r.Guest)
                 .Include(r => r.Room)
                 .Include(r => r.RoomType)
+                .Include(r => r.ServicesUsed).ThenInclude(su => su.Service)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (reservation == null)
                 return NotFound();
 
+            var breakdown = await _priceCalculator.CalculateAsync(
+                reservation.RoomTypeId,
+                reservation.CheckIn,
+                reservation.CheckOut,
+                reservation.Breakfast,
+                reservation.Parking,
+                reservation.ExtraBed,
+                reservation.Pet,
+                reservation.PersonCount,
+                reservation.ServicesUsed.Select(su => su.ServiceId).ToList()
+            );
+
+            ViewBag.PriceBreakdown = breakdown;
+
+            reservation.TotalPrice = Math.Round(breakdown.TotalPrice, 2, MidpointRounding.AwayFromZero);
+
             return View(reservation);
         }
-
 
         [HttpPost]
         public async Task<IActionResult> SelectGuest(int id)

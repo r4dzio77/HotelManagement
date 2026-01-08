@@ -40,6 +40,8 @@ namespace HotelManagement.Data
         // ===== SUPPORT CHAT =====
         public DbSet<ChatConversation> ChatConversations { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<DailyTask> DailyTasks { get; set; }
+
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -177,6 +179,13 @@ namespace HotelManagement.Data
                 .WithMany()
                 .HasForeignKey(m => m.SenderUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<DailyTask>()
+                .HasOne(d => d.CompletedByUser)
+                .WithMany()
+                .HasForeignKey(d => d.CompletedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
         }
     }
 }

@@ -122,7 +122,7 @@ namespace HotelManagement.Controllers
                     await _userManager.CreateAsync(user);
 
                     // ✅ domyślna rola: Gość (zgodnie z ustaleniem)
-                    await _userManager.AddToRoleAsync(user, "Gość");
+                    await _userManager.AddToRoleAsync(user, "Klient");
                 }
 
                 await _userManager.AddLoginAsync(user, info);
